@@ -15,7 +15,7 @@ const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [completed, setCompleted] = useState<StateMap>({});
   const [hideCompleted, setHideCompleted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
