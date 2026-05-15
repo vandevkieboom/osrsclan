@@ -129,30 +129,11 @@ export const ClanRankings = () => {
       />
       <div className="page">
         <div className="header">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              alignItems: "center",
-              marginBottom: 8,
-            }}
-          >
+          <div className="header-actions">
             <button
               type="button"
               onClick={handleAudioToggle}
-              style={{
-                background: "#222",
-                color: "#fff",
-                border: "1px solid #444",
-                borderRadius: 6,
-                padding: "4px 14px",
-                fontFamily: "inherit",
-                fontSize: 14,
-                cursor: "pointer",
-                marginRight: 4,
-                opacity: 0.85,
-                transition: "background 0.2s, color 0.2s",
-              }}
+              className="audio-toggle-btn"
               aria-label={isPlaying ? "Pause music" : "Play music"}
             >
               {isPlaying ? "Pause Music" : "Play Music"}

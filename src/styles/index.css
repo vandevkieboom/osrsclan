@@ -94,6 +94,34 @@ body::after {
   z-index: 2;
 }
 
+.header-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.audio-toggle-btn {
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.audio-toggle-btn:hover {
+  background: #2d2d2d;
+  border-color: #666;
+}
+
 .header-deco {
   display: flex;
   align-items: center;
@@ -160,7 +188,7 @@ body::after {
 /* Grid layout */
 .ranks-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.2rem;
 }
 
@@ -279,6 +307,7 @@ body::after {
   align-items: center;
   gap: 3px;
   padding: 3px;
+  min-height: 44px;
   cursor: pointer;
   border-radius: 6px;
 }
@@ -503,4 +532,110 @@ body::after {
 
 .gem-infernal {
   color: #ff6622;
+}
+
+@media (max-width: 900px) {
+  body {
+    padding: 1.5rem 0.75rem 2.5rem;
+    background-attachment: scroll;
+  }
+
+  .page {
+    padding: 1.5rem;
+  }
+
+  .page::after {
+    width: 460px;
+    height: 460px;
+  }
+
+  .ranks-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 1rem 0.85rem;
+  }
+
+  .header {
+    margin-bottom: 1.25rem;
+  }
+
+  .header-actions {
+    justify-content: center;
+  }
+
+  .header-deco {
+    gap: 0.5rem;
+  }
+
+  .title {
+    line-height: 1.15;
+  }
+
+  .tracker-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .tracker-btn,
+  .audio-toggle-btn {
+    min-height: 44px;
+  }
+
+  .ranks-grid {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  .rank-card {
+    padding: 0.9rem 0.65rem;
+  }
+
+  .item {
+    width: 58px;
+  }
+
+  .item-name {
+    font-size: 0.56rem;
+  }
+
+  .ruleset-title {
+    text-align: center;
+  }
+}
+
+@media (max-width: 420px) {
+  body {
+    padding: 0.75rem 0.5rem 2rem;
+  }
+
+  .page {
+    padding: 0.85rem 0.7rem;
+  }
+
+  .title {
+    font-size: 1.45rem;
+  }
+
+  .subtitle {
+    letter-spacing: 0.06em;
+  }
+
+  .item {
+    width: 54px;
+  }
+
+  .item-sprite {
+    width: 36px;
+    height: 36px;
+  }
+
+  .tracker-summary,
+  .tracker-hint,
+  .rule-a,
+  .rule-q {
+    word-break: normal;
+  }
 }
