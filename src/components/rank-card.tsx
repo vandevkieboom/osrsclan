@@ -11,6 +11,7 @@ export type Rank = {
 type RankCardProps = Rank & {
   rankIndex: number;
   completed: Record<string, boolean>;
+  apiVerified: Record<string, boolean>;
   hideCompleted: boolean;
   eligible: boolean;
   priorRanksMet: boolean;
@@ -24,6 +25,7 @@ const RankCard: React.FC<RankCardProps> = ({
   items,
   rankIndex,
   completed,
+  apiVerified,
   hideCompleted,
   eligible,
   priorRanksMet,
@@ -55,7 +57,9 @@ const RankCard: React.FC<RankCardProps> = ({
       <div className="items-grid">
         {items.map((item, itemIndex) => {
           const key = `${rankIndex}-${itemIndex}`;
-          if (hideCompleted && completed[key]) {
+          const isManual = Boolean(completed[key]);
+          const isApi = Boolean(apiVerified[key]);
+          if (hideCompleted && (isManual || isApi)) {
             return null;
           }
 
@@ -63,7 +67,8 @@ const RankCard: React.FC<RankCardProps> = ({
             <ItemCard
               key={key}
               {...item}
-              isCompleted={Boolean(completed[key])}
+              isCompleted={isManual}
+              isApiVerified={isApi}
               onCycleState={() => onCycleState(rankIndex, itemIndex)}
             />
           );

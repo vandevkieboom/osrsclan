@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
 import Ruleset from "../components/rule-set";
+import { fetchRuneProfile, type RuneProfile } from "../services/runeprofile";
+import { checkRequirement } from "../services/rank-checker";
 
 type StateMap = Record<string, boolean>;
 type SavedProgress = {
@@ -19,6 +21,11 @@ export const ClanRankings = () => {
   const [completed, setCompleted] = useState<StateMap>({});
   const [hideCompleted, setHideCompleted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const [username, setUsername] = useState("");
+  const [profile, setProfile] = useState<RuneProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -57,6 +64,37 @@ export const ClanRankings = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [completed, hideCompleted]);
 
+  const apiVerified = useMemo<StateMap>(() => {
+    if (!profile) return {};
+    const result: StateMap = {};
+    ranks.forEach((rank, rankIndex) => {
+      rank.items.forEach((item, itemIndex) => {
+        if (item.apiCheck) {
+          const key = getKey(rankIndex, itemIndex);
+          result[key] = checkRequirement(item.apiCheck, profile);
+        }
+      });
+    });
+    return result;
+  }, [profile]);
+
+  const loadProfile = async () => {
+    const trimmed = username.trim();
+    if (!trimmed) return;
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const data = await fetchRuneProfile(trimmed);
+      setProfile(data);
+    } catch (err) {
+      setProfileError(
+        err instanceof Error ? err.message : "Failed to load profile.",
+      );
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   const getRankStats = (rankIndex: number) => {
     const total = ranks[rankIndex].items.length;
     const requiredCount = Math.max(total - 1, 0);
@@ -64,7 +102,7 @@ export const ClanRankings = () => {
 
     ranks[rankIndex].items.forEach((_, itemIndex) => {
       const key = getKey(rankIndex, itemIndex);
-      if (completed[key]) {
+      if (completed[key] || apiVerified[key]) {
         satisfiedCount += 1;
       }
     });
@@ -86,7 +124,7 @@ export const ClanRankings = () => {
       }
       return true;
     });
-  }, [completed]);
+  }, [completed, apiVerified]);
 
   const priorRanksMetByRank = useMemo(() => {
     return ranks.map((_, rankIndex) => {
@@ -97,7 +135,7 @@ export const ClanRankings = () => {
       }
       return true;
     });
-  }, [completed]);
+  }, [completed, apiVerified]);
 
   const highestEligibleRank = useMemo(() => {
     let lastEligible = -1;
@@ -116,6 +154,8 @@ export const ClanRankings = () => {
 
   const resetAll = () => {
     setCompleted({});
+    setProfile(null);
+    setProfileError(null);
   };
 
   return (
@@ -172,6 +212,37 @@ export const ClanRankings = () => {
               {hideCompleted ? "Show Completed" : "Hide Completed"}
             </button>
           </div>
+          <div className="profile-lookup">
+            <div className="profile-lookup-row">
+              <input
+                className="profile-lookup-input"
+                type="text"
+                placeholder="RuneScape username"
+                value={username}
+                maxLength={12}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && loadProfile()}
+                aria-label="RuneScape username"
+              />
+              <button
+                type="button"
+                className="tracker-btn profile-lookup-btn"
+                onClick={loadProfile}
+                disabled={profileLoading || !username.trim()}
+              >
+                {profileLoading ? "Loading..." : "Auto-Verify"}
+              </button>
+            </div>
+            {profileError && (
+              <div className="profile-lookup-error">{profileError}</div>
+            )}
+            {profile && !profileError && (
+              <div className="profile-lookup-success">
+                Verified as <strong>{profile.username}</strong> — items
+                auto-marked in blue
+              </div>
+            )}
+          </div>
         </div>
         <div className="ranks-grid">
           {ranks.map((rank, rankIndex) => (
@@ -180,6 +251,7 @@ export const ClanRankings = () => {
               {...rank}
               rankIndex={rankIndex}
               completed={completed}
+              apiVerified={apiVerified}
               hideCompleted={hideCompleted}
               eligible={eligibleByRank[rankIndex]}
               priorRanksMet={priorRanksMetByRank[rankIndex]}

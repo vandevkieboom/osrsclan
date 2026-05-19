@@ -353,6 +353,68 @@ body::after {
   color: #f4fff8;
 }
 
+.item-status.api-verified {
+  background: #1a6ebd;
+  color: #e8f4ff;
+}
+
+/* Profile lookup */
+.profile-lookup {
+  margin-top: 0.75rem;
+}
+
+.profile-lookup-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.profile-lookup-input {
+  background: #1a0a0a;
+  border: 1px solid #6a2a2a;
+  color: #e0b0b0;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.8rem;
+  outline: none;
+  width: 180px;
+  transition: border-color 0.2s;
+}
+
+.profile-lookup-input::placeholder {
+  color: #7a5555;
+}
+
+.profile-lookup-input:focus {
+  border-color: #9f3f3f;
+}
+
+.profile-lookup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-lookup-error {
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  color: #f08080;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+}
+
+.profile-lookup-success {
+  margin-top: 0.35rem;
+  font-size: 0.62rem;
+  color: #80c8f0;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+}
+
+.profile-lookup-success strong {
+  color: #a8d8f0;
+}
+
 .item-sprite {
   width: 40px;
   height: 40px;
