@@ -323,7 +323,7 @@ body::after {
 .rank-card:nth-child(1) {
   animation-delay: 0.02s;
 }
-*/ .rank-card:nth-child(2) {
+.rank-card:nth-child(2) {
   animation-delay: 0.08s;
 }
 
