@@ -9,7 +9,7 @@ const ranks: Rank[] = [
       {
         name: "Easy CA Completed",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_1_detail.png",
-        alt: "Ghommal's Hilt",
+        alt: "Ghommal's Hilt 1",
         apiCheck: { type: "combat-achievement", tier: "Easy" },
       },
       {
@@ -41,15 +41,38 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Warped_sceptre_detail.png",
         alt: "Warped Sceptre",
         apiCheck: {
-          type: "collection-item",
-          names: ["Warped sceptre (uncharged)"],
+          type: "collection-any-group",
+          groups: [
+            ["Warped sceptre (uncharged)"],
+            [
+              "Trident of the seas (full)",
+              "Sanguinesti staff (uncharged)",
+              "Tumeken's shadow (uncharged)",
+              "Eye of Ayak",
+            ],
+          ],
+          required: 1,
         },
       },
       {
         name: "Zombie Axe",
         img: "https://oldschool.runescape.wiki/images/Zombie_axe_detail.png",
         alt: "Zombie Axe",
-        apiCheck: { type: "collection-item", names: ["Broken zombie axe"] },
+        apiCheck: {
+          type: "collection-any-group",
+          groups: [
+            ["Broken zombie axe"],
+            [
+              "Sarachnis cudgel",
+              "Zamorakian spear",
+              "Bludgeon axon",
+              "Bludgeon claw",
+              "Bludgeon spine",
+              "Inquisitor's mace",
+            ],
+          ],
+          required: 1,
+        },
       },
     ],
   },
@@ -61,7 +84,7 @@ const ranks: Rank[] = [
       {
         name: "Medium CA Completed",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_2_detail.png",
-        alt: "Ghommal's Hilt",
+        alt: "Ghommal's Hilt 2",
         apiCheck: { type: "combat-achievement", tier: "Medium" },
       },
       {
@@ -74,7 +97,6 @@ const ranks: Rank[] = [
         name: "Ava's Assembler",
         img: "https://oldschool.runescape.wiki/images/Ava%27s_assembler_detail.png",
         alt: "Ava's Assembler",
-        // Assembler is crafted — log tracks Vorkath's head as the required drop
         apiCheck: { type: "collection-item", names: ["Vorkath's head"] },
       },
       {
@@ -90,15 +112,44 @@ const ranks: Rank[] = [
         name: "Abyssal Whip",
         img: "https://oldschool.runescape.wiki/images/Abyssal_whip_detail.png",
         alt: "Abyssal Whip",
-        apiCheck: { type: "collection-item", names: ["Abyssal whip"] },
+        apiCheck: {
+          type: "collection-any-of",
+          primary: { type: "collection-item", names: ["Abyssal whip"] },
+          alternatives: [
+            {
+              type: "collection-quantity",
+              name: "Enhanced crystal weapon seed",
+              required: 2,
+            },
+            { type: "collection-item", names: ["Scythe of vitur (uncharged)"] },
+            {
+              type: "collection-count",
+              names: [
+                "Leviathan's lure",
+                "Siren's staff",
+                "Executioner's axe head",
+                "Eye of the duke",
+              ],
+              required: 4,
+            },
+            {
+              type: "collection-count",
+              names: ["Noxious point", "Noxious blade", "Noxious pommel"],
+              required: 3,
+            },
+          ],
+        },
       },
       {
         name: "2/2 Royal Titan Prayers",
         img: "https://oldschool.runescape.wiki/images/Deadeye_prayer_scroll_detail.png",
         alt: "Royal Titans Prayers",
         apiCheck: {
-          type: "collection-count",
-          names: ["Deadeye prayer scroll", "Mystic vigour prayer scroll"],
+          type: "collection-any-group",
+          groups: [
+            ["Deadeye prayer scroll", "Mystic vigour prayer scroll"],
+            ["Arcane prayer scroll", "Dexterous prayer scroll"],
+          ],
           required: 2,
         },
       },
@@ -106,22 +157,27 @@ const ranks: Rank[] = [
         name: "2/3 Moons Set w/ Weapon",
         img: "https://oldschool.runescape.wiki/images/Eclipse_moon_helm_detail.png",
         alt: "Moons Set",
-        // 2 armour + 1 weapon from any single set — checked as any 3 moon items
         apiCheck: {
-          type: "collection-count",
-          names: [
-            "Eclipse moon helm",
-            "Eclipse moon chestplate",
-            "Eclipse moon tassets",
-            "Eclipse atlatl",
-            "Blue moon helm",
-            "Blue moon chestplate",
-            "Blue moon tassets",
-            "Blue moon spear",
-            "Blood moon helm",
-            "Blood moon chestplate",
-            "Blood moon tassets",
-            "Dual macuahuitl",
+          type: "collection-any-group",
+          groups: [
+            [
+              "Eclipse moon helm",
+              "Eclipse moon chestplate",
+              "Eclipse moon tassets",
+              "Eclipse atlatl",
+            ],
+            [
+              "Blue moon helm",
+              "Blue moon chestplate",
+              "Blue moon tassets",
+              "Blue moon spear",
+            ],
+            [
+              "Blood moon helm",
+              "Blood moon chestplate",
+              "Blood moon tassets",
+              "Dual macuahuitl",
+            ],
           ],
           required: 3,
         },
@@ -136,7 +192,7 @@ const ranks: Rank[] = [
       {
         name: "Hard CA Completed",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_3_detail.png",
-        alt: "Ghommal's Hilt",
+        alt: "Ghommal's Hilt 3",
         apiCheck: { type: "combat-achievement", tier: "Hard" },
       },
       {
@@ -262,7 +318,7 @@ const ranks: Rank[] = [
       {
         name: "Elite CA Completed",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_4_detail.png",
-        alt: "Ghommal's Hilt",
+        alt: "Ghommal's Hilt 4",
         apiCheck: { type: "combat-achievement", tier: "Elite" },
       },
       {
@@ -284,7 +340,6 @@ const ranks: Rank[] = [
         name: "Toxic Blowpipe",
         img: "https://oldschool.runescape.wiki/images/Toxic_blowpipe_detail.png",
         alt: "Toxic Blowpipe",
-        // Blowpipe is crafted — log tracks the Zulrah drop Tanzanite fang
         apiCheck: { type: "collection-item", names: ["Tanzanite fang"] },
       },
       {
@@ -297,14 +352,12 @@ const ranks: Rank[] = [
         name: "Ferocious Gloves",
         img: "https://oldschool.runescape.wiki/images/Ferocious_gloves_detail.png",
         alt: "Ferocious Gloves",
-        // Gloves are crafted — log tracks the Hydra leather drop
         apiCheck: { type: "collection-item", names: ["Hydra leather"] },
       },
       {
         name: "Noxious Halberd",
         img: "https://oldschool.runescape.wiki/images/Noxious_halberd_detail.png",
         alt: "Noxious Halberd",
-        // Halberd assembled from 3 Araxxor drops
         apiCheck: {
           type: "collection-count",
           names: ["Noxious point", "Noxious blade", "Noxious pommel"],
@@ -357,8 +410,12 @@ const ranks: Rank[] = [
         name: "Dragon Hunter Lance",
         img: "https://oldschool.runescape.wiki/images/Dragon_hunter_lance_detail.png",
         alt: "Dragon Hunter Lance",
-        // Lance is crafted from Hydra's claw + Zamorakian hasta
-        apiCheck: { type: "collection-item", names: ["Hydra's claw"] },
+        // Requires Hydra's claw (KBD loot key) + Zamorakian spear (CG proxy)
+        apiCheck: {
+          type: "collection-count",
+          names: ["Hydra's claw", "Zamorakian spear"],
+          required: 2,
+        },
       },
       {
         name: "2/3 Masori",
@@ -391,7 +448,6 @@ const ranks: Rank[] = [
         name: "1/4 DT2 Rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "1/4 DT2 Rings",
-        // Rings are assembled from vestiges — log tracks the vestige drops
         apiCheck: {
           type: "collection-item",
           names: [
@@ -426,7 +482,7 @@ const ranks: Rank[] = [
       {
         name: "Master CA Completed",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_5_detail.png",
-        alt: "Ghommal's Hilt",
+        alt: "Ghommal's Hilt 5",
         apiCheck: { type: "combat-achievement", tier: "Master" },
       },
       {
@@ -456,7 +512,6 @@ const ranks: Rank[] = [
         name: "Blessed Dizana's Quiver",
         img: "https://oldschool.runescape.wiki/images/Blessed_dizana%27s_quiver_detail.png",
         alt: "Blessed Dizana's Quiver",
-        // Blessed upgrade kit is not tracked in the collection log
       },
       {
         name: "TOA 500 Fang Kit",
@@ -485,23 +540,20 @@ const ranks: Rank[] = [
         name: "Blood Torva",
         img: "https://oldschool.runescape.wiki/images/Sanguine_torva_platebody_detail.png",
         alt: "Blood Torva",
-        // Requires 1 kill at each awakened DT2 boss — proxy: has vestige drop from all 4
         apiCheck: {
-          type: "collection-count",
+          type: "combat-achievement-task",
           names: [
-            "Ultor vestige",
-            "Venator vestige",
-            "Bellator vestige",
-            "Magus vestige",
+            "Vardorvis Sleeper",
+            "Duke Sucellus Sleeper",
+            "Leviathan Sleeper",
+            "Whispered",
           ],
-          required: 4,
         },
       },
       {
         name: "2/4 DT2 Rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "Ultor Ring",
-        // Rings assembled from vestiges — log tracks the drops
         apiCheck: {
           type: "collection-count",
           names: [
@@ -532,7 +584,7 @@ const ranks: Rank[] = [
       },
       {
         name: "1/3 Megarares",
-        img: "https://oldschool.runescape.wiki/images/Tumeken%27s_shadow_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png",
         alt: "Megarares",
         apiCheck: {
           type: "collection-item",
@@ -559,33 +611,26 @@ const ranks: Rank[] = [
       {
         name: "Grandmaster CA Completed",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_6_detail.png",
-        alt: "Ghommal's Hilt",
+        alt: "Ghommal's Hilt 6",
         apiCheck: { type: "combat-achievement", tier: "Grandmaster" },
       },
       {
         name: "Zaryte Crossbow",
         img: "https://oldschool.runescape.wiki/images/Zaryte_crossbow_detail.png",
         alt: "Zaryte Crossbow",
-        // Crossbow assembled from Nex drop — log tracks Nihil horn
         apiCheck: { type: "collection-item", names: ["Nihil horn"] },
       },
       {
         name: "Saturated Heart",
         img: "https://oldschool.runescape.wiki/images/Saturated_heart_detail.png",
         alt: "Saturated Heart",
-        // Requires Imbued Heart + 150k Ancient essence — check for the base Imbued Heart drop
-        apiCheck: { type: "collection-item", names: ["Imbued heart"] },
+        // not tracked in collection log
       },
       {
         name: "Full Masori (F)",
         img: "https://oldschool.runescape.wiki/images/Masori_body_%28f%29_detail.png",
         alt: "Full Masori (F)",
-        // (f) versions are crafted — check for all 3 base Masori pieces as proxy
-        apiCheck: {
-          type: "collection-count",
-          names: ["Masori mask", "Masori body", "Masori chaps"],
-          required: 3,
-        },
+        // not tracked in collection log
       },
       {
         name: "Full Ancestral",
@@ -619,13 +664,12 @@ const ranks: Rank[] = [
         name: "Radiant Oathplate",
         img: "https://oldschool.runescape.wiki/images/Radiant_oathplate_chest_detail.png",
         alt: "Radiant Oathplate",
-        // Cosmetic upgrade — not tracked in collection log
+        // not tracked in collection log
       },
       {
         name: "Completed Spirit Shield",
         img: "https://oldschool.runescape.wiki/images/Elysian_spirit_shield_detail.png",
         alt: "Spirit Shield",
-        // Completed shields are assembled — log tracks the Corp Beast sigil drops
         apiCheck: {
           type: "collection-item",
           names: ["Elysian sigil", "Spectral sigil", "Arcane sigil"],
@@ -635,7 +679,6 @@ const ranks: Rank[] = [
         name: "4/4 DT2 Rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "Ultor Ring",
-        // Rings assembled from vestiges — log tracks the drops
         apiCheck: {
           type: "collection-count",
           names: [

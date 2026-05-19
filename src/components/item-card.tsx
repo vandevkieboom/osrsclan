@@ -1,5 +1,7 @@
 import React from "react";
 
+export type CheckResult = "pass" | "pass-alt" | "fail";
+
 export type ApiCheck =
   | { type: "combat-achievement"; tier: string }
   | { type: "quest-cape" }
@@ -9,7 +11,10 @@ export type ApiCheck =
   | { type: "skill-level"; skill: string; required: number }
   | { type: "collection-item"; names: string[] }
   | { type: "collection-count"; names: string[]; required: number }
-  | { type: "collection-quantity"; name: string; required: number };
+  | { type: "collection-quantity"; name: string; required: number }
+  | { type: "collection-any-group"; groups: string[][]; required: number }
+  | { type: "collection-any-of"; primary: ApiCheck; alternatives: ApiCheck[] }
+  | { type: "combat-achievement-task"; names: string[] };
 
 export type Item = {
   name: string;
@@ -20,7 +25,7 @@ export type Item = {
 
 type ItemCardProps = Item & {
   isCompleted: boolean;
-  isApiVerified: boolean;
+  apiResult: CheckResult | null;
   onCycleState: () => void;
 };
 
@@ -29,10 +34,11 @@ const ItemCard: React.FC<ItemCardProps> = ({
   img,
   alt,
   isCompleted,
-  isApiVerified,
+  apiResult,
   onCycleState,
 }) => {
-  const isDone = isCompleted || isApiVerified;
+  const isDone =
+    isCompleted || apiResult === "pass" || apiResult === "pass-alt";
   const nextAction = isDone ? "clear completion" : "mark as completed";
 
   return (
@@ -52,12 +58,20 @@ const ItemCard: React.FC<ItemCardProps> = ({
             src={img}
             alt={alt}
           />
-          {isApiVerified && !isCompleted && (
+          {apiResult === "pass" && !isCompleted && (
             <span
               className="item-status api-verified"
               title="Verified via RuneProfile"
             >
               ✓
+            </span>
+          )}
+          {apiResult === "pass-alt" && !isCompleted && (
+            <span
+              className="item-status api-alt"
+              title="Passed via alternative — primary item not in collection log"
+            >
+              ~
             </span>
           )}
           {isCompleted && <span className="item-status done">✓</span>}

@@ -1,5 +1,5 @@
 import React from "react";
-import ItemCard, { type Item } from "./item-card";
+import ItemCard, { type Item, type CheckResult } from "./item-card";
 
 export type Rank = {
   name: string;
@@ -11,7 +11,7 @@ export type Rank = {
 type RankCardProps = Rank & {
   rankIndex: number;
   completed: Record<string, boolean>;
-  apiVerified: Record<string, boolean>;
+  apiVerified: Record<string, CheckResult>;
   hideCompleted: boolean;
   eligible: boolean;
   priorRanksMet: boolean;
@@ -58,8 +58,9 @@ const RankCard: React.FC<RankCardProps> = ({
         {items.map((item, itemIndex) => {
           const key = `${rankIndex}-${itemIndex}`;
           const isManual = Boolean(completed[key]);
-          const isApi = Boolean(apiVerified[key]);
-          if (hideCompleted && (isManual || isApi)) {
+          const apiResult = apiVerified[key] ?? null;
+          const isApiDone = apiResult === "pass" || apiResult === "pass-alt";
+          if (hideCompleted && (isManual || isApiDone)) {
             return null;
           }
 
@@ -68,7 +69,7 @@ const RankCard: React.FC<RankCardProps> = ({
               key={key}
               {...item}
               isCompleted={isManual}
-              isApiVerified={isApi}
+              apiResult={apiResult}
               onCycleState={() => onCycleState(rankIndex, itemIndex)}
             />
           );

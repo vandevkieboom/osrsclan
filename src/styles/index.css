@@ -96,9 +96,9 @@ body::after {
 
 .header-actions {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 0.5rem;
+  flex-direction: column;
+  align-items: flex-end;
+  position: relative;
 }
 
 .audio-toggle-btn {
@@ -172,17 +172,85 @@ body::after {
 }
 
 .divider {
+  position: relative;
+  width: min(60%, 560px);
   height: 2px;
   background: linear-gradient(
     to right,
-    transparent,
-    #3a1818 40%,
-    #b02a2a,
-    transparent
+    transparent 0%,
+    #321515 15%,
+    #5a2222 50%,
+    #321515 85%,
+    transparent 100%
   );
-  margin: 1rem 0;
+  margin: 1rem auto;
   border-radius: 2px;
-  box-shadow: 0 0 2px #0008;
+  overflow: visible;
+}
+
+.divider-link {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.divider-link:focus-visible {
+  outline: 1px solid #b47a7a;
+  outline-offset: 6px;
+}
+
+.divider::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(
+        90deg,
+        transparent 0%,
+        #ff53646e 12%,
+        #ff5364a6 24%,
+        #ff536480 42%,
+        #ff536433 60%,
+        transparent 100%
+      )
+      50% center / 24% 2px no-repeat,
+    linear-gradient(
+        270deg,
+        transparent 0%,
+        #ff53646e 12%,
+        #ff5364a6 24%,
+        #ff536480 42%,
+        #ff536433 60%,
+        transparent 100%
+      )
+      50% center / 24% 2px no-repeat;
+  opacity: 0;
+  filter: drop-shadow(0 0 2px #ff5364) drop-shadow(0 0 6px #ff5364)
+    drop-shadow(0 0 14px #ff536466);
+  animation:
+    divider-sweep-move 3.2s linear infinite,
+    divider-sweep-fade 3.2s ease-out infinite;
+}
+
+.divider::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #1a0a0a;
+  background-image: url("/im.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  border: 1px solid #3a1818;
+  border-radius: 999px;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: block;
+  box-shadow: 0 0 6px #000a;
+  z-index: 2;
 }
 
 /* Grid layout */
@@ -205,12 +273,16 @@ body::after {
   box-shadow:
     0 0 8px #000a,
     0 0 0 2px #3a1818 inset;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: rank-card-enter 0.45s ease-out forwards;
   transition:
     box-shadow 0.2s,
-    border-color 0.2s;
+    border-color 0.2s,
+    transform 0.2s;
 }
 
-.rank-card::before {
+/* .rank-card::before {
   content: "";
   position: absolute;
   top: 0;
@@ -225,14 +297,78 @@ body::after {
   );
   opacity: 0.5;
   filter: blur(0.5px) brightness(0.8);
+} */
+
+/* .rank-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    color-mix(in srgb, var(--rank-color, #b02a2a) 20%, transparent) 10%,
+    transparent 100%
+  );
+  opacity: 0.1;
+} */
+
+/* .rank-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 14px #000b,
+    0 0 0 2px #3a1818 inset,
+    0 0 12px color-mix(in srgb, var(--rank-color, #b02a2a) 28%, transparent);
+}
+*/
+.rank-card:nth-child(1) {
+  animation-delay: 0.02s;
+}
+*/ .rank-card:nth-child(2) {
+  animation-delay: 0.08s;
 }
 
-.rank-card.ruleset {
-  background: #1a0a0aee;
-  border-color: #e03a3aad;
+.rank-card:nth-child(3) {
+  animation-delay: 0.14s;
+}
+
+.rank-card:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.rank-card:nth-child(5) {
+  animation-delay: 0.26s;
+}
+
+.rank-card:nth-child(6) {
+  animation-delay: 0.32s;
+}
+
+.rank-card:nth-child(7) {
+  animation-delay: 0.38s;
+}
+
+.rank-card:nth-child(8) {
+  animation-delay: 0.44s;
+}
+
+.rank-card.faq {
+  background: #181010cc
+    url("https://oldschool.runescape.wiki/images/Corrupted_Gauntlet_tile.png")
+    repeat;
+  background-size: 120px 120px;
+  border-color: rgb(255 83 100 / 50%);
+}
+
+.rank-card.faq:hover {
+  transform: translateY(-2px);
   box-shadow:
-    0 0 24px #e03a3a33,
-    0 0 0 2px #a81a2a22 inset;
+    0 0 14px #000b,
+    0 0 0 2px #3a1818 inset,
+    0 0 12px color-mix(in srgb, var(--rank-color, #b02a2a) 28%, transparent);
+}
+
+.faq-divider {
+  display: none;
 }
 
 .rank-header {
@@ -253,7 +389,9 @@ body::after {
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--rank-color, #e03a3a);
-  text-shadow: 0 0 4px #000a;
+  text-shadow:
+    0 0 2px #0006,
+    0 0 4px color-mix(in srgb, var(--rank-color, #ff5364) 60%, transparent 40%);
   letter-spacing: 0.02em;
 }
 
@@ -358,6 +496,62 @@ body::after {
   color: #e8f4ff;
 }
 
+.item-status.api-alt {
+  background: #8a6200;
+  color: #ffe8a0;
+}
+
+.badge-legend {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.6rem;
+  z-index: 10;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.62rem;
+  color: #9a8080;
+  letter-spacing: 0.03em;
+}
+
+.legend-badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border: 1px solid #111;
+  flex-shrink: 0;
+}
+
+.legend-badge.done {
+  background: #1f9d53;
+  color: #f4fff8;
+}
+
+.legend-badge.api-verified {
+  background: #1a6ebd;
+  color: #e8f4ff;
+}
+
+.legend-badge.api-alt {
+  background: #8a6200;
+  color: #ffe8a0;
+}
+
 /* Profile lookup */
 .profile-lookup {
   margin-top: 0.75rem;
@@ -429,7 +623,8 @@ body::after {
 
 .item-sprite:hover {
   transform: scale(1.15) rotate(-3deg);
-  filter: grayscale(0) brightness(1.1) drop-shadow(0 0 8px #b02a2a);
+  /* Match FAQ question color for glow */
+  filter: grayscale(0) brightness(1.1) drop-shadow(0 0 8px #ff5364);
   z-index: 10;
   position: relative;
 }
@@ -507,12 +702,13 @@ body::after {
 /* Ruleset styles */
 .ruleset-title {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #e03a3a;
-  margin-bottom: 0.75rem;
+  color: #e8a0a0;
+  margin-bottom: 1rem;
   letter-spacing: 0.03em;
   text-shadow: 0 0 8px #a81a2a55;
+  text-align: left;
 }
 
 .rule-block {
@@ -520,24 +716,53 @@ body::after {
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+  padding-bottom: 0.8rem;
+  position: relative;
+}
+
+.rule-block::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    #321515 15%,
+    #5a2222 50%,
+    #321515 85%,
+    transparent 100%
+  );
+  border-radius: 2px;
+}
+
+.rule-block:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.rule-block:last-child::after {
+  content: none;
 }
 
 .rule-q {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 0.7rem;
-  color: #e0b0b0;
+  font-size: 0.75rem;
+  color: #ff5364;
   font-weight: 700;
-  margin-bottom: 0.2rem;
-  text-shadow: 0 0 4px #a81a2a55;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 4px #ff5a6855;
   text-align: left;
   word-break: break-word;
   hyphens: auto;
 }
 
 .rule-a {
-  font-size: 0.68rem;
-  color: #e0b0b0;
-  line-height: 1.5;
+  font-size: 0.7rem;
+  color: #d8b0b0;
+  line-height: 1.6;
   text-shadow: 0 0 4px #a81a2a33;
   font-family: "Roboto", Arial, Helvetica, sans-serif;
   text-align: left;
@@ -596,6 +821,63 @@ body::after {
   color: #ff6622;
 }
 
+@keyframes rank-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes divider-sweep-move {
+  0% {
+    background-position:
+      49% center,
+      51% center;
+  }
+  28% {
+    background-position:
+      49% center,
+      51% center;
+  }
+  100% {
+    background-position:
+      0% center,
+      100% center;
+  }
+}
+
+@keyframes divider-sweep-fade {
+  0% {
+    opacity: 0;
+    filter: drop-shadow(0 0 1px #ff8a95) drop-shadow(0 0 3px #ff5162)
+      drop-shadow(0 0 8px #b0122f44);
+  }
+  16% {
+    opacity: 0.55;
+    filter: drop-shadow(0 0 2px #ff9ca5) drop-shadow(0 0 5px #ff5162)
+      drop-shadow(0 0 11px #b0122f55);
+  }
+  30% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px #ffb7be) drop-shadow(0 0 7px #ff5c6b)
+      drop-shadow(0 0 16px #b0122f77);
+  }
+  84% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px #ffb7be) drop-shadow(0 0 7px #ff5c6b)
+      drop-shadow(0 0 16px #b0122f77);
+  }
+  100% {
+    opacity: 0;
+    filter: drop-shadow(0 0 1px #ff8a95) drop-shadow(0 0 3px #ff5162)
+      drop-shadow(0 0 8px #b0122f44);
+  }
+}
+
 @media (max-width: 900px) {
   body {
     padding: 1.5rem 0.75rem 2.5rem;
@@ -622,11 +904,35 @@ body::after {
   }
 
   .header {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
   }
 
   .header-actions {
     justify-content: center;
+    align-items: center;
+    display: none;
+  }
+
+  .audio-toggle-btn {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .badge-legend {
+    margin-top: 0.3rem;
+    margin-bottom: 0.2rem;
+    gap: 0.25rem;
+  }
+
+  .legend-item {
+    font-size: 0.55rem;
+    gap: 0.25rem;
+  }
+
+  .legend-badge {
+    width: 14px;
+    height: 14px;
+    font-size: 0.55rem;
   }
 
   .header-deco {
@@ -641,9 +947,9 @@ body::after {
     flex-wrap: wrap;
   }
 
-  .tracker-btn,
-  .audio-toggle-btn {
-    min-height: 44px;
+  .tracker-btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.65rem;
   }
 
   .ranks-grid {
@@ -675,6 +981,27 @@ body::after {
 
   .page {
     padding: 0.85rem 0.7rem;
+  }
+
+  .audio-toggle-btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .badge-legend {
+    margin-top: 0.2rem;
+    gap: 0.2rem;
+  }
+
+  .legend-item {
+    font-size: 0.5rem;
+    gap: 0.2rem;
+  }
+
+  .legend-badge {
+    width: 12px;
+    height: 12px;
+    font-size: 0.5rem;
   }
 
   .title {

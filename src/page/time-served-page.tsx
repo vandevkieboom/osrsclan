@@ -2,8 +2,13 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
 import Ruleset from "../components/rule-set";
-import { fetchRuneProfile, type RuneProfile } from "../services/runeprofile";
+import {
+  fetchRuneProfile,
+  getBossKc,
+  type RuneProfile,
+} from "../services/runeprofile";
 import { checkRequirement } from "../services/rank-checker";
+import type { CheckResult } from "../components/item-card";
 
 type StateMap = Record<string, boolean>;
 type SavedProgress = {
@@ -12,6 +17,7 @@ type SavedProgress = {
 };
 
 const STORAGE_KEY = "clan-rankings-progress-v1";
+const DIVIDER_URL = "https://www.twitch.tv/sardaco";
 
 const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
@@ -64,9 +70,12 @@ export const ClanRankings = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [completed, hideCompleted]);
 
-  const apiVerified = useMemo<StateMap>(() => {
-    if (!profile) return {};
-    const result: StateMap = {};
+  const apiVerified = useMemo<Record<string, CheckResult>>(() => {
+    if (!profile) {
+      return {};
+    }
+
+    const result: Record<string, CheckResult> = {};
     ranks.forEach((rank, rankIndex) => {
       rank.items.forEach((item, itemIndex) => {
         if (item.apiCheck) {
@@ -80,7 +89,10 @@ export const ClanRankings = () => {
 
   const loadProfile = async () => {
     const trimmed = username.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      return;
+    }
+
     setProfileLoading(true);
     setProfileError(null);
     setCompleted({});
@@ -103,7 +115,8 @@ export const ClanRankings = () => {
 
     ranks[rankIndex].items.forEach((_, itemIndex) => {
       const key = getKey(rankIndex, itemIndex);
-      if (completed[key] || apiVerified[key]) {
+      const apiKey = apiVerified[key];
+      if (completed[key] || apiKey === "pass" || apiKey === "pass-alt") {
         satisfiedCount += 1;
       }
     });
@@ -179,12 +192,28 @@ export const ClanRankings = () => {
             >
               {isPlaying ? "Pause Music" : "Play Music"}
             </button>
+            <div className="badge-legend">
+              <span className="legend-item">
+                <span className="legend-badge api-verified">✓</span>
+                Verified
+              </span>
+              <span className="legend-item">
+                <span className="legend-badge api-alt">~</span>
+                Alternative Item
+              </span>
+            </div>
           </div>
           <div className="header-deco">
             <h1 className="title">Time Served</h1>
           </div>
           <div className="subtitle">Clan Rank Progression</div>
-          <div className="divider"></div>
+          <a
+            className="divider divider-link"
+            href={DIVIDER_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open divider link"
+          ></a>
           <div className="tracker-summary">
             Current highest eligible rank:{" "}
             <strong
@@ -239,8 +268,53 @@ export const ClanRankings = () => {
             )}
             {profile && !profileError && (
               <div className="profile-lookup-success">
-                Verified as <strong>{profile.username}</strong> — items
-                auto-marked in blue
+                {profile && (
+                  <div style={{ marginTop: 3 }}>
+                    Clan Req:{" "}
+                    {(() => {
+                      const enhancedSeedCount =
+                        profile.itemMap.get("enhanced crystal weapon seed") ??
+                        0;
+                      const armourSeeds = Math.max(
+                        profile.itemMap.get("crystal armour seed") ?? 0,
+                        profile.itemMap.get("crystal armor seed") ?? 0,
+                      );
+                      if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
+                        return (
+                          <span style={{ color: "#1f9d53", fontWeight: 600 }}>
+                            ✓ {enhancedSeedCount} Enhanced Crystal Weapon Seed
+                            {enhancedSeedCount > 1 ? "s" : ""} + {armourSeeds}{" "}
+                            Crystal Armour Seed
+                            {armourSeeds > 1 ? "s" : ""}
+                          </span>
+                        );
+                      }
+                      const cgKc = getBossKc(profile.bossKcMap, [
+                        "corrupted gauntlet",
+                        "the corrupted gauntlet",
+                      ]);
+                      if (cgKc >= 800) {
+                        return (
+                          <span style={{ color: "#1f9d53", fontWeight: 600 }}>
+                            ✓ Corrupted Gauntlet ({cgKc} kc)
+                          </span>
+                        );
+                      }
+                      if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
+                        return (
+                          <span style={{ color: "#1f9d53", fontWeight: 600 }}>
+                            ✓ Twisted Bow
+                          </span>
+                        );
+                      }
+                      return (
+                        <span style={{ color: "#ff5364", fontWeight: 600 }}>
+                          ✗ Not met (or RuneProfile outdated)
+                        </span>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             )}
           </div>

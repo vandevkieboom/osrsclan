@@ -35,8 +35,7 @@ const rules = [
       <>
         <div className="rule-note">
           Requirements may be considered optional if you already possess a
-          stronger or equivalent item for the same role. This must be confirmed
-          with staff.
+          stronger or equivalent item for the same role.
         </div>
       </>
     ),
@@ -58,9 +57,6 @@ const Ruleset: React.FC = () => (
           <div className="rule-block">
             <div className="rule-a">{rule.a}</div>
           </div>
-        )}
-        {i < rules.length - 1 && (
-          <div className="divider" style={{ margin: "0.5rem 0" }}></div>
         )}
       </React.Fragment>
     ))}
