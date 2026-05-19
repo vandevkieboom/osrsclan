@@ -83,6 +83,7 @@ export const ClanRankings = () => {
     if (!trimmed) return;
     setProfileLoading(true);
     setProfileError(null);
+    setCompleted({});
     try {
       const data = await fetchRuneProfile(trimmed);
       setProfile(data);

@@ -433,7 +433,18 @@ const ranks: Rank[] = [
         name: "Avernic Treads (Max)",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_%28max%29_detail.png",
         alt: "Avernic Treads",
-        apiCheck: { type: "collection-item", names: ["Avernic treads"] },
+        apiCheck: {
+          type: "collection-count",
+          names: [
+            "Infinity boots",
+            "Ranger boots",
+            "Dragon boots",
+            "Primordial crystal",
+            "Pegasian crystal",
+            "Eternal crystal",
+          ],
+          required: 6,
+        },
       },
       {
         name: "Zaryte Vambraces",
