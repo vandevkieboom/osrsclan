@@ -671,8 +671,9 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Elysian_spirit_shield_detail.png",
         alt: "Spirit Shield",
         apiCheck: {
-          type: "collection-item",
-          names: ["Elysian sigil", "Spectral sigil", "Arcane sigil"],
+          type: "collection-all-plus-any",
+          all: ["Spirit shield", "Holy elixir"],
+          any: ["Elysian sigil", "Spectral sigil", "Arcane sigil"],
         },
       },
       {

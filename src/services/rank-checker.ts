@@ -139,6 +139,16 @@ export function checkRequirement(
       return "fail";
     }
 
+    case "collection-all-plus-any": {
+      const hasAllRequired = check.all.every(
+        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+      );
+      const hasAnyOptional = check.any.some(
+        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+      );
+      return hasAllRequired && hasAnyOptional ? "pass" : "fail";
+    }
+
     case "combat-achievement-task": {
       const passed = check.names.every((name) =>
         profile.caTaskSet.has(name.toLowerCase()),
