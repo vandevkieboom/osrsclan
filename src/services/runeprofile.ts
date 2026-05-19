@@ -95,7 +95,6 @@ export interface RuneProfile {
   itemMap: Map<string, number>;
   caTaskSet: Set<string>;
   bossKcMap: Map<string, number>;
-  wiseOldManAvailable: boolean;
 }
 
 async function apiFetch<T>(path: string): Promise<T> {
@@ -292,6 +291,5 @@ export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
     itemMap: buildItemMap(data.collectionLog),
     caTaskSet: buildCaTaskSet(tasksData),
     bossKcMap,
-    wiseOldManAvailable: womData !== null,
   };
 }
