@@ -83,6 +83,7 @@ interface CaTaskEntry {
 }
 
 interface CombatAchievementTasksResponse {
+  totalPoints?: number;
   data: CaTaskEntry[];
 }
 
@@ -94,6 +95,7 @@ export interface RuneProfile {
   combatAchievements: CombatAchievementTier[];
   itemMap: Map<string, number>;
   caTaskSet: Set<string>;
+  caTotalPoints: number;
   bossKcMap: Map<string, number>;
 }
 
@@ -286,6 +288,10 @@ export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
     bossKcMap.set(name, Math.max(bossKcMap.get(name) ?? 0, kc));
   }
 
+  const caTaskSet = buildCaTaskSet(tasksData);
+  const caTotalPoints =
+    tasksData?.totalPoints ?? Array.from(caTaskSet).reduce((sum) => sum, 0); // fallback: count only (no tier info)
+
   return {
     username: data.username,
     skills: data.skills ?? [],
@@ -293,7 +299,8 @@ export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
     achievementDiaries: data.achievementDiaries ?? [],
     combatAchievements: data.combatAchievements ?? [],
     itemMap: buildItemMap(data.collectionLog),
-    caTaskSet: buildCaTaskSet(tasksData),
+    caTaskSet,
+    caTotalPoints,
     bossKcMap,
   };
 }

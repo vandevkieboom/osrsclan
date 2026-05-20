@@ -1,16 +1,6 @@
 import type { ApiCheck, CheckResult } from "../components/item-card";
 import { getBossKc, type RuneProfile } from "./runeprofile";
 
-// Points each completed task contributes, per tier
-const CA_POINTS_PER_TASK: Record<string, number> = {
-  easy: 1,
-  medium: 2,
-  hard: 3,
-  elite: 4,
-  master: 5,
-  grandmaster: 6,
-};
-
 // Cumulative point threshold required to unlock each tier's rewards
 const CA_POINTS_REQUIRED: Record<string, number> = {
   easy: 41,
@@ -32,11 +22,7 @@ export function checkRequirement(
         return "fail";
       }
 
-      const totalPoints = profile.combatAchievements.reduce((sum, ca) => {
-        const pts = CA_POINTS_PER_TASK[ca.name.toLowerCase()] ?? 0;
-        return sum + ca.completed * pts;
-      }, 0);
-      return totalPoints >= required ? "pass" : "fail";
+      return profile.caTotalPoints >= required ? "pass" : "fail";
     }
 
     case "total-level": {
@@ -141,7 +127,9 @@ export function checkRequirement(
 
     case "collection-full-groups": {
       const completedGroups = check.groups.filter((group) =>
-        group.every((name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0),
+        group.every(
+          (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
+        ),
       ).length;
       return completedGroups >= check.required ? "pass" : "fail";
     }
