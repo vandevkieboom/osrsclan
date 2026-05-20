@@ -98,9 +98,13 @@ export interface RuneProfile {
 }
 
 async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { Accept: "application/json" },
-  });
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const apiKey = import.meta.env.VITE_RUNEPROFILE_API_KEY;
+  if (apiKey) {
+    headers["x-api-key"] = apiKey;
+  }
+
+  const res = await fetch(`${BASE}${path}`, { headers });
 
   if (res.status === 404) {
     throw new Error("Account not found on RuneProfile.");

@@ -59,19 +59,23 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Zombie_axe_detail.png",
         alt: "Zombie Axe",
         apiCheck: {
-          type: "collection-any-group",
-          groups: [
-            ["Broken zombie axe"],
-            [
-              "Sarachnis cudgel",
-              "Zamorakian spear",
-              "Bludgeon axon",
-              "Bludgeon claw",
-              "Bludgeon spine",
-              "Inquisitor's mace",
-            ],
+          type: "collection-any-of",
+          primary: { type: "collection-item", names: ["Broken zombie axe"] },
+          alternatives: [
+            {
+              type: "collection-item",
+              names: [
+                "Sarachnis cudgel",
+                "Zamorakian spear",
+                "Inquisitor's mace",
+              ],
+            },
+            {
+              type: "collection-count",
+              names: ["Bludgeon axon", "Bludgeon claw", "Bludgeon spine"],
+              required: 3,
+            },
           ],
-          required: 1,
         },
       },
     ],
@@ -158,7 +162,7 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Eclipse_moon_helm_detail.png",
         alt: "Moons Set",
         apiCheck: {
-          type: "collection-any-group",
+          type: "collection-full-groups",
           groups: [
             [
               "Eclipse moon helm",
@@ -179,7 +183,7 @@ const ranks: Rank[] = [
               "Dual macuahuitl",
             ],
           ],
-          required: 3,
+          required: 2,
         },
       },
     ],

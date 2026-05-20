@@ -139,6 +139,13 @@ export function checkRequirement(
       return "fail";
     }
 
+    case "collection-full-groups": {
+      const completedGroups = check.groups.filter((group) =>
+        group.every((name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0),
+      ).length;
+      return completedGroups >= check.required ? "pass" : "fail";
+    }
+
     case "collection-all-plus-any": {
       const hasAllRequired = check.all.every(
         (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
