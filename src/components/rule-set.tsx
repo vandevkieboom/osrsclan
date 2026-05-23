@@ -29,17 +29,6 @@ const rules = [
       </>
     ),
   },
-  {
-    q: null,
-    a: (
-      <>
-        <div className="rule-note">
-          Requirements may be considered optional if you already possess a
-          stronger or equivalent item for the same role.
-        </div>
-      </>
-    ),
-  },
 ];
 
 const Ruleset: React.FC = () => (

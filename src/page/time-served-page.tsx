@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
 import Ruleset from "../components/rule-set";
@@ -17,12 +18,14 @@ type SavedProgress = {
 };
 
 const STORAGE_KEY = "clan-rankings-progress-v1";
-const DIVIDER_URL = "https://www.twitch.tv/sardaco";
+const DIVIDER_URL =
+  "https://www.twitch.tv/sardaco/clip/StylishInquisitiveBadgerWholeWheat-nb2VbAXPnoKyARLz";
 
 const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
+  const location = useLocation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [completed, setCompleted] = useState<StateMap>({});
   const [hideCompleted, setHideCompleted] = useState(false);
@@ -182,31 +185,51 @@ export const ClanRankings = () => {
         style={{ display: "none" }}
       />
       <div className="page">
-        <div className="header">
-          <div className="header-actions">
-            <button
-              type="button"
-              onClick={handleAudioToggle}
-              className="audio-toggle-btn"
-              aria-label={isPlaying ? "Pause music" : "Play music"}
-            >
-              {isPlaying ? "Pause Music" : "Play Music"}
-            </button>
-            <div className="badge-legend">
-              <span className="legend-item">
-                <span className="legend-badge api-verified">✓</span>
-                Verified
-              </span>
-              <span className="legend-item">
-                <span className="legend-badge api-alt">~</span>
-                Alternative Item
-              </span>
-            </div>
+        <div className="header-actions">
+          <button
+            type="button"
+            onClick={handleAudioToggle}
+            className="audio-toggle-btn"
+            aria-label={isPlaying ? "Pause music" : "Play music"}
+          >
+            {isPlaying ? "Pause Music" : "Play Music"}
+          </button>
+          <div className="badge-legend">
+            <span className="legend-item">
+              <span className="legend-badge api-verified">✓</span>
+              Verified
+            </span>
+            <span className="legend-item">
+              <span className="legend-badge api-alt">~</span>
+              Alternative Item
+            </span>
           </div>
+        </div>
+        <nav className="page-nav">
+          <Link
+            to="/"
+            className={`page-nav-btn${location.pathname === "/" ? " active" : ""}`}
+          >
+            Rankings
+          </Link>
+          <Link
+            to="/hiscores"
+            className={`page-nav-btn${location.pathname === "/hiscores" ? " active" : ""}`}
+          >
+            Hiscores
+          </Link>
+          <Link
+            to="/activity"
+            className={`page-nav-btn${location.pathname === "/activity" ? " active" : ""}`}
+          >
+            Activity
+          </Link>
+        </nav>
+        <div className="header">
           <div className="header-deco">
             <h1 className="title">Time Served</h1>
           </div>
-          <div className="subtitle">Clan Rank Progression</div>
+          <div className="subtitle">Clan Ranks</div>
           <a
             className="divider divider-link"
             href={DIVIDER_URL}
@@ -247,12 +270,12 @@ export const ClanRankings = () => {
               <input
                 className="profile-lookup-input"
                 type="text"
-                placeholder="RuneScape username"
+                placeholder="OSRS username"
                 value={username}
                 maxLength={12}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && loadProfile()}
-                aria-label="RuneScape username"
+                aria-label="OSRS username"
               />
               <button
                 type="button"
