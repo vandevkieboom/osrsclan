@@ -171,6 +171,11 @@ export const METRIC_GROUPS: MetricGroup[] = [
         label: "Construction",
         dataType: "skill",
       },
+      {
+        value: "sailing",
+        label: "Sailing",
+        dataType: "skill",
+      },
     ],
   },
   {
@@ -209,6 +214,11 @@ export const METRIC_GROUPS: MetricGroup[] = [
       {
         value: "bryophyta",
         label: "Bryophyta",
+        dataType: "boss",
+      },
+      {
+        value: "brutus",
+        label: "Brutus",
         dataType: "boss",
       },
       {
@@ -279,6 +289,11 @@ export const METRIC_GROUPS: MetricGroup[] = [
       {
         value: "deranged_archaeologist",
         label: "Deranged Archaeologist",
+        dataType: "boss",
+      },
+      {
+        value: "doom_of_mokhaiotl",
+        label: "Doom of Mokhaiotl",
         dataType: "boss",
       },
       {
@@ -546,6 +561,11 @@ export const METRIC_GROUPS: MetricGroup[] = [
   {
     groupLabel: "Activities",
     metrics: [
+      {
+        value: "collections_logged",
+        label: "Collection Log",
+        dataType: "activity",
+      },
       {
         value: "colosseum_glory",
         label: "Colosseum Glory",
