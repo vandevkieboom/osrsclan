@@ -3,10 +3,12 @@ import { Link, useLocation } from "react-router-dom";
 import {
   fetchClanHiscores,
   fetchCurrentEvent,
+  fetchGroupGained,
   getWomMetricIcon,
   METRIC_GROUPS,
   type EventCompetition,
   type MetricOption,
+  type WomGainedEntry,
   type WomHiscoresEntry,
 } from "../services/wom";
 
@@ -173,12 +175,22 @@ function MetricSelect({ value, onChange }: MetricSelectProps) {
 export function HiscoresPage() {
   const [view, setView] = useState<"hiscores" | "event">("hiscores");
   const [metric, setMetric] = useState("overall");
+  const [inactiveMonthOnly, setInactiveMonthOnly] = useState(false);
   const [showPlayerSearch, setShowPlayerSearch] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
   const [entries, setEntries] = useState<WomHiscoresEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  // Maps username → gained entry for the past month.
+  // Used by the inactive filter — a player is only flagged inactive if they
+  // appear here with gained === 0 AND data.start > 0 (WOM has a real baseline).
+  // Players missing from this map or with start === 0 are new/untracked and
+  // are excluded from the filter.
+  const [gainedMap, setGainedMap] = useState<Map<
+    string,
+    WomGainedEntry
+  > | null>(null);
   const [event, setEvent] = useState<EventCompetition | null>(null);
   const [eventLoading, setEventLoading] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
@@ -218,6 +230,31 @@ export function HiscoresPage() {
     setEventPage(1);
   }, [playerSearch]);
 
+  // Reset hiscores page when inactivity filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [inactiveMonthOnly]);
+
+  // Load monthly gained (overall) for inactivity filtering.
+  useEffect(() => {
+    let cancelled = false;
+    fetchGroupGained("overall", "month")
+      .then((rows) => {
+        if (cancelled) return;
+        const map = new Map<string, WomGainedEntry>();
+        for (const row of rows) {
+          map.set(row.player.username.toLowerCase(), row);
+        }
+        setGainedMap(map);
+      })
+      .catch(() => {
+        if (!cancelled) setGainedMap(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Fetch current event when event tab is opened
   useEffect(() => {
     if (view !== "event") return;
@@ -246,13 +283,39 @@ export function HiscoresPage() {
   const currentOption = getMetricOption(metric);
   const dataType = currentOption?.dataType ?? "skill";
   const q = playerSearch.trim().toLowerCase();
+  const NOW = Date.now();
+  const NEW_PLAYER_DAYS = 14;
+  const INACTIVE_DAYS = 28;
+  const inactivityFilteredEntries =
+    inactiveMonthOnly && gainedMap
+      ? entries.filter((entry) => {
+          const username = entry.player.username.toLowerCase();
+          const gained = gainedMap.get(username);
+          // Not in the gained list → WOM isn't tracking them yet, exclude
+          if (!gained) return false;
+          // Registered on WOM within the last 14 days → new player grace period, exclude
+          if (gained.player.registeredAt) {
+            const daysSinceRegistered =
+              (NOW - new Date(gained.player.registeredAt).getTime()) /
+              (1000 * 60 * 60 * 24);
+            if (daysSinceRegistered <= NEW_PLAYER_DAYS) return false;
+          }
+          // Flag as inactive if they haven't progressed their account in 28+ days
+          // (even if WOM data is stale — red name will indicate that)
+          if (!gained.player.lastChangedAt) return false;
+          const daysSinceChanged =
+            (NOW - new Date(gained.player.lastChangedAt).getTime()) /
+            (1000 * 60 * 60 * 24);
+          return daysSinceChanged >= INACTIVE_DAYS;
+        })
+      : entries;
   const filteredEntries = q
-    ? entries.filter((entry) => {
+    ? inactivityFilteredEntries.filter((entry) => {
         const display = entry.player.displayName.toLowerCase();
         const username = entry.player.username.toLowerCase();
         return display.includes(q) || username.includes(q);
       })
-    : entries;
+    : inactivityFilteredEntries;
   const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
   const pageEntries = filteredEntries.slice(
     (page - 1) * PAGE_SIZE,
@@ -332,12 +395,19 @@ export function HiscoresPage() {
             <span className="event-tab-emoji" aria-hidden="true">
               🏆
             </span>
-            Current Event
+            Event Hiscores
           </button>
         </div>
         {view === "hiscores" && (
           <div className="metric-controls-right">
             <MetricSelect value={metric} onChange={setMetric} />
+            <button
+              type="button"
+              className={`tracker-btn${inactiveMonthOnly ? " active" : ""}`}
+              onClick={() => setInactiveMonthOnly((v) => !v)}
+            >
+              Inactive
+            </button>
             <button
               type="button"
               className={`tracker-btn${showPlayerSearch ? " active" : ""}`}
@@ -444,9 +514,20 @@ export function HiscoresPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageEntries.map((entry, i) => {
-                    const clanRank = (page - 1) * PAGE_SIZE + i + 1;
+                  {pageEntries.map((entry) => {
+                    const clanRank =
+                      entries.findIndex(
+                        (e) => e.player.username === entry.player.username,
+                      ) + 1;
                     const typeIcon = getTypeIcon(entry.player.type);
+                    const gained = gainedMap?.get(
+                      entry.player.username.toLowerCase(),
+                    );
+                    const isStale =
+                      !!gained?.player.updatedAt &&
+                      (NOW - new Date(gained.player.updatedAt).getTime()) /
+                        (1000 * 60 * 60 * 24) >=
+                        7;
                     return (
                       <tr key={entry.player.username} className="hiscores-row">
                         <td className="hiscores-td hiscores-td-rank">
@@ -471,13 +552,23 @@ export function HiscoresPage() {
                           >
                             <span
                               className={
-                                clanRank === 1
-                                  ? "top3-player-name top1-player-name"
-                                  : clanRank === 2
-                                    ? "top3-player-name top2-player-name"
-                                    : clanRank === 3
-                                      ? "top3-player-name top3-player-name-bronze"
-                                      : undefined
+                                [
+                                  clanRank === 1
+                                    ? "top3-player-name top1-player-name"
+                                    : clanRank === 2
+                                      ? "top3-player-name top2-player-name"
+                                      : clanRank === 3
+                                        ? "top3-player-name top3-player-name-bronze"
+                                        : undefined,
+                                  isStale ? "player-name--stale" : undefined,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ") || undefined
+                              }
+                              title={
+                                isStale
+                                  ? "Profile hasn't been updated on WOM in 2+ weeks"
+                                  : undefined
                               }
                             >
                               {entry.player.displayName}
@@ -579,16 +670,17 @@ export function HiscoresPage() {
             !eventError &&
             event &&
             (() => {
+              const sortedAll = [...event.participations].sort(
+                (a, b) => b.progress.gained - a.progress.gained,
+              );
               const filteredParticipations = q
-                ? event.participations.filter((p) => {
+                ? sortedAll.filter((p) => {
                     const display = p.player.displayName.toLowerCase();
                     const username = p.player.username.toLowerCase();
                     return display.includes(q) || username.includes(q);
                   })
-                : event.participations;
-              const sorted = [...filteredParticipations].sort(
-                (a, b) => b.progress.gained - a.progress.gained,
-              );
+                : sortedAll;
+              const sorted = filteredParticipations;
               const eventTotalPages = Math.max(
                 1,
                 Math.ceil(sorted.length / PAGE_SIZE),
@@ -645,8 +737,13 @@ export function HiscoresPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {eventPageEntries.map((p, i) => {
-                            const rank = (eventPage - 1) * PAGE_SIZE + i + 1;
+                          {eventPageEntries.map((p) => {
+                            const rank =
+                              sortedAll.findIndex(
+                                (x) =>
+                                  x.player.username.toLowerCase() ===
+                                  p.player.username.toLowerCase(),
+                              ) + 1;
                             const typeIcon = getTypeIcon(p.player.type);
                             return (
                               <tr

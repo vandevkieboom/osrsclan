@@ -1477,6 +1477,10 @@ body::after {
     0 0 9px #b86a3b66;
 }
 
+.player-name--stale {
+  color: #e05252;
+}
+
 .metric-select-icon {
   width: 22px;
   height: 22px;

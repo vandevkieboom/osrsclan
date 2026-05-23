@@ -32,6 +32,23 @@ export interface MetricGroup {
   metrics: MetricOption[];
 }
 
+export interface WomGainedEntry {
+  player: {
+    username: string;
+    displayName: string;
+    registeredAt: string | null;
+    updatedAt: string | null;
+    lastChangedAt: string | null;
+  };
+  data: {
+    gained: number;
+    start: number;
+    end: number;
+  };
+  startDate: string;
+  endDate: string;
+}
+
 // Maps WOM metric values to icon URLs hosted on WOM's own CDN.
 const ICON_OVERRIDES: Record<string, string> = {
   hueycoatl: "the_hueycoatl",
@@ -624,6 +641,26 @@ export async function fetchClanHiscores(
   }
 
   return res.json() as Promise<WomHiscoresEntry[]>;
+}
+
+export async function fetchGroupGained(
+  metric: string,
+  period: "week" | "month",
+  limit = 500,
+): Promise<WomGainedEntry[]> {
+  const url = `${BASE_URL}/groups/${GROUP_ID}/gained?metric=${encodeURIComponent(metric)}&period=${period}&limit=${limit}`;
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (res.status === 429) {
+    throw new Error("Rate limit hit — wait a moment and try again.");
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load gained data (${res.status}).`);
+  }
+
+  return res.json() as Promise<WomGainedEntry[]>;
 }
 
 // Update this ID each week to point at the current event competition.
