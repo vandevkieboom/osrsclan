@@ -625,3 +625,45 @@ export async function fetchClanHiscores(
 
   return res.json() as Promise<WomHiscoresEntry[]>;
 }
+
+// Update this ID each week to point at the current event competition.
+export const CURRENT_EVENT_ID = 137693;
+
+export interface EventParticipation {
+  player: {
+    username: string;
+    displayName: string;
+    type: string;
+  };
+  progress: {
+    gained: number;
+    start: number;
+    end: number;
+  };
+}
+
+export interface EventCompetition {
+  id: number;
+  title: string;
+  metric: string;
+  type: string;
+  startsAt: string;
+  endsAt: string;
+  participations: EventParticipation[];
+}
+
+export async function fetchCurrentEvent(): Promise<EventCompetition> {
+  const url = `${BASE_URL}/competitions/${CURRENT_EVENT_ID}`;
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (res.status === 429) {
+    throw new Error("Rate limit hit — wait a moment and try again.");
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load event (${res.status}).`);
+  }
+
+  return res.json() as Promise<EventCompetition>;
+}

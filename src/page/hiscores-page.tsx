@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   fetchClanHiscores,
+  fetchCurrentEvent,
   getWomMetricIcon,
   METRIC_GROUPS,
+  type EventCompetition,
   type MetricOption,
   type WomHiscoresEntry,
 } from "../services/wom";
@@ -169,12 +171,18 @@ function MetricSelect({ value, onChange }: MetricSelectProps) {
 }
 
 export function HiscoresPage() {
+  const [view, setView] = useState<"hiscores" | "event">("hiscores");
   const [metric, setMetric] = useState("overall");
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [showPlayerSearch, setShowPlayerSearch] = useState(false);
+  const [playerSearch, setPlayerSearch] = useState("");
   const [entries, setEntries] = useState<WomHiscoresEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [event, setEvent] = useState<EventCompetition | null>(null);
+  const [eventLoading, setEventLoading] = useState(false);
+  const [eventError, setEventError] = useState<string | null>(null);
+  const [eventPage, setEventPage] = useState(1);
   const location = useLocation();
 
   useEffect(() => {
@@ -197,17 +205,59 @@ export function HiscoresPage() {
     return () => {
       cancelled = true;
     };
-  }, [metric, refreshKey]);
+  }, [metric]);
 
   // Reset to page 1 whenever metric changes
   useEffect(() => {
     setPage(1);
   }, [metric]);
 
+  // Keep pagination coherent with search filter
+  useEffect(() => {
+    setPage(1);
+    setEventPage(1);
+  }, [playerSearch]);
+
+  // Fetch current event when event tab is opened
+  useEffect(() => {
+    if (view !== "event") return;
+    let cancelled = false;
+    setEventLoading(true);
+    setEventError(null);
+    setEventPage(1);
+    fetchCurrentEvent()
+      .then((data) => {
+        if (!cancelled) setEvent(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled)
+          setEventError(
+            err instanceof Error ? err.message : "Failed to load event.",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setEventLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
   const currentOption = getMetricOption(metric);
   const dataType = currentOption?.dataType ?? "skill";
-  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
-  const pageEntries = entries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const q = playerSearch.trim().toLowerCase();
+  const filteredEntries = q
+    ? entries.filter((entry) => {
+        const display = entry.player.displayName.toLowerCase();
+        const username = entry.player.username.toLowerCase();
+        return display.includes(q) || username.includes(q);
+      })
+    : entries;
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
+  const pageEntries = filteredEntries.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE,
+  );
 
   const colHeaders = (() => {
     if (dataType === "skill") return ["Level"];
@@ -259,175 +309,447 @@ export function HiscoresPage() {
         </a>
       </div>
 
-      {/* Metric selector */}
+      {/* View toggle + metric selector on same row */}
       <div className="metric-select-wrap">
-        <MetricSelect value={metric} onChange={setMetric} />
-        <button
-          type="button"
-          className="tracker-btn"
-          style={{ marginLeft: "0.75rem" }}
-          onClick={() => setRefreshKey((k) => k + 1)}
-          disabled={loading}
-        >
-          {loading ? "Loading..." : "Refresh"}
-        </button>
+        <div className="event-tabs-left">
+          <button
+            type="button"
+            className={`event-tab-btn${view === "hiscores" ? " active" : ""}`}
+            onClick={() => setView("hiscores")}
+          >
+            <img
+              src={getWomMetricIcon("overall")}
+              alt=""
+              className="event-tab-icon"
+            />
+            Clan Hiscores
+          </button>
+          <button
+            type="button"
+            className={`event-tab-btn event-tab-btn--event${view === "event" ? " active" : ""}`}
+            onClick={() => setView("event")}
+          >
+            <span className="event-tab-emoji" aria-hidden="true">
+              🏆
+            </span>
+            Current Event
+          </button>
+        </div>
+        {view === "hiscores" && (
+          <div className="metric-controls-right">
+            <MetricSelect value={metric} onChange={setMetric} />
+            <button
+              type="button"
+              className={`tracker-btn${showPlayerSearch ? " active" : ""}`}
+              onClick={() => {
+                setShowPlayerSearch((v) => !v);
+                if (showPlayerSearch) setPlayerSearch("");
+              }}
+              aria-expanded={showPlayerSearch}
+            >
+              search
+            </button>
+          </div>
+        )}
+        {view === "event" && (
+          <div className="metric-controls-right">
+            <button
+              type="button"
+              className={`tracker-btn${showPlayerSearch ? " active" : ""}`}
+              onClick={() => {
+                setShowPlayerSearch((v) => !v);
+                if (showPlayerSearch) setPlayerSearch("");
+              }}
+              aria-expanded={showPlayerSearch}
+            >
+              Find Player
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Content */}
-      {error && (
-        <div
-          className="rank-card"
-          style={{ textAlign: "center", padding: "2rem", color: "#e03a3a" }}
-        >
-          {error}
+      {showPlayerSearch && (
+        <div className="player-search-wrap">
+          <input
+            type="text"
+            className="player-search-input"
+            placeholder={
+              view === "hiscores"
+                ? "Search player in clan hiscores..."
+                : "Search player in current event..."
+            }
+            value={playerSearch}
+            onChange={(e) => setPlayerSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setShowPlayerSearch(false);
+                setPlayerSearch("");
+              }
+            }}
+            autoFocus
+          />
         </div>
       )}
 
-      {loading && !error && (
-        <div
-          className="rank-card"
-          style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
-        >
-          Loading...
-        </div>
-      )}
-
-      {!loading && !error && entries.length === 0 && (
-        <div
-          className="rank-card"
-          style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
-        >
-          No data available for this metric.
-        </div>
-      )}
-
-      {!loading && !error && entries.length > 0 && (
-        <div className="hiscores-table-wrap">
-          <table className="hiscores-table">
-            <thead>
-              <tr>
-                <th className="hiscores-th hiscores-th-rank">Rank</th>
-                <th className="hiscores-th hiscores-th-player">Player</th>
-                {colHeaders.map((h) => (
-                  <th key={h} className="hiscores-th hiscores-th-num">
-                    {h}
-                  </th>
-                ))}
-                {showXpCol && (
-                  <th className="hiscores-th hiscores-th-num">Experience</th>
-                )}
-                <th className="hiscores-th hiscores-th-num">Global Rank</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageEntries.map((entry, i) => {
-                const clanRank = (page - 1) * PAGE_SIZE + i + 1;
-                const typeIcon = getTypeIcon(entry.player.type);
-                return (
-                  <tr key={entry.player.username} className="hiscores-row">
-                    <td className="hiscores-td hiscores-td-rank">
-                      {clanRank}.
-                    </td>
-                    <td className="hiscores-td hiscores-td-player">
-                      {typeIcon && (
-                        <img
-                          src={typeIcon}
-                          alt={entry.player.type}
-                          className="player-badge"
-                        />
-                      )}
-                      <a
-                        href={`https://wiseoldman.net/players/${encodeURIComponent(
-                          entry.player.displayName,
-                        )}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="player-link"
-                        title={`Open ${entry.player.displayName} on Wise Old Man`}
-                      >
-                        <span
-                          className={
-                            clanRank === 1
-                              ? "top3-player-name top1-player-name"
-                              : clanRank === 2
-                                ? "top3-player-name top2-player-name"
-                                : clanRank === 3
-                                  ? "top3-player-name top3-player-name-bronze"
-                                  : undefined
-                          }
-                        >
-                          {entry.player.displayName}
-                        </span>
-                      </a>
-                    </td>
-                    {dataType === "skill" && (
-                      <td className="hiscores-td hiscores-td-num">
-                        {formatNumber(entry.data.level)}
-                      </td>
-                    )}
-                    {(dataType === "boss" || dataType === "activity") && (
-                      <td className="hiscores-td hiscores-td-num">
-                        {getPrimaryCol(entry, dataType)}
-                      </td>
-                    )}
-                    {dataType === "computed" && (
-                      <td className="hiscores-td hiscores-td-num">
-                        {getPrimaryCol(entry, dataType)}
-                      </td>
-                    )}
-                    {showXpCol && (
-                      <td className="hiscores-td hiscores-td-num">
-                        {formatCompact(entry.data.experience)}
-                      </td>
-                    )}
-                    <td className="hiscores-td hiscores-td-num hiscores-td-global">
-                      {entry.data.rank >= 0
-                        ? formatNumber(entry.data.rank)
-                        : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {totalPages > 1 && (
-            <div className="hiscores-pagination">
-              <button
-                type="button"
-                className="tracker-btn"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                aria-label="Previous page"
-              >
-                <img
-                  src="/arrow-left-small.svg"
-                  alt="Previous"
-                  className="pagination-arrow-icon"
-                />
-                Prev
-              </button>
-              <span className="hiscores-pagination-info">
-                Page {page} of {totalPages}
-                <span className="hiscores-pagination-total">
-                  &nbsp;({entries.length} members)
-                </span>
-              </span>
-              <button
-                type="button"
-                className="tracker-btn"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                aria-label="Next page"
-              >
-                Next
-                <img
-                  src="/arrow-right-small.svg"
-                  alt="Next"
-                  className="pagination-arrow-icon"
-                />
-              </button>
+      {view === "hiscores" && (
+        <>
+          {/* Content */}
+          {error && (
+            <div
+              className="rank-card"
+              style={{ textAlign: "center", padding: "2rem", color: "#e03a3a" }}
+            >
+              {error}
             </div>
           )}
+
+          {loading && !error && (
+            <div
+              className="rank-card"
+              style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
+            >
+              Loading...
+            </div>
+          )}
+
+          {!loading && !error && filteredEntries.length === 0 && (
+            <div
+              className="rank-card"
+              style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
+            >
+              {q
+                ? "No matches for that player search."
+                : "No data available for this metric."}
+            </div>
+          )}
+
+          {!loading && !error && filteredEntries.length > 0 && (
+            <div className="hiscores-table-wrap">
+              <table className="hiscores-table">
+                <thead>
+                  <tr>
+                    <th className="hiscores-th hiscores-th-rank">Rank</th>
+                    <th className="hiscores-th hiscores-th-player">Player</th>
+                    {colHeaders.map((h) => (
+                      <th key={h} className="hiscores-th hiscores-th-num">
+                        {h}
+                      </th>
+                    ))}
+                    {showXpCol && (
+                      <th className="hiscores-th hiscores-th-num">
+                        Experience
+                      </th>
+                    )}
+                    <th className="hiscores-th hiscores-th-num">Global Rank</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageEntries.map((entry, i) => {
+                    const clanRank = (page - 1) * PAGE_SIZE + i + 1;
+                    const typeIcon = getTypeIcon(entry.player.type);
+                    return (
+                      <tr key={entry.player.username} className="hiscores-row">
+                        <td className="hiscores-td hiscores-td-rank">
+                          {clanRank}.
+                        </td>
+                        <td className="hiscores-td hiscores-td-player">
+                          {typeIcon && (
+                            <img
+                              src={typeIcon}
+                              alt={entry.player.type}
+                              className="player-badge"
+                            />
+                          )}
+                          <a
+                            href={`https://wiseoldman.net/players/${encodeURIComponent(
+                              entry.player.displayName,
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="player-link"
+                            title={`Open ${entry.player.displayName} on Wise Old Man`}
+                          >
+                            <span
+                              className={
+                                clanRank === 1
+                                  ? "top3-player-name top1-player-name"
+                                  : clanRank === 2
+                                    ? "top3-player-name top2-player-name"
+                                    : clanRank === 3
+                                      ? "top3-player-name top3-player-name-bronze"
+                                      : undefined
+                              }
+                            >
+                              {entry.player.displayName}
+                            </span>
+                          </a>
+                        </td>
+                        {dataType === "skill" && (
+                          <td className="hiscores-td hiscores-td-num">
+                            {formatNumber(entry.data.level)}
+                          </td>
+                        )}
+                        {(dataType === "boss" || dataType === "activity") && (
+                          <td className="hiscores-td hiscores-td-num">
+                            {getPrimaryCol(entry, dataType)}
+                          </td>
+                        )}
+                        {dataType === "computed" && (
+                          <td className="hiscores-td hiscores-td-num">
+                            {getPrimaryCol(entry, dataType)}
+                          </td>
+                        )}
+                        {showXpCol && (
+                          <td className="hiscores-td hiscores-td-num">
+                            {formatCompact(entry.data.experience)}
+                          </td>
+                        )}
+                        <td className="hiscores-td hiscores-td-num hiscores-td-global">
+                          {entry.data.rank >= 0
+                            ? formatNumber(entry.data.rank)
+                            : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {totalPages > 1 && (
+                <div className="hiscores-pagination">
+                  <button
+                    type="button"
+                    className="tracker-btn"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    aria-label="Previous page"
+                  >
+                    <img
+                      src="/arrow-left-small.svg"
+                      alt="Previous"
+                      className="pagination-arrow-icon"
+                    />
+                    Prev
+                  </button>
+                  <span className="hiscores-pagination-info">
+                    Page {page} of {totalPages}
+                    <span className="hiscores-pagination-total">
+                      &nbsp;({filteredEntries.length} members)
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="tracker-btn"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    aria-label="Next page"
+                  >
+                    Next
+                    <img
+                      src="/arrow-right-small.svg"
+                      alt="Next"
+                      className="pagination-arrow-icon"
+                    />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {view === "event" && (
+        <div className="event-leaderboard">
+          {eventLoading && (
+            <div
+              className="rank-card"
+              style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
+            >
+              Loading event...
+            </div>
+          )}
+          {eventError && (
+            <div
+              className="rank-card"
+              style={{ textAlign: "center", padding: "2rem", color: "#e03a3a" }}
+            >
+              {eventError}
+            </div>
+          )}
+          {!eventLoading &&
+            !eventError &&
+            event &&
+            (() => {
+              const filteredParticipations = q
+                ? event.participations.filter((p) => {
+                    const display = p.player.displayName.toLowerCase();
+                    const username = p.player.username.toLowerCase();
+                    return display.includes(q) || username.includes(q);
+                  })
+                : event.participations;
+              const sorted = [...filteredParticipations].sort(
+                (a, b) => b.progress.gained - a.progress.gained,
+              );
+              const eventTotalPages = Math.max(
+                1,
+                Math.ceil(sorted.length / PAGE_SIZE),
+              );
+              const eventPageEntries = sorted.slice(
+                (eventPage - 1) * PAGE_SIZE,
+                eventPage * PAGE_SIZE,
+              );
+              return (
+                <>
+                  <div className="event-header">
+                    <div className="event-header-meta">
+                      <img
+                        src={getWomMetricIcon(event.metric)}
+                        alt={event.metric}
+                        className="event-metric-icon"
+                      />
+                      <div>
+                        <div className="event-title">{event.title}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hiscores-table-wrap">
+                    {sorted.length === 0 && (
+                      <div
+                        className="rank-card"
+                        style={{
+                          textAlign: "center",
+                          padding: "2rem",
+                          color: "#d8b0b0",
+                        }}
+                      >
+                        No matches for that player search.
+                      </div>
+                    )}
+                    {sorted.length > 0 && (
+                      <table className="hiscores-table">
+                        <thead>
+                          <tr>
+                            <th className="hiscores-th hiscores-th-rank">
+                              Rank
+                            </th>
+                            <th className="hiscores-th hiscores-th-player">
+                              Player
+                            </th>
+                            <th className="hiscores-th hiscores-th-num">
+                              Gained
+                            </th>
+                            <th className="hiscores-th hiscores-th-num">
+                              Start
+                            </th>
+                            <th className="hiscores-th hiscores-th-num">End</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {eventPageEntries.map((p, i) => {
+                            const rank = (eventPage - 1) * PAGE_SIZE + i + 1;
+                            const typeIcon = getTypeIcon(p.player.type);
+                            return (
+                              <tr
+                                key={p.player.username}
+                                className="hiscores-row"
+                              >
+                                <td className="hiscores-td hiscores-td-rank">
+                                  {rank}.
+                                </td>
+                                <td className="hiscores-td hiscores-td-player">
+                                  {typeIcon && (
+                                    <img
+                                      src={typeIcon}
+                                      alt={p.player.type}
+                                      className="player-badge"
+                                    />
+                                  )}
+                                  <a
+                                    href={`https://wiseoldman.net/players/${encodeURIComponent(p.player.displayName)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="player-link"
+                                    title={`Open ${p.player.displayName} on Wise Old Man`}
+                                  >
+                                    <span
+                                      className={
+                                        rank === 1
+                                          ? "top3-player-name top1-player-name"
+                                          : rank === 2
+                                            ? "top3-player-name top2-player-name"
+                                            : rank === 3
+                                              ? "top3-player-name top3-player-name-bronze"
+                                              : undefined
+                                      }
+                                    >
+                                      {p.player.displayName}
+                                    </span>
+                                  </a>
+                                </td>
+                                <td className="hiscores-td hiscores-td-num event-gained">
+                                  {p.progress.gained > 0 ? "+" : ""}
+                                  {formatNumber(p.progress.gained)}
+                                </td>
+                                <td className="hiscores-td hiscores-td-num">
+                                  {formatNumber(p.progress.start)}
+                                </td>
+                                <td className="hiscores-td hiscores-td-num">
+                                  {formatNumber(p.progress.end)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                    {eventTotalPages > 1 && (
+                      <div className="hiscores-pagination">
+                        <button
+                          type="button"
+                          className="tracker-btn"
+                          onClick={() =>
+                            setEventPage((p) => Math.max(1, p - 1))
+                          }
+                          disabled={eventPage <= 1}
+                          aria-label="Previous page"
+                        >
+                          <img
+                            src="/arrow-left-small.svg"
+                            alt="Previous"
+                            className="pagination-arrow-icon"
+                          />
+                          Prev
+                        </button>
+                        <span className="hiscores-pagination-info">
+                          Page {eventPage} of {eventTotalPages}
+                          <span className="hiscores-pagination-total">
+                            &nbsp;({sorted.length} participants)
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          className="tracker-btn"
+                          onClick={() =>
+                            setEventPage((p) =>
+                              Math.min(eventTotalPages, p + 1),
+                            )
+                          }
+                          disabled={eventPage >= eventTotalPages}
+                          aria-label="Next page"
+                        >
+                          Next
+                          <img
+                            src="/arrow-right-small.svg"
+                            alt="Next"
+                            className="pagination-arrow-icon"
+                          />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
         </div>
       )}
     </div>

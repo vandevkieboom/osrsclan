@@ -460,7 +460,7 @@ export function ActivityPage() {
       </div>
 
       {/* Type filter */}
-      <div className="metric-select-wrap">
+      <div className="metric-select-wrap activity-select-wrap">
         <ActivityTypeSelect value={activityType} onChange={setActivityType} />
       </div>
 

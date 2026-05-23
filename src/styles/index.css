@@ -1120,12 +1120,54 @@ body::after {
 .metric-select-wrap {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   position: relative;
   z-index: 100;
+  min-height: 2rem;
+}
+
+.metric-controls-right {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.activity-select-wrap {
+  justify-content: center;
+}
+
+.player-search-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: -0.9rem;
+  margin-bottom: 1rem;
+}
+
+.player-search-input {
+  width: min(360px, 72vw);
+  background: #1a0a0a;
+  border: 1.5px solid #3a1818;
+  border-radius: 4px;
+  color: #d8b0b0;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.8rem;
+  padding: 0.36rem 0.6rem;
+  outline: none;
+}
+
+.player-search-input::placeholder {
+  color: #8d6d6d;
+}
+
+.player-search-input:focus {
+  border-color: #7a3030;
 }
 
 .metric-select-label {
@@ -1464,6 +1506,137 @@ body::after {
 .hiscores-pagination-total {
   color: #a88080;
   font-size: 0.75rem;
+}
+
+/* =====================
+   Event View Tabs (inline with metric row)
+   ===================== */
+.event-tabs-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.event-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 10.5rem;
+  line-height: 1;
+  box-sizing: border-box;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1.5px solid #3a1818;
+  background: #1a0a0acc;
+  color: #a88080;
+  border-radius: 999px;
+  padding: 0.35rem 1.1rem;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    color 0.18s,
+    border-color 0.18s;
+}
+
+.event-tab-icon {
+  width: 14px;
+  height: 14px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.event-tab-emoji {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.event-tab-btn:hover {
+  border-color: #7a3030;
+  color: #d8b0b0;
+}
+
+.event-tab-btn.active {
+  background: #2a0f10cc;
+  border-color: #b02a2a;
+  color: #e8b0b0;
+}
+
+.event-tab-btn--event.active {
+  border-color: #c8a030;
+  color: #f0cc70;
+  background: #1e1608cc;
+}
+
+/* =====================
+   Event Leaderboard
+   ===================== */
+.event-leaderboard {
+  position: relative;
+  z-index: 2;
+}
+
+.event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  background: #1a0a0acc;
+  border: 1.5px solid #3a1818;
+  border-radius: 4px;
+}
+
+.event-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.event-metric-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 4px #000a);
+}
+
+.event-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: clamp(0.85rem, 2vw, 1.1rem);
+  color: #e8c87a;
+  text-shadow: 0 0 6px #000a;
+  letter-spacing: 0.03em;
+}
+
+.event-status {
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 0.2rem;
+}
+
+.event-status.active {
+  color: #7ae28e;
+}
+
+.event-status.ended {
+  color: #a88080;
+}
+
+.event-gained {
+  color: #7ae28e;
+  font-weight: 600;
 }
 
 /* =====================
