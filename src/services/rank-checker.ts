@@ -163,6 +163,15 @@ export function checkRequirement(
       return "fail";
     }
 
+    case "collection-piece-types": {
+      const typesRepresented = check.pieceGroups.filter((group) =>
+        group.some(
+          (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
+        ),
+      ).length;
+      return typesRepresented >= check.required ? "pass" : "fail";
+    }
+
     default: {
       return "fail";
     }

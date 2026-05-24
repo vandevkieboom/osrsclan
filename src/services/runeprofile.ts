@@ -106,21 +106,28 @@ async function apiFetch<T>(path: string): Promise<T> {
     headers["x-api-key"] = apiKey;
   }
 
-  const res = await fetch(`${BASE}${path}`, { headers });
+  try {
+    const res = await fetch(`${BASE}${path}`, { headers });
 
-  if (res.status === 404) {
-    throw new Error("Account not found on RuneProfile.");
+    if (res.status === 404) {
+      throw new Error("Account not found on RuneProfile.");
+    }
+
+    if (res.status === 429) {
+      throw new Error("Rate limit hit — wait a moment and try again.");
+    }
+
+    if (!res.ok) {
+      throw new Error(`RuneProfile API error (${res.status}).`);
+    }
+
+    return res.json() as Promise<T>;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Network error — unable to reach RuneProfile API.");
   }
-
-  if (res.status === 429) {
-    throw new Error("Rate limit hit — wait a moment and try again.");
-  }
-
-  if (!res.ok) {
-    throw new Error(`RuneProfile API error (${res.status}).`);
-  }
-
-  return res.json() as Promise<T>;
 }
 
 function buildCaTaskSet(
@@ -266,7 +273,15 @@ export function buildItemMap(log: CollectionLog): Map<string, number> {
 export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
   const encoded = encodeURIComponent(username.trim());
   const [data, tasksData, womData] = await Promise.all([
-    apiFetch<FullAccountResponse>(`/accounts/${encoded}/full`),
+    apiFetch<FullAccountResponse>(`/accounts/${encoded}/full`).catch(
+      (error) => {
+        throw new Error(
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch profile data.",
+        );
+      },
+    ),
     apiFetch<CombatAchievementTasksResponse>(
       `/accounts/${encoded}/combat-achievements/tasks`,
     ).catch(() => null),

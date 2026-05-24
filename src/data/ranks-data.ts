@@ -436,14 +436,11 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Oathplate_chest_detail.png?",
         alt: "2/3 Oathplate or Torva",
         apiCheck: {
-          type: "collection-count",
-          names: [
-            "Oathplate helm",
-            "Oathplate chest",
-            "Oathplate legs",
-            "Torva full helm (damaged)",
-            "Torva platebody (damaged)",
-            "Torva platelegs (damaged)",
+          type: "collection-piece-types",
+          pieceGroups: [
+            ["Oathplate helm", "Torva full helm (damaged)"],
+            ["Oathplate chest", "Torva platebody (damaged)"],
+            ["Oathplate legs", "Torva platelegs (damaged)"],
           ],
           required: 2,
         },
@@ -528,14 +525,11 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Oathplate_chest_detail.png?",
         alt: "Full Oathplate or Torva",
         apiCheck: {
-          type: "collection-count",
-          names: [
-            "Oathplate helm",
-            "Oathplate chest",
-            "Oathplate legs",
-            "Torva full helm (damaged)",
-            "Torva platebody (damaged)",
-            "Torva platelegs (damaged)",
+          type: "collection-piece-types",
+          pieceGroups: [
+            ["Oathplate helm", "Torva full helm (damaged)"],
+            ["Oathplate chest", "Torva platebody (damaged)"],
+            ["Oathplate legs", "Torva platelegs (damaged)"],
           ],
           required: 3,
         },
@@ -574,14 +568,11 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Virtus_robe_top_detail.png",
         alt: "Virtus",
         apiCheck: {
-          type: "collection-count",
-          names: [
-            "Virtus mask",
-            "Virtus robe top",
-            "Virtus robe bottom",
-            "Ancestral hat",
-            "Ancestral robe top",
-            "Ancestral robe bottom",
+          type: "collection-piece-types",
+          pieceGroups: [
+            ["Virtus mask", "Ancestral hat"],
+            ["Virtus robe top", "Ancestral robe top"],
+            ["Virtus robe bottom", "Ancestral robe bottom"],
           ],
           required: 2,
         },

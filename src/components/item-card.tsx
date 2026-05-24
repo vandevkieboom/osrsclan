@@ -16,7 +16,12 @@ export type ApiCheck =
   | { type: "collection-full-groups"; groups: string[][]; required: number }
   | { type: "collection-all-plus-any"; all: string[]; any: string[] }
   | { type: "collection-any-of"; primary: ApiCheck; alternatives: ApiCheck[] }
-  | { type: "combat-achievement-task"; names: string[] };
+  | { type: "combat-achievement-task"; names: string[] }
+  | {
+      type: "collection-piece-types";
+      pieceGroups: string[][];
+      required: number;
+    };
 
 export type Item = {
   name: string;
