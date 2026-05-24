@@ -106,7 +106,10 @@ const CA_TIERS: Record<number, string> = {
 };
 
 function timeAgo(iso: string): string {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  // Ensure the timestamp is treated as UTC if no timezone info is present
+  const utcIso =
+    iso.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z";
+  const s = Math.floor((Date.now() - new Date(utcIso).getTime()) / 1000);
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ago`;
