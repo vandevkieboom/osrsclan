@@ -664,7 +664,7 @@ export async function fetchGroupGained(
 }
 
 // Update this ID each week to point at the current event competition.
-export const CURRENT_EVENT_ID = 137693;
+export const CURRENT_EVENT_ID = 138429;
 
 export interface EventParticipation {
   player: {
