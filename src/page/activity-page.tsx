@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { NavMenu } from "../components/nav-menu";
 
 const CLAN = "Time Served";
 const LIMIT = 20;
@@ -419,37 +420,20 @@ function ActivityFeed({ activityType }: { activityType: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ActivityPage() {
-  const location = useLocation();
   const [activityType, setActivityType] = useState("all");
 
   return (
     <div className="page">
       {/* Nav */}
-      <nav className="page-nav">
-        <Link
-          to="/"
-          className={`page-nav-btn${location.pathname === "/" ? " active" : ""}`}
-        >
-          Rankings
-        </Link>
-        <Link
-          to="/hiscores"
-          className={`page-nav-btn${location.pathname === "/hiscores" ? " active" : ""}`}
-        >
-          Hiscores
-        </Link>
-        <Link
-          to="/activity"
-          className={`page-nav-btn${location.pathname === "/activity" ? " active" : ""}`}
-        >
-          Activity
-        </Link>
-      </nav>
+      {/* Nav */}
+      <NavMenu />
 
       {/* Header */}
       <div className="header">
         <div className="header-deco">
-          <h1 className="title">Time Served</h1>
+          <Link to="/" className="title-link">
+            <h1 className="title">Time Served</h1>
+          </Link>
         </div>
         <div className="subtitle">Clan Activity</div>
         <a

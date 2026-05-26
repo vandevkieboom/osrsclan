@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { NavMenu } from "../components/nav-menu";
 import {
   fetchClanHiscores,
   fetchCurrentEvent,
@@ -195,7 +196,6 @@ export function HiscoresPage() {
   const [eventLoading, setEventLoading] = useState(false);
   const [eventError, setEventError] = useState<string | null>(null);
   const [eventPage, setEventPage] = useState(1);
-  const location = useLocation();
 
   useEffect(() => {
     let cancelled = false;
@@ -335,31 +335,14 @@ export function HiscoresPage() {
   return (
     <div className="page">
       {/* Nav */}
-      <nav className="page-nav">
-        <Link
-          to="/"
-          className={`page-nav-btn${location.pathname === "/" ? " active" : ""}`}
-        >
-          Rankings
-        </Link>
-        <Link
-          to="/hiscores"
-          className={`page-nav-btn${location.pathname === "/hiscores" ? " active" : ""}`}
-        >
-          Hiscores
-        </Link>
-        <Link
-          to="/activity"
-          className={`page-nav-btn${location.pathname === "/activity" ? " active" : ""}`}
-        >
-          Activity
-        </Link>
-      </nav>
+      <NavMenu />
 
       {/* Header */}
       <div className="header">
         <div className="header-deco">
-          <h1 className="title">Time Served</h1>
+          <Link to="/" className="title-link">
+            <h1 className="title">Time Served</h1>
+          </Link>
         </div>
         <div className="subtitle">Clan Hiscores</div>
         <a

@@ -162,26 +162,173 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Eclipse_moon_helm_detail.png",
         alt: "Moons Set",
         apiCheck: {
-          type: "collection-full-groups",
+          type: "collection-full-groups-with-alts",
           groups: [
-            [
-              "Eclipse moon helm",
-              "Eclipse moon chestplate",
-              "Eclipse moon tassets",
-              "Eclipse atlatl",
-            ],
-            [
-              "Blue moon helm",
-              "Blue moon chestplate",
-              "Blue moon tassets",
-              "Blue moon spear",
-            ],
-            [
-              "Blood moon helm",
-              "Blood moon chestplate",
-              "Blood moon tassets",
-              "Dual macuahuitl",
-            ],
+            {
+              primary: [
+                "Eclipse moon helm",
+                "Eclipse moon chestplate",
+                "Eclipse moon tassets",
+                "Eclipse atlatl",
+              ],
+              alts: [
+                {
+                  type: "collection-all-checks",
+                  checks: [
+                    {
+                      type: "collection-quantity",
+                      name: "Crystal armour seed",
+                      required: 6,
+                    },
+                    {
+                      type: "collection-quantity",
+                      name: "Enhanced crystal weapon seed",
+                      required: 1,
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              primary: [
+                "Blue moon helm",
+                "Blue moon chestplate",
+                "Blue moon tassets",
+                "Blue moon spear",
+              ],
+              alts: [
+                {
+                  type: "collection-count",
+                  names: [
+                    "Ahrim's hood",
+                    "Ahrim's robetop",
+                    "Ahrim's robeskirt",
+                    "Ahrim's staff",
+                  ],
+                  required: 4,
+                },
+              ],
+            },
+            {
+              primary: [
+                "Blood moon helm",
+                "Blood moon chestplate",
+                "Blood moon tassets",
+                "Dual macuahuitl",
+              ],
+              alts: [
+                {
+                  type: "collection-all-checks",
+                  checks: [
+                    {
+                      type: "collection-count",
+                      names: ["Bandos chestplate", "Bandos tassets"],
+                      required: 2,
+                    },
+                    {
+                      type: "collection-any-of",
+                      primary: {
+                        type: "collection-item",
+                        names: [
+                          "Dual macuahuitl",
+                          "Broken zombie axe",
+                          "Sarachnis cudgel",
+                          "Zamorakian spear",
+                          "Inquisitor's mace",
+                        ],
+                      },
+                      alternatives: [
+                        {
+                          type: "collection-count",
+                          names: [
+                            "Bludgeon axon",
+                            "Bludgeon claw",
+                            "Bludgeon spine",
+                          ],
+                          required: 3,
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: "collection-all-checks",
+                  checks: [
+                    {
+                      type: "collection-count",
+                      names: [
+                        "Oathplate helm",
+                        "Oathplate chest",
+                        "Oathplate legs",
+                      ],
+                      required: 3,
+                    },
+                    {
+                      type: "collection-any-of",
+                      primary: {
+                        type: "collection-item",
+                        names: [
+                          "Dual macuahuitl",
+                          "Broken zombie axe",
+                          "Sarachnis cudgel",
+                          "Zamorakian spear",
+                          "Inquisitor's mace",
+                        ],
+                      },
+                      alternatives: [
+                        {
+                          type: "collection-count",
+                          names: [
+                            "Bludgeon axon",
+                            "Bludgeon claw",
+                            "Bludgeon spine",
+                          ],
+                          required: 3,
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: "collection-all-checks",
+                  checks: [
+                    {
+                      type: "collection-count",
+                      names: [
+                        "Torva full helm (damaged)",
+                        "Torva platebody (damaged)",
+                        "Torva platelegs (damaged)",
+                      ],
+                      required: 3,
+                    },
+                    {
+                      type: "collection-any-of",
+                      primary: {
+                        type: "collection-item",
+                        names: [
+                          "Dual macuahuitl",
+                          "Broken zombie axe",
+                          "Sarachnis cudgel",
+                          "Zamorakian spear",
+                          "Inquisitor's mace",
+                        ],
+                      },
+                      alternatives: [
+                        {
+                          type: "collection-count",
+                          names: [
+                            "Bludgeon axon",
+                            "Bludgeon claw",
+                            "Bludgeon spine",
+                          ],
+                          required: 3,
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
           ],
           required: 2,
         },
@@ -215,7 +362,11 @@ const ranks: Rank[] = [
         name: "Dragon Warhammer",
         img: "https://oldschool.runescape.wiki/images/Dragon_warhammer_detail.png",
         alt: "Dragon Warhammer",
-        apiCheck: { type: "collection-item", names: ["Dragon warhammer"] },
+        apiCheck: {
+          type: "collection-any-of",
+          primary: { type: "collection-item", names: ["Dragon warhammer"] },
+          alternatives: [{ type: "collection-item", names: ["Elder maul"] }],
+        },
       },
       {
         name: "2/3 Cerberus Crystals",
@@ -363,9 +514,23 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Noxious_halberd_detail.png",
         alt: "Noxious Halberd",
         apiCheck: {
-          type: "collection-count",
-          names: ["Noxious point", "Noxious blade", "Noxious pommel"],
-          required: 3,
+          type: "collection-any-of",
+          primary: {
+            type: "collection-count",
+            names: ["Noxious point", "Noxious blade", "Noxious pommel"],
+            required: 3,
+          },
+          alternatives: [
+            {
+              type: "collection-quantity",
+              name: "Enhanced crystal weapon seed",
+              required: 2,
+            },
+            {
+              type: "collection-item",
+              names: ["Scythe of vitur (uncharged)"],
+            },
+          ],
         },
       },
       {

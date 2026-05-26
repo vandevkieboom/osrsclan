@@ -195,6 +195,12 @@ body::after {
   line-height: 1;
 }
 
+.title-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-block;
+}
+
 .subtitle {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: clamp(0.8rem, 2vw, 1.1rem);
@@ -1113,6 +1119,21 @@ body::after {
   box-shadow: 0 0 8px #b02a2a44;
 }
 
+.page-nav-home {
+  padding: 0.4rem;
+  line-height: 0;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+
+.page-nav-home-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+
 /* =====================
    Hiscores Page
    ===================== */
@@ -1741,4 +1762,286 @@ body::after {
   gap: 1rem;
   justify-content: center;
   padding-top: 1.2rem;
+}
+
+/* =====================
+   Home Page
+   ===================== */
+
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  border: 1.5px solid #3a1818;
+  border-radius: 4px;
+  background: #181010cc
+    url("https://oldschool.runescape.wiki/images/Corrupted_Gauntlet_tile.png")
+    repeat;
+  background-size: 120px 120px;
+  text-decoration: none;
+  color: inherit;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: rank-card-enter 0.4s ease-out forwards;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s,
+    background-color 0.18s;
+}
+
+.home-card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.home-card:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.home-card:nth-child(3) {
+  animation-delay: 0.19s;
+}
+
+.home-card:hover {
+  border-color: #7a2222;
+  box-shadow: 0 0 14px #b02a2a33;
+}
+
+.home-card-icon {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 6px #000a);
+  margin-bottom: 0.2rem;
+}
+
+.home-card-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  color: #b02a2a;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.home-card-desc {
+  font-size: 0.68rem;
+  color: #bda8a8;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  line-height: 1.55;
+}
+
+.home-section-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 0.95rem;
+  color: #e8a0a0;
+  letter-spacing: 0.05em;
+  text-align: center;
+  margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-status {
+  text-align: center;
+  font-size: 0.75rem;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  color: #9a8080;
+  margin-bottom: 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-status--error {
+  color: #f08080;
+}
+
+.home-event {
+  border: 1.5px solid #3a1818;
+  border-radius: 4px;
+  background: #181010cc
+    url("https://oldschool.runescape.wiki/images/Corrupted_Gauntlet_tile.png")
+    repeat;
+  background-size: 120px 120px;
+  padding: 1rem 1.2rem;
+  max-width: 480px;
+  margin: 0 auto 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-event-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #3a181855;
+}
+
+.home-event-metric-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.home-event-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-event-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 0.82rem;
+  color: #e8a0a0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-event-dates {
+  font-size: 0.6rem;
+  color: #9a8080;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+}
+
+.home-event-live {
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  letter-spacing: 0.08em;
+  color: #7ae28e;
+  border: 1px solid #1f9d5355;
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  flex-shrink: 0;
+}
+
+.home-event-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.6rem;
+}
+
+.home-event-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.28rem 0;
+  border-bottom: 1px solid #3a181833;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+}
+
+.home-event-row:last-child {
+  border-bottom: none;
+}
+
+.home-event-pos {
+  color: #7a5050;
+  width: 2rem;
+  text-align: right;
+  flex-shrink: 0;
+  font-size: 0.68rem;
+}
+
+.home-event-name {
+  flex: 1;
+  color: #d8b0b0;
+}
+
+.home-event-gained {
+  color: #7ae28e;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.home-event-more {
+  display: block;
+  text-align: right;
+  margin-top: 0.4rem;
+  font-size: 0.65rem;
+  color: #7a5050;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.home-discord {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.2rem;
+  border: 1.5px solid #3a3a6a;
+  border-radius: 4px;
+  background: #10102acc;
+  text-decoration: none;
+  color: inherit;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 2;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
+}
+
+.home-discord:hover {
+  border-color: #5865f2aa;
+  box-shadow: 0 0 14px #5865f233;
+}
+
+.home-discord-icon {
+  width: 28px;
+  height: 28px;
+  fill: #5865f2;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px #5865f244);
+}
+
+.home-discord-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+}
+
+.home-discord-label {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 0.85rem;
+  color: #c8c8e8;
+  letter-spacing: 0.02em;
+}
+
+.home-discord-sub {
+  font-size: 0.65rem;
+  color: #7a7a9a;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+}
+
+.home-discord-arrow {
+  font-size: 0.9rem;
+  color: #5865f2;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .home-cards {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+  }
 }

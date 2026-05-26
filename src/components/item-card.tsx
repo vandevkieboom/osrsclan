@@ -21,7 +21,13 @@ export type ApiCheck =
       type: "collection-piece-types";
       pieceGroups: string[][];
       required: number;
-    };
+    }
+  | {
+      type: "collection-full-groups-with-alts";
+      groups: { primary: string[]; alts: ApiCheck[] }[];
+      required: number;
+    }
+  | { type: "collection-all-checks"; checks: ApiCheck[] };
 
 export type Item = {
   name: string;

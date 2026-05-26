@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { NavMenu } from "../components/nav-menu";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
 import Ruleset from "../components/rule-set";
@@ -25,7 +26,6 @@ const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
-  const location = useLocation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [completed, setCompleted] = useState<StateMap>({});
   const [hideCompleted, setHideCompleted] = useState(false);
@@ -205,29 +205,12 @@ export const ClanRankings = () => {
             </span>
           </div>
         </div>
-        <nav className="page-nav">
-          <Link
-            to="/"
-            className={`page-nav-btn${location.pathname === "/" ? " active" : ""}`}
-          >
-            Rankings
-          </Link>
-          <Link
-            to="/hiscores"
-            className={`page-nav-btn${location.pathname === "/hiscores" ? " active" : ""}`}
-          >
-            Hiscores
-          </Link>
-          <Link
-            to="/activity"
-            className={`page-nav-btn${location.pathname === "/activity" ? " active" : ""}`}
-          >
-            Activity
-          </Link>
-        </nav>
+        <NavMenu />
         <div className="header">
           <div className="header-deco">
-            <h1 className="title">Time Served</h1>
+            <Link to="/" className="title-link">
+              <h1 className="title">Time Served</h1>
+            </Link>
           </div>
           <div className="subtitle">Clan Ranks</div>
           <a

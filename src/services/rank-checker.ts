@@ -172,6 +172,33 @@ export function checkRequirement(
       return typesRepresented >= check.required ? "pass" : "fail";
     }
 
+    case "collection-full-groups-with-alts": {
+      let count = 0;
+      for (const group of check.groups) {
+        const primaryPassed = group.primary.every(
+          (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
+        );
+        if (primaryPassed) {
+          count++;
+          continue;
+        }
+        const altPassed = group.alts.some(
+          (alt) => checkRequirement(alt, profile) !== "fail",
+        );
+        if (altPassed) {
+          count++;
+        }
+      }
+      return count >= check.required ? "pass" : "fail";
+    }
+
+    case "collection-all-checks": {
+      const allPass = check.checks.every(
+        (c) => checkRequirement(c, profile) !== "fail",
+      );
+      return allPass ? "pass" : "fail";
+    }
+
     default: {
       return "fail";
     }
