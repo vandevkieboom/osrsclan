@@ -162,11 +162,36 @@ export function checkRequirement(
     }
 
     case "collection-piece-types": {
-      const typesRepresented = check.pieceGroups.filter((group) =>
-        group.some(
-          (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
-        ),
-      ).length;
+      const oathplateSlots = [
+        "oathplate helm",
+        "oathplate chest",
+        "oathplate legs",
+      ];
+
+      const shardCount =
+        (profile.itemMap.get("oathplate shard") ?? 0) +
+        (profile.itemMap.get("oathplate shards") ?? 0);
+
+      let shardsRemaining = shardCount;
+
+      const typesRepresented = check.pieceGroups.filter((group) => {
+        if (
+          group.some(
+            (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
+          )
+        ) {
+          return true;
+        }
+        const hasOathplateSlot = group.some((name) =>
+          oathplateSlots.includes(name.toLowerCase()),
+        );
+        if (hasOathplateSlot && shardsRemaining >= 450) {
+          shardsRemaining -= 450;
+          return true;
+        }
+        return false;
+      }).length;
+
       return typesRepresented >= check.required ? "pass" : "fail";
     }
 

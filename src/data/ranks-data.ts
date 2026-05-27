@@ -257,9 +257,14 @@ const ranks: Rank[] = [
         name: "Bandos Godsword",
         img: "https://oldschool.runescape.wiki/images/Bandos_godsword_detail.png",
         alt: "Bandos Godsword",
-       apiCheck: {
+        apiCheck: {
           type: "collection-count",
-          names: ["Bandos hilt", "Godsword shard 1", "Godsword shard 2", "Godsword shard 3"],
+          names: [
+            "Bandos hilt",
+            "Godsword shard 1",
+            "Godsword shard 2",
+            "Godsword shard 3",
+          ],
           required: 4,
         },
       },
@@ -507,7 +512,7 @@ const ranks: Rank[] = [
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
-            ["Oathplate helm", "Torva full helm (damaged)", "Basilisk jaw"],
+            ["Oathplate helm", "Torva full helm (damaged)"],
             ["Oathplate chest", "Torva platebody (damaged)"],
             ["Oathplate legs", "Torva platelegs (damaged)"],
           ],
