@@ -184,6 +184,7 @@ const ranks: Rank[] = [
                 names: ["Blood moon chestplate"],
               },
               alternatives: [
+                { type: "collection-item", names: ["Fighter torso"] },
                 { type: "collection-item", names: ["Bandos chestplate"] },
                 { type: "collection-item", names: ["Oathplate chest"] },
                 {
@@ -256,7 +257,11 @@ const ranks: Rank[] = [
         name: "Bandos Godsword",
         img: "https://oldschool.runescape.wiki/images/Bandos_godsword_detail.png",
         alt: "Bandos Godsword",
-        apiCheck: { type: "collection-item", names: ["Bandos hilt"] },
+       apiCheck: {
+          type: "collection-count",
+          names: ["Bandos hilt", "Godsword shard 1", "Godsword shard 2", "Godsword shard 3"],
+          required: 4,
+        },
       },
       {
         name: "Dragon Warhammer",
@@ -502,7 +507,7 @@ const ranks: Rank[] = [
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
-            ["Oathplate helm", "Torva full helm (damaged)"],
+            ["Oathplate helm", "Torva full helm (damaged)", "Basilisk jaw"],
             ["Oathplate chest", "Torva platebody (damaged)"],
             ["Oathplate legs", "Torva platelegs (damaged)"],
           ],
