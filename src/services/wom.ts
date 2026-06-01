@@ -694,7 +694,7 @@ export async function fetchGroupGained(
   return data;
 }
 
-export const CURRENT_EVENT_ID = 138429;
+export const CURRENT_EVENT_ID = 139407;
 
 export interface EventParticipation {
   player: {
