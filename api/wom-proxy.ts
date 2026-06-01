@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
 const GROUP_ID = 22206;
-const CURRENT_EVENT_ID = 138429;
+const CURRENT_EVENT_ID = 139407;
 const API_KEY = process.env.WOM_API_KEY ?? "";
 
 const WOM_HEADERS: Record<string, string> = {
