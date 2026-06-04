@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { NavMenu } from "../components/nav-menu";
 
-const DISCORD_URL = "https://discord.gg/P7SkKWM275";
+const DISCORD_URL = "https://discord.gg/N5ADnS3WTN";
 const WOM_GROUP_ID = 22206;
 const WOM_BASE = "https://api.wiseoldman.net/v2";
 
