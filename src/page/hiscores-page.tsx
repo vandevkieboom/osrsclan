@@ -371,8 +371,10 @@ export function HiscoresPage() {
               type="button"
               className={`tracker-btn${inactiveMonthOnly ? " active" : ""}`}
               onClick={() => setInactiveMonthOnly((v) => !v)}
+              disabled={gainedMap === null}
+              title={gainedMap === null ? "Loading activity data…" : undefined}
             >
-              Inactive
+              {gainedMap === null ? "Inactive…" : "Inactive"}
             </button>
             <button
               type="button"
@@ -664,7 +666,14 @@ export function HiscoresPage() {
                         className="event-metric-icon"
                       />
                       <div>
-                        <div className="event-title">{event.title}</div>
+                        <a
+                          className="event-title"
+                          href={`https://wiseoldman.net/competitions/${event.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {event.title}
+                        </a>
                       </div>
                     </div>
                   </div>

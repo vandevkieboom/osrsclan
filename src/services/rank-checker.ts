@@ -97,13 +97,16 @@ export function checkRequirement(
         found += shardPieces;
       }
 
-      return found >= check.required ? "pass" : "fail";
+      if (found >= check.required) return "pass";
+      if (check.required >= 2 && found >= check.required - 1) return "partial";
+      return "fail";
     }
 
     case "collection-quantity": {
-      const passed =
-        (profile.itemMap.get(check.name.toLowerCase()) ?? 0) >= check.required;
-      return passed ? "pass" : "fail";
+      const count = profile.itemMap.get(check.name.toLowerCase()) ?? 0;
+      if (count >= check.required) return "pass";
+      if (check.required >= 2 && count >= check.required - 1) return "partial";
+      return "fail";
     }
 
     case "collection-any-group": {
@@ -120,6 +123,12 @@ export function checkRequirement(
       if (altGroups.some((g) => countInGroup(g) >= check.required)) {
         return "pass-alt";
       }
+      if (check.required >= 2) {
+        const allGroups = check.groups.filter((g): g is string[] => g !== undefined);
+        if (allGroups.some((g) => countInGroup(g) >= check.required - 1)) {
+          return "partial";
+        }
+      }
       return "fail";
     }
 
@@ -129,7 +138,9 @@ export function checkRequirement(
           (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
         ),
       ).length;
-      return completedGroups >= check.required ? "pass" : "fail";
+      if (completedGroups >= check.required) return "pass";
+      if (check.required >= 2 && completedGroups >= check.required - 1) return "partial";
+      return "fail";
     }
 
     case "collection-all-plus-any": {
@@ -150,15 +161,19 @@ export function checkRequirement(
     }
 
     case "collection-any-of": {
-      if (checkRequirement(check.primary, profile) !== "fail") {
+      const primaryResult = checkRequirement(check.primary, profile);
+      if (primaryResult === "pass" || primaryResult === "pass-alt") {
         return "pass";
       }
+      let hasPartial = primaryResult === "partial";
       for (const alt of check.alternatives) {
-        if (checkRequirement(alt, profile) !== "fail") {
+        const altResult = checkRequirement(alt, profile);
+        if (altResult === "pass" || altResult === "pass-alt") {
           return "pass-alt";
         }
+        if (altResult === "partial") hasPartial = true;
       }
-      return "fail";
+      return hasPartial ? "partial" : "fail";
     }
 
     case "collection-piece-types": {
@@ -192,7 +207,9 @@ export function checkRequirement(
         return false;
       }).length;
 
-      return typesRepresented >= check.required ? "pass" : "fail";
+      if (typesRepresented >= check.required) return "pass";
+      if (check.required >= 2 && typesRepresented >= check.required - 1) return "partial";
+      return "fail";
     }
 
     case "collection-all-checks": {
@@ -205,6 +222,82 @@ export function checkRequirement(
     default: {
       return "fail";
     }
+  }
+}
+
+export function getRequirementProgress(
+  check: ApiCheck,
+  profile: RuneProfile,
+): { found: number; required: number } | null {
+  switch (check.type) {
+    case "collection-item": {
+      const found = check.names.filter(
+        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+      ).length;
+      return { found, required: check.names.length };
+    }
+    case "collection-count": {
+      let found = check.names.filter(
+        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+      ).length;
+      const oathplateSlots = ["oathplate helm", "oathplate chest", "oathplate legs"];
+      const oathplateSlotsInCheck = check.names.filter((n) =>
+        oathplateSlots.includes(n.toLowerCase()),
+      );
+      if (oathplateSlotsInCheck.length > 0) {
+        const shardCount =
+          (profile.itemMap.get("oathplate shard") ?? 0) +
+          (profile.itemMap.get("oathplate shards") ?? 0);
+        const ownedSlots = oathplateSlotsInCheck.filter(
+          (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+        ).length;
+        const shardPieces = Math.min(
+          Math.floor(shardCount / 450),
+          oathplateSlotsInCheck.length - ownedSlots,
+        );
+        found += shardPieces;
+      }
+      return { found: Math.min(found, check.names.length), required: check.names.length };
+    }
+    case "collection-quantity": {
+      const found = profile.itemMap.get(check.name.toLowerCase()) ?? 0;
+      return { found: Math.min(found, check.required), required: check.required };
+    }
+    case "collection-piece-types": {
+      const oathplateSlots = ["oathplate helm", "oathplate chest", "oathplate legs"];
+      const shardCount =
+        (profile.itemMap.get("oathplate shard") ?? 0) +
+        (profile.itemMap.get("oathplate shards") ?? 0);
+      let shardsRemaining = shardCount;
+      const found = check.pieceGroups.filter((group) => {
+        if (group.some((name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0)) {
+          return true;
+        }
+        const hasOathplateSlot = group.some((name) =>
+          oathplateSlots.includes(name.toLowerCase()),
+        );
+        if (hasOathplateSlot && shardsRemaining >= 450) {
+          shardsRemaining -= 450;
+          return true;
+        }
+        return false;
+      }).length;
+      return { found, required: check.required };
+    }
+    case "collection-full-groups": {
+      const found = check.groups.filter((group) =>
+        group.every((name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0),
+      ).length;
+      return { found, required: check.required };
+    }
+    case "collection-any-group": {
+      const countInGroup = (group: string[]) =>
+        group.filter((n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0).length;
+      const maxFound = Math.max(...check.groups.map(countInGroup));
+      return { found: Math.min(maxFound, check.required), required: check.required };
+    }
+    default:
+      return null;
   }
 }
 

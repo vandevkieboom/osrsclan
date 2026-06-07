@@ -12,6 +12,7 @@ type RankCardProps = Rank & {
   rankIndex: number;
   completed: Record<string, boolean>;
   apiVerified: Record<string, CheckResult>;
+  apiProgress: Record<string, { found: number; required: number }>;
   hideCompleted: boolean;
   eligible: boolean;
   priorRanksMet: boolean;
@@ -26,6 +27,7 @@ const RankCard: React.FC<RankCardProps> = ({
   rankIndex,
   completed,
   apiVerified,
+  apiProgress,
   hideCompleted,
   eligible,
   priorRanksMet,
@@ -70,6 +72,7 @@ const RankCard: React.FC<RankCardProps> = ({
               {...item}
               isCompleted={isManual}
               apiResult={apiResult}
+              progress={apiProgress[key] ?? null}
               onCycleState={() => onCycleState(rankIndex, itemIndex)}
             />
           );

@@ -1,6 +1,6 @@
 import React from "react";
 
-export type CheckResult = "pass" | "pass-alt" | "fail";
+export type CheckResult = "pass" | "pass-alt" | "partial" | "fail";
 
 export type ApiCheck =
   | { type: "combat-achievement"; tier: string }
@@ -28,12 +28,14 @@ export type Item = {
   name: string;
   img: string;
   alt: string;
+  multiItem?: boolean;
   apiCheck?: ApiCheck;
 };
 
 type ItemCardProps = Item & {
   isCompleted: boolean;
   apiResult: CheckResult | null;
+  progress: { found: number; required: number } | null;
   onCycleState: () => void;
 };
 
@@ -43,6 +45,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
   alt,
   isCompleted,
   apiResult,
+  progress,
   onCycleState,
 }) => {
   const isDone =
@@ -83,6 +86,14 @@ const ItemCard: React.FC<ItemCardProps> = ({
             </span>
           )}
           {isCompleted && <span className="item-status done">✓</span>}
+          {!isDone && progress && (
+            <span
+              className="item-status api-partial"
+              title={`${progress.found} of ${progress.required} required`}
+            >
+              {progress.found}/{progress.required}
+            </span>
+          )}
         </span>
         <span className="item-name">{name}</span>
       </button>

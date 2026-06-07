@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
 const GROUP_ID = 22206;
-const CURRENT_EVENT_ID = 139407;
 const API_KEY = process.env.WOM_API_KEY ?? "";
 
 const WOM_HEADERS: Record<string, string> = {
@@ -65,17 +64,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ error: "Rate limit hit — wait a moment and try again." });
       return;
     }
-    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=3600");
     res.status(upstream.status).json(await upstream.json());
   } else if (type === "event") {
+    const compsRes = await fetch(
+      `${BASE_URL}/groups/${GROUP_ID}/competitions?limit=20`,
+      { headers: WOM_HEADERS },
+    );
+    if (compsRes.status === 429) {
+      res.status(429).json({ error: "Rate limit hit — wait a moment and try again." });
+      return;
+    }
+    if (!compsRes.ok) {
+      res.status(compsRes.status).json(await compsRes.json());
+      return;
+    }
+    const comps = (await compsRes.json()) as Array<{ id: number; status: string }>;
+    const target =
+      comps.find((c) => c.status === "ongoing") ??
+      comps.find((c) => c.status === "upcoming") ??
+      comps[0];
+    if (!target) {
+      res.status(404).json({ error: "No competition found." });
+      return;
+    }
     const upstream = await fetch(
-      `${BASE_URL}/competitions/${CURRENT_EVENT_ID}`,
+      `${BASE_URL}/competitions/${target.id}`,
       { headers: WOM_HEADERS },
     );
     if (upstream.status === 429) {
-      res
-        .status(429)
-        .json({ error: "Rate limit hit — wait a moment and try again." });
+      res.status(429).json({ error: "Rate limit hit — wait a moment and try again." });
       return;
     }
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");

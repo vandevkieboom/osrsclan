@@ -41,17 +41,24 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Warped_sceptre_detail.png",
         alt: "Warped Sceptre",
         apiCheck: {
-          type: "collection-any-group",
-          groups: [
-            ["Warped sceptre (uncharged)"],
-            [
-              "Trident of the seas (full)",
-              "Sanguinesti staff (uncharged)",
-              "Tumeken's shadow (uncharged)",
-              "Eye of Ayak",
-            ],
+          type: "collection-any-of",
+          primary: {
+            type: "collection-item",
+            names: ["Warped sceptre (uncharged)"],
+          },
+          alternatives: [
+            { type: "collection-item", names: ["Uncharged trident"] },
+            { type: "collection-item", names: ["Trident of the seas (full)"] },
+            { type: "collection-item", names: ["Eye of Ayak"] },
+            {
+              type: "collection-item",
+              names: ["Sanguinesti staff (uncharged)"],
+            },
+            {
+              type: "collection-item",
+              names: ["Tumeken's shadow (uncharged)"],
+            },
           ],
-          required: 1,
         },
       },
       {
@@ -148,6 +155,7 @@ const ranks: Rank[] = [
         name: "2/2 Royal Titan Prayers",
         img: "https://oldschool.runescape.wiki/images/Deadeye_prayer_scroll_detail.png",
         alt: "Royal Titans Prayers",
+        multiItem: true,
         apiCheck: {
           type: "collection-any-group",
           groups: [
@@ -282,6 +290,7 @@ const ranks: Rank[] = [
         name: "2/3 Cerberus Crystals",
         img: "https://oldschool.runescape.wiki/images/Primordial_crystal_detail.png",
         alt: "Cerberus Crystal",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: ["Primordial crystal", "Pegasian crystal", "Eternal crystal"],
@@ -292,6 +301,7 @@ const ranks: Rank[] = [
         name: "2/4 Zenyte Shards",
         img: "https://oldschool.runescape.wiki/images/Zenyte_shard_detail.png",
         alt: "Zenyte Shards",
+        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Zenyte shard",
@@ -302,6 +312,7 @@ const ranks: Rank[] = [
         name: "1/2 Tormented Synapses",
         img: "https://oldschool.runescape.wiki/images/Tormented_synapse_detail.png",
         alt: "Tormented Synapse",
+        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Tormented synapse",
@@ -344,6 +355,7 @@ const ranks: Rank[] = [
         name: "4/4 Zenyte Shards",
         img: "https://oldschool.runescape.wiki/images/Zenyte_shard_detail.png",
         alt: "Zenyte Shards",
+        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Zenyte shard",
@@ -354,6 +366,7 @@ const ranks: Rank[] = [
         name: "2/2 Tormented Synapses",
         img: "https://oldschool.runescape.wiki/images/Tormented_synapse_detail.png",
         alt: "Tormented Synapse",
+        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Tormented synapse",
@@ -364,6 +377,7 @@ const ranks: Rank[] = [
         name: "1/3 Doom Uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
         alt: "Doom Unique",
+        multiItem: true,
         apiCheck: {
           type: "collection-item",
           names: [
@@ -447,6 +461,7 @@ const ranks: Rank[] = [
         name: "2/3 Doom Uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
         alt: "Doom Unique",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -499,6 +514,7 @@ const ranks: Rank[] = [
         name: "2/3 Masori",
         img: "https://oldschool.runescape.wiki/images/Masori_body_detail.png",
         alt: "Masori",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: ["Masori mask", "Masori body", "Masori chaps"],
@@ -509,6 +525,7 @@ const ranks: Rank[] = [
         name: "2/3 Oathplate or Torva",
         img: "https://oldschool.runescape.wiki/images/Oathplate_chest_detail.png?",
         alt: "2/3 Oathplate or Torva",
+        multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
@@ -523,6 +540,7 @@ const ranks: Rank[] = [
         name: "1/4 DT2 Rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "1/4 DT2 Rings",
+        multiItem: true,
         apiCheck: {
           type: "collection-item",
           names: [
@@ -537,6 +555,7 @@ const ranks: Rank[] = [
         name: "3/3 Doom Uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
         alt: "Doom Unique",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -626,6 +645,7 @@ const ranks: Rank[] = [
         name: "2/4 DT2 Rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "Ultor Ring",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -641,6 +661,7 @@ const ranks: Rank[] = [
         name: "2/3 Virtus or Ancestral",
         img: "https://oldschool.runescape.wiki/images/Virtus_robe_top_detail.png",
         alt: "Virtus",
+        multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
@@ -655,6 +676,7 @@ const ranks: Rank[] = [
         name: "1/3 Megarares",
         img: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png",
         alt: "Megarares",
+        multiItem: true,
         apiCheck: {
           type: "collection-item",
           names: [
@@ -687,7 +709,11 @@ const ranks: Rank[] = [
         name: "Zaryte Crossbow",
         img: "https://oldschool.runescape.wiki/images/Zaryte_crossbow_detail.png",
         alt: "Zaryte Crossbow",
-        apiCheck: { type: "collection-item", names: ["Nihil horn"] },
+        apiCheck: {
+          type: "collection-count",
+          names: ["Nihil horn", "Armadyl crossbow"],
+          required: 2,
+        },
       },
       {
         name: "Saturated Heart",
@@ -746,6 +772,7 @@ const ranks: Rank[] = [
         name: "4/4 DT2 Rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "Ultor Ring",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -761,6 +788,7 @@ const ranks: Rank[] = [
         name: "3/3 Megarares",
         img: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png",
         alt: "Twisted Bow",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [

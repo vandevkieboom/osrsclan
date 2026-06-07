@@ -694,8 +694,6 @@ export async function fetchGroupGained(
   return data;
 }
 
-export const CURRENT_EVENT_ID = 139407;
-
 export interface EventParticipation {
   player: {
     username: string;
@@ -720,7 +718,7 @@ export interface EventCompetition {
 }
 
 export async function fetchCurrentEvent(): Promise<EventCompetition> {
-  const key = `event:${CURRENT_EVENT_ID}`;
+  const key = "event:latest";
   const cached = getCached<EventCompetition>(key);
   if (cached) return cached;
 

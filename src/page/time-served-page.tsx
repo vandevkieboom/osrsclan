@@ -9,8 +9,8 @@ import {
   getBossKc,
   type RuneProfile,
 } from "../services/runeprofile";
-import { checkRequirement } from "../services/rank-checker";
-import type { CheckResult } from "../components/item-card";
+import { checkRequirement, getRequirementProgress } from "../services/rank-checker";
+import type { Item, CheckResult } from "../components/item-card";
 
 type StateMap = Record<string, boolean>;
 type SavedProgress = {
@@ -90,6 +90,22 @@ export const ClanRankings = () => {
     return result;
   }, [profile]);
 
+  const apiProgress = useMemo<Record<string, { found: number; required: number }>>(() => {
+    if (!profile) return {};
+    const result: Record<string, { found: number; required: number }> = {};
+    ranks.forEach((rank, rankIndex) => {
+      rank.items.forEach((item, itemIndex) => {
+        if (item.multiItem && item.apiCheck) {
+          const progress = getRequirementProgress(item.apiCheck, profile);
+          if (progress) {
+            result[getKey(rankIndex, itemIndex)] = progress;
+          }
+        }
+      });
+    });
+    return result;
+  }, [profile]);
+
   const loadProfile = async () => {
     const trimmed = username.trim();
     if (!trimmed) {
@@ -111,24 +127,43 @@ export const ClanRankings = () => {
     }
   };
 
+  const isMultiItemHardFail = (item: Item, apiKey: CheckResult | undefined): boolean => {
+    if (!item.multiItem || apiKey !== "fail" || !item.apiCheck) return false;
+    switch (item.apiCheck.type) {
+      case "collection-count":
+      case "collection-quantity":
+      case "collection-piece-types":
+      case "collection-full-groups":
+      case "collection-any-group":
+        return item.apiCheck.required >= 2;
+      default:
+        return false;
+    }
+  };
+
   const getRankStats = (rankIndex: number) => {
     const total = ranks[rankIndex].items.length;
     const requiredCount = Math.max(total - 1, 0);
     let satisfiedCount = 0;
+    let hardFailCount = 0;
 
-    ranks[rankIndex].items.forEach((_, itemIndex) => {
+    ranks[rankIndex].items.forEach((item, itemIndex) => {
       const key = getKey(rankIndex, itemIndex);
       const apiKey = apiVerified[key];
       if (completed[key] || apiKey === "pass" || apiKey === "pass-alt") {
         satisfiedCount += 1;
+      } else if (isMultiItemHardFail(item, apiKey)) {
+        hardFailCount += 1;
       }
+      // "partial" = has required-1 items, eligible for the rank-level skip (not counted as satisfied)
+      // "fail" on single-item check = also eligible for the rank-level skip
     });
 
     return {
       total,
       requiredCount,
       satisfiedCount,
-      isSatisfied: satisfiedCount >= requiredCount,
+      isSatisfied: satisfiedCount >= requiredCount && hardFailCount === 0,
     };
   };
 
@@ -333,6 +368,7 @@ export const ClanRankings = () => {
               rankIndex={rankIndex}
               completed={completed}
               apiVerified={apiVerified}
+              apiProgress={apiProgress}
               hideCompleted={hideCompleted}
               eligible={eligibleByRank[rankIndex]}
               priorRanksMet={priorRanksMetByRank[rankIndex]}
