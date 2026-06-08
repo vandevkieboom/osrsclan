@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { NavMenu } from "../components/nav-menu";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
@@ -26,6 +26,7 @@ const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isPlaying, setIsPlaying] = useState(false);
   const [completed, setCompleted] = useState<StateMap>({});
   const [hideCompleted, setHideCompleted] = useState(false);
@@ -106,12 +107,13 @@ export const ClanRankings = () => {
     return result;
   }, [profile]);
 
-  const loadProfile = async () => {
-    const trimmed = username.trim();
+  const loadProfile = async (usernameArg?: string) => {
+    const trimmed = (usernameArg ?? username).trim();
     if (!trimmed) {
       return;
     }
 
+    setSearchParams({ u: trimmed }, { replace: true });
     setProfileLoading(true);
     setProfileError(null);
     setCompleted({});
@@ -126,6 +128,15 @@ export const ClanRankings = () => {
       setProfileLoading(false);
     }
   };
+
+  useEffect(() => {
+    const u = searchParams.get("u");
+    if (u) {
+      setUsername(u);
+      loadProfile(u);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isMultiItemHardFail = (item: Item, apiKey: CheckResult | undefined): boolean => {
     if (!item.multiItem || apiKey !== "fail" || !item.apiCheck) return false;

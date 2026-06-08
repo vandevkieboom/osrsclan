@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { NavMenu } from "../components/nav-menu";
 
 const CLAN = "Time Served";
@@ -407,7 +407,12 @@ function ActivityFeed({ activityType }: { activityType: string }) {
 }
 
 export function ActivityPage() {
-  const [activityType, setActivityType] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activityType = searchParams.get("type") || "all";
+
+  function setActivityType(v: string) {
+    setSearchParams(v === "all" ? {} : { type: v }, { replace: true });
+  }
 
   return (
     <div className="page">

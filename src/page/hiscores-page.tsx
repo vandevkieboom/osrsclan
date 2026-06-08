@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { NavMenu } from "../components/nav-menu";
 import {
   fetchClanHiscores,
@@ -174,9 +174,24 @@ function MetricSelect({ value, onChange }: MetricSelectProps) {
 }
 
 export function HiscoresPage() {
-  const [view, setView] = useState<"hiscores" | "event">("hiscores");
-  const [metric, setMetric] = useState("overall");
-  const [inactiveMonthOnly, setInactiveMonthOnly] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get("tab") === "event" ? "event" : "hiscores";
+  const metric = searchParams.get("metric") || "overall";
+  const inactiveMonthOnly = searchParams.get("inactive") === "1";
+
+  function updateParams(updates: Record<string, string | null>) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [k, v] of Object.entries(updates)) {
+          if (v === null) next.delete(k);
+          else next.set(k, v);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }
   const [showPlayerSearch, setShowPlayerSearch] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
   const [entries, setEntries] = useState<WomHiscoresEntry[]>([]);
@@ -344,7 +359,7 @@ export function HiscoresPage() {
           <button
             type="button"
             className={`event-tab-btn${view === "hiscores" ? " active" : ""}`}
-            onClick={() => setView("hiscores")}
+            onClick={() => updateParams({ tab: null })}
           >
             <img
               src={getWomMetricIcon("overall")}
@@ -356,7 +371,7 @@ export function HiscoresPage() {
           <button
             type="button"
             className={`event-tab-btn event-tab-btn--event${view === "event" ? " active" : ""}`}
-            onClick={() => setView("event")}
+            onClick={() => updateParams({ tab: "event" })}
           >
             <span className="event-tab-emoji" aria-hidden="true">
               🏆
@@ -366,11 +381,11 @@ export function HiscoresPage() {
         </div>
         {view === "hiscores" && (
           <div className="metric-controls-right">
-            <MetricSelect value={metric} onChange={setMetric} />
+            <MetricSelect value={metric} onChange={(v) => updateParams({ metric: v === "overall" ? null : v })} />
             <button
               type="button"
               className={`tracker-btn${inactiveMonthOnly ? " active" : ""}`}
-              onClick={() => setInactiveMonthOnly((v) => !v)}
+              onClick={() => updateParams({ inactive: inactiveMonthOnly ? null : "1" })}
               disabled={gainedMap === null}
               title={gainedMap === null ? "Loading activity data…" : undefined}
             >
