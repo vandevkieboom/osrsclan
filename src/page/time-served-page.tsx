@@ -311,7 +311,7 @@ export const ClanRankings = () => {
               <button
                 type="button"
                 className="tracker-btn profile-lookup-btn"
-                onClick={loadProfile}
+                onClick={() => loadProfile()}
                 disabled={profileLoading || !username.trim()}
               >
                 {profileLoading ? "Loading..." : "Auto-Verify"}
