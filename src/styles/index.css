@@ -1651,6 +1651,7 @@ body::after {
   color: #e8c87a;
   text-shadow: 0 0 6px #000a;
   letter-spacing: 0.03em;
+  text-decoration: none;
 }
 
 .event-status {

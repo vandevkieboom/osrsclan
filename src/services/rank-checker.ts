@@ -261,7 +261,8 @@ export function getRequirementProgress(
     }
     case "collection-quantity": {
       const found = profile.itemMap.get(check.name.toLowerCase()) ?? 0;
-      return { found: Math.min(found, check.required), required: check.required };
+      const total = check.displayTotal ?? check.required;
+      return { found: Math.min(found, total), required: total };
     }
     case "collection-piece-types": {
       const oathplateSlots = ["oathplate helm", "oathplate chest", "oathplate legs"];
@@ -282,7 +283,7 @@ export function getRequirementProgress(
         }
         return false;
       }).length;
-      return { found, required: check.required };
+      return { found, required: check.pieceGroups.length };
     }
     case "collection-full-groups": {
       const found = check.groups.filter((group) =>

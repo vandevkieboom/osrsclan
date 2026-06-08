@@ -306,6 +306,7 @@ const ranks: Rank[] = [
           type: "collection-quantity",
           name: "Zenyte shard",
           required: 2,
+          displayTotal: 4,
         },
       },
       {
@@ -317,6 +318,7 @@ const ranks: Rank[] = [
           type: "collection-quantity",
           name: "Tormented synapse",
           required: 1,
+          displayTotal: 2,
         },
       },
     ],

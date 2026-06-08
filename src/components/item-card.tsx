@@ -11,7 +11,7 @@ export type ApiCheck =
   | { type: "skill-level"; skill: string; required: number }
   | { type: "collection-item"; names: string[] }
   | { type: "collection-count"; names: string[]; required: number }
-  | { type: "collection-quantity"; name: string; required: number }
+  | { type: "collection-quantity"; name: string; required: number; displayTotal?: number }
   | { type: "collection-any-group"; groups: string[][]; required: number }
   | { type: "collection-full-groups"; groups: string[][]; required: number }
   | { type: "collection-all-plus-any"; all: string[]; any: string[] }
