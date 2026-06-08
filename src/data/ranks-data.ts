@@ -616,9 +616,10 @@ const ranks: Rank[] = [
         apiCheck: { type: "collection-item", names: ["Cursed phalanx"] },
       },
       {
-        name: "Full Oathplate or Torva",
+        name: "3/3 Oathplate or Torva",
         img: "https://oldschool.runescape.wiki/images/Oathplate_chest_detail.png?",
-        alt: "Full Oathplate or Torva",
+        alt: "3/3 Oathplate or Torva",
+        multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
@@ -631,7 +632,7 @@ const ranks: Rank[] = [
       },
       {
         name: "Blood Torva",
-        img: "https://oldschool.runescape.wiki/images/Sanguine_torva_platebody_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Ancient_blood_ornament_kit_detail.png",
         alt: "Blood Torva",
         apiCheck: {
           type: "combat-achievement-task",
@@ -723,14 +724,17 @@ const ranks: Rank[] = [
         alt: "Saturated Heart",
       },
       {
-        name: "Full Masori (F)",
+        name: "3/3 Masori (F)",
         img: "https://oldschool.runescape.wiki/images/Masori_body_%28f%29_detail.png",
-        alt: "Full Masori (F)",
+        alt: "3/3 Masori (F)",
+        multiItem: true,
+        apiCheck: { type: "collection-masori-f" },
       },
       {
-        name: "Full Ancestral",
+        name: "3/3 Ancestral",
         img: "https://oldschool.runescape.wiki/images/Ancestral_robe_top_detail.png",
-        alt: "Full Ancestral",
+        alt: "3/3 Ancestral",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -742,9 +746,10 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Full Torva",
+        name: "3/3 Torva",
         img: "https://oldschool.runescape.wiki/images/Torva_platebody_detail.png",
-        alt: "Full Torva",
+        alt: "3/3 Torva",
+        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [

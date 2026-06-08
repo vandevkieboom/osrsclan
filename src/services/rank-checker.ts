@@ -219,6 +219,26 @@ export function checkRequirement(
       return allPass ? "pass" : "fail";
     }
 
+    case "collection-masori-f": {
+      const mask = (profile.itemMap.get("masori mask") ?? 0) > 0;
+      const body = (profile.itemMap.get("masori body") ?? 0) > 0;
+      const chaps = (profile.itemMap.get("masori chaps") ?? 0) > 0;
+      const plates =
+        (profile.itemMap.get("armadyl helmet") ?? 0) * 1 +
+        (profile.itemMap.get("armadyl chestplate") ?? 0) * 4 +
+        (profile.itemMap.get("armadyl chainskirt") ?? 0) * 3;
+
+      if (mask && body && chaps && plates >= 8) return "pass";
+      // Partial: can craft any 2 of the 3 pieces
+      if (
+        (mask && body && plates >= 5) ||
+        (mask && chaps && plates >= 4) ||
+        (body && chaps && plates >= 7)
+      )
+        return "partial";
+      return "fail";
+    }
+
     default: {
       return "fail";
     }
@@ -296,6 +316,22 @@ export function getRequirementProgress(
         group.filter((n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0).length;
       const maxFound = Math.max(...check.groups.map(countInGroup));
       return { found: Math.min(maxFound, check.required), required: check.required };
+    }
+    case "collection-masori-f": {
+      const mask = (profile.itemMap.get("masori mask") ?? 0) > 0;
+      const body = (profile.itemMap.get("masori body") ?? 0) > 0;
+      const chaps = (profile.itemMap.get("masori chaps") ?? 0) > 0;
+      const plates =
+        (profile.itemMap.get("armadyl helmet") ?? 0) * 1 +
+        (profile.itemMap.get("armadyl chestplate") ?? 0) * 4 +
+        (profile.itemMap.get("armadyl chainskirt") ?? 0) * 3;
+      // Greedy allocation (most expensive first) to count max craftable pieces
+      let craftable = 0;
+      let remaining = plates;
+      if (body && remaining >= 4) { craftable++; remaining -= 4; }
+      if (chaps && remaining >= 3) { craftable++; remaining -= 3; }
+      if (mask && remaining >= 1) { craftable++; remaining -= 1; }
+      return { found: craftable, required: 3 };
     }
     default:
       return null;

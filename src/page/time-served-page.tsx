@@ -136,6 +136,8 @@ export const ClanRankings = () => {
       case "collection-full-groups":
       case "collection-any-group":
         return item.apiCheck.required >= 2;
+      case "collection-masori-f":
+        return true;
       default:
         return false;
     }

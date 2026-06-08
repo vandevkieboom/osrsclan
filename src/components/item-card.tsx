@@ -22,7 +22,8 @@ export type ApiCheck =
       pieceGroups: string[][];
       required: number;
     }
-  | { type: "collection-all-checks"; checks: ApiCheck[] };
+  | { type: "collection-all-checks"; checks: ApiCheck[] }
+  | { type: "collection-masori-f" };
 
 export type Item = {
   name: string;
