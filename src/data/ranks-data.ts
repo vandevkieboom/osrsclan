@@ -115,8 +115,16 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Trident_of_the_seas_detail.png",
         alt: "Trident",
         apiCheck: {
-          type: "collection-item",
-          names: ["Uncharged trident", "Trident of the seas (full)"],
+          type: "collection-any-of",
+          primary: {
+            type: "collection-item",
+            names: ["Uncharged trident", "Trident of the seas (full)"],
+          },
+          alternatives: [
+            { type: "collection-item", names: ["Sanguinesti staff (uncharged)"] },
+            { type: "collection-item", names: ["Eye of ayak (uncharged)"] },
+            { type: "collection-item", names: ["Tumeken's shadow (uncharged)"] },
+          ],
         },
       },
       {
