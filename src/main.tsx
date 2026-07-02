@@ -6,6 +6,7 @@ import { HomePage } from "./page/home-page.tsx";
 import { ClanRankings } from "./page/time-served-page.tsx";
 import { HiscoresPage } from "./page/hiscores-page.tsx";
 import { ActivityPage } from "./page/activity-page.tsx";
+import { TierFeedbackPage } from "./page/tier-feedback-page.tsx";
 import { Analytics } from "@vercel/analytics/react";
 
 createRoot(document.getElementById("root")!).render(
@@ -16,6 +17,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/rankings" element={<ClanRankings />} />
         <Route path="/hiscores" element={<HiscoresPage />} />
         <Route path="/activity" element={<ActivityPage />} />
+        <Route path="/rankings-feedback" element={<TierFeedbackPage />} />
       </Routes>
     </BrowserRouter>
     <Analytics />

@@ -431,7 +431,7 @@ body::after {
   color: var(--rank-color, #e03a3a);
   text-shadow:
     0 0 2px #0006,
-    0 0 4px color-mix(in srgb, var(--rank-color, #ff5364) 60%, transparent 40%);
+    0 0 4px var(--rank-color, #ff5364);
   letter-spacing: 0.02em;
 }
 
@@ -2284,4 +2284,198 @@ body::after {
   .home-panels {
     grid-template-columns: 1fr;
   }
+}
+
+/* =====================
+   Tier List Feedback Page
+   ===================== */
+
+.tier-feedback-intro {
+  max-width: 640px;
+  margin: 0 auto;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: #d8b0b0;
+  text-align: center;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  position: relative;
+  z-index: 2;
+}
+
+.tier-feedback-intro p {
+  margin-bottom: 0.6rem;
+}
+
+.tier-feedback-hint {
+  color: #a88080;
+  font-size: 0.72rem;
+}
+
+.tier-feedback-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  position: relative;
+  z-index: 2;
+}
+
+.tier-feedback-page.is-capturing,
+.tier-feedback-page.is-capturing .tier-box,
+.tier-feedback-page.is-capturing .tier-pool {
+  background-image: none !important;
+}
+
+.tier-pool {
+  -webkit-tap-highlight-color: transparent;
+  border: 2px dashed #6a2a2a;
+  background: #181010cc
+    url("https://oldschool.runescape.wiki/images/Corrupted_Gauntlet_tile.png")
+    repeat;
+  background-size: 120px 120px;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1.2rem;
+  position: relative;
+  z-index: 2;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.tier-pool.drag-over,
+.tier-feedback-page.is-placing .tier-pool:hover {
+  border-color: #b02a2a;
+  box-shadow: 0 0 14px #b02a2a44;
+}
+
+.tier-pool-header {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 0.85rem;
+  color: #e8a0a0;
+  margin-bottom: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+.tier-box-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: relative;
+  z-index: 2;
+}
+
+.tier-box {
+  -webkit-tap-highlight-color: transparent;
+  border: 2px solid #3a1818;
+  background: #181010cc
+    url("https://oldschool.runescape.wiki/images/Corrupted_Gauntlet_tile.png")
+    repeat;
+  background-size: 120px 120px;
+  border-radius: 4px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 0 0 2px #3a1818 inset;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.tier-box.drag-over,
+.tier-feedback-page.is-placing .tier-box:hover {
+  border-color: var(--rank-color, #b02a2a);
+  box-shadow:
+    0 0 0 2px #3a1818 inset,
+    0 0 14px var(--rank-color, #b02a2a);
+}
+
+.tier-box-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.tier-box-count {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #a88080;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  background: #1a0a0a;
+  border: 1px solid #3a1818;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+}
+
+.tier-box-exclude {
+  margin-bottom: 0.3rem;
+  border-style: dashed;
+  border-color: #5a4a4a;
+  --rank-color: #8a7070;
+}
+
+.rank-name-exclude {
+  color: #a89090;
+  text-shadow: none;
+}
+
+.tier-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 58px;
+  align-items: flex-start;
+}
+
+.tier-empty-hint {
+  font-size: 0.68rem;
+  color: #6a5050;
+  font-style: italic;
+  align-self: center;
+  padding: 0.6rem 0;
+}
+
+.tier-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 62px;
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.tier-item:active {
+  cursor: grabbing;
+}
+
+.tier-item.is-selected {
+  border-color: #b02a2a;
+  background: #2a101088;
+  box-shadow: 0 0 8px #b02a2a55;
+}
+
+.tier-item.is-dragging {
+  opacity: 0.3;
+}
+
+.tier-item-icon-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tier-ghost {
+  position: fixed;
+  z-index: 999;
+  pointer-events: none;
+  transform: translate(-50%, -130%);
+  filter: drop-shadow(0 0 8px #000c);
 }
