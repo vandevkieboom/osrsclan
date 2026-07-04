@@ -7,39 +7,39 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Sapphire.png",
     items: [
       {
-        name: "Easy CA Completed",
+        name: "Easy combat achievements",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_1_detail.png",
-        alt: "Ghommal's Hilt 1",
+        alt: "Easy combat achievements",
         apiCheck: { type: "combat-achievement", tier: "Easy" },
       },
       {
-        name: "Fire Cape",
+        name: "Fire cape",
         img: "https://oldschool.runescape.wiki/images/Fire_cape_detail.png",
-        alt: "Fire Cape",
+        alt: "Fire cape",
         apiCheck: { type: "collection-item", names: ["Fire cape"] },
       },
       {
-        name: "Imbued God Cape",
+        name: "Imbued god cape",
         img: "https://oldschool.runescape.wiki/images/Imbued_zamorak_cape_detail.png",
-        alt: "Imbued God Cape",
+        alt: "Imbued god cape",
         apiCheck: { type: "quest", name: "Mage Arena II" },
       },
       {
-        name: "Berserker Ring",
+        name: "Berserker ring",
         img: "https://oldschool.runescape.wiki/images/Berserker_ring_detail.png",
-        alt: "Berserker Ring",
+        alt: "Berserker ring",
         apiCheck: { type: "collection-item", names: ["Berserker ring"] },
       },
       {
-        name: "Dragon Defender",
+        name: "Dragon defender",
         img: "https://oldschool.runescape.wiki/images/Dragon_defender_detail.png",
-        alt: "Dragon Defender",
+        alt: "Dragon defender",
         apiCheck: { type: "collection-item", names: ["Dragon defender"] },
       },
       {
-        name: "Warped Sceptre",
+        name: "Warped sceptre",
         img: "https://oldschool.runescape.wiki/images/Warped_sceptre_detail.png",
-        alt: "Warped Sceptre",
+        alt: "Warped sceptre",
         apiCheck: {
           type: "collection-any-of",
           primary: {
@@ -62,9 +62,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Zombie Axe",
+        name: "Zombie axe",
         img: "https://oldschool.runescape.wiki/images/Zombie_axe_detail.png",
-        alt: "Zombie Axe",
+        alt: "Zombie axe",
         apiCheck: {
           type: "collection-any-of",
           primary: { type: "collection-item", names: ["Broken zombie axe"] },
@@ -93,27 +93,27 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Emerald.png",
     items: [
       {
-        name: "Medium CA Completed",
+        name: "Medium combat achievements",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_2_detail.png",
-        alt: "Ghommal's Hilt 2",
+        alt: "Medium combat achievements",
         apiCheck: { type: "combat-achievement", tier: "Medium" },
       },
       {
-        name: "Quest Point Cape",
+        name: "Quest point cape",
         img: "https://oldschool.runescape.wiki/images/Quest_point_cape_detail.png",
-        alt: "Quest Point Cape",
+        alt: "Quest point cape",
         apiCheck: { type: "quest-cape" },
       },
       {
-        name: "Ava's Assembler",
+        name: "Ava's assembler",
         img: "https://oldschool.runescape.wiki/images/Ava%27s_assembler_detail.png",
-        alt: "Ava's Assembler",
+        alt: "Ava's assembler",
         apiCheck: { type: "collection-item", names: ["Vorkath's head"] },
       },
       {
-        name: "Trident of the Seas",
+        name: "Trident of the seas",
         img: "https://oldschool.runescape.wiki/images/Trident_of_the_seas_detail.png",
-        alt: "Trident",
+        alt: "Trident of the seas",
         apiCheck: {
           type: "collection-any-of",
           primary: {
@@ -121,16 +121,22 @@ const ranks: Rank[] = [
             names: ["Uncharged trident", "Trident of the seas (full)"],
           },
           alternatives: [
-            { type: "collection-item", names: ["Sanguinesti staff (uncharged)"] },
+            {
+              type: "collection-item",
+              names: ["Sanguinesti staff (uncharged)"],
+            },
             { type: "collection-item", names: ["Eye of ayak (uncharged)"] },
-            { type: "collection-item", names: ["Tumeken's shadow (uncharged)"] },
+            {
+              type: "collection-item",
+              names: ["Tumeken's shadow (uncharged)"],
+            },
           ],
         },
       },
       {
-        name: "Abyssal Whip",
+        name: "Abyssal whip",
         img: "https://oldschool.runescape.wiki/images/Abyssal_whip_detail.png",
-        alt: "Abyssal Whip",
+        alt: "Abyssal whip",
         apiCheck: {
           type: "collection-any-of",
           primary: { type: "collection-item", names: ["Abyssal whip"] },
@@ -160,9 +166,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/2 Royal Titan Prayers",
+        name: "2/2 Titan prayer scrolls",
         img: "https://oldschool.runescape.wiki/images/Deadeye_prayer_scroll_detail.png",
-        alt: "Royal Titans Prayers",
+        alt: "2/2 Titan prayer scrolls",
         multiItem: true,
         apiCheck: {
           type: "collection-any-group",
@@ -174,9 +180,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Blood Moon Armour Set",
+        name: "Blood moon armour",
         img: "https://oldschool.runescape.wiki/images/Blood_moon_helm_detail.png",
-        alt: "Blood Moon Armour Set",
+        alt: "Blood moon armour",
         apiCheck: {
           type: "collection-all-checks",
           checks: [
@@ -258,21 +264,21 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Ruby.png",
     items: [
       {
-        name: "Hard CA Completed",
+        name: "Hard combat achievements",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_3_detail.png",
-        alt: "Ghommal's Hilt 3",
+        alt: "Hard combat achievements",
         apiCheck: { type: "combat-achievement", tier: "Hard" },
       },
       {
-        name: "Amulet of Fury",
+        name: "Amulet of fury",
         img: "https://oldschool.runescape.wiki/images/Amulet_of_fury_detail.png",
-        alt: "Amulet of Fury",
+        alt: "Amulet of fury",
         apiCheck: { type: "skill-level", skill: "Crafting", required: 85 },
       },
       {
-        name: "Bandos Godsword",
+        name: "Bandos godsword",
         img: "https://oldschool.runescape.wiki/images/Bandos_godsword_detail.png",
-        alt: "Bandos Godsword",
+        alt: "Bandos godsword",
         apiCheck: {
           type: "collection-count",
           names: [
@@ -285,9 +291,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Dragon Warhammer",
+        name: "Dragon warhammer",
         img: "https://oldschool.runescape.wiki/images/Dragon_warhammer_detail.png",
-        alt: "Dragon Warhammer",
+        alt: "Dragon warhammer",
         apiCheck: {
           type: "collection-any-of",
           primary: { type: "collection-item", names: ["Dragon warhammer"] },
@@ -295,9 +301,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/3 Cerberus Crystals",
+        name: "2/3 Cerberus crystals",
         img: "https://oldschool.runescape.wiki/images/Primordial_crystal_detail.png",
-        alt: "Cerberus Crystal",
+        alt: "2/3 Cerberus crystals",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -306,9 +312,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/4 Zenyte Shards",
+        name: "2/4 Zenyte shards",
         img: "https://oldschool.runescape.wiki/images/Zenyte_shard_detail.png",
-        alt: "Zenyte Shards",
+        alt: "2/4 Zenyte shards",
         multiItem: true,
         apiCheck: {
           type: "collection-quantity",
@@ -318,9 +324,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "1/2 Tormented Synapses",
+        name: "1/2 Tormented synapses",
         img: "https://oldschool.runescape.wiki/images/Tormented_synapse_detail.png",
-        alt: "Tormented Synapse",
+        alt: "1/2 Tormented synapses",
         multiItem: true,
         apiCheck: {
           type: "collection-quantity",
@@ -337,9 +343,9 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Diamond.png",
     items: [
       {
-        name: "Occult Necklace",
+        name: "Occult necklace",
         img: "https://oldschool.runescape.wiki/images/Occult_necklace_detail.png",
-        alt: "Occult Necklace",
+        alt: "Occult necklace",
         apiCheck: { type: "collection-item", names: ["Occult necklace"] },
       },
       {
@@ -353,18 +359,18 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Osmumten's Fang or Lightbearer",
+        name: "Osmumten's fang or Lightbearer",
         img: "https://oldschool.runescape.wiki/images/Osmumten%27s_fang_detail.png",
-        alt: "Osmumten's Fang",
+        alt: "Osmumten's fang or Lightbearer",
         apiCheck: {
           type: "collection-item",
           names: ["Osmumten's fang", "Lightbearer"],
         },
       },
       {
-        name: "4/4 Zenyte Shards",
+        name: "4/4 Zenyte shards",
         img: "https://oldschool.runescape.wiki/images/Zenyte_shard_detail.png",
-        alt: "Zenyte Shards",
+        alt: "4/4 Zenyte shards",
         multiItem: true,
         apiCheck: {
           type: "collection-quantity",
@@ -373,9 +379,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/2 Tormented Synapses",
+        name: "2/2 Tormented synapses",
         img: "https://oldschool.runescape.wiki/images/Tormented_synapse_detail.png",
-        alt: "Tormented Synapse",
+        alt: "2/2 Tormented synapses",
         multiItem: true,
         apiCheck: {
           type: "collection-quantity",
@@ -384,9 +390,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "1/3 Doom Uniques",
+        name: "1/3 Doom uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
-        alt: "Doom Unique",
+        alt: "1/3 Doom uniques",
         multiItem: true,
         apiCheck: {
           type: "collection-item",
@@ -405,48 +411,48 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Dragonstone.png",
     items: [
       {
-        name: "Elite CA Completed",
+        name: "Elite combat achievements",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_4_detail.png",
-        alt: "Ghommal's Hilt 4",
+        alt: "Elite combat achievements",
         apiCheck: { type: "combat-achievement", tier: "Elite" },
       },
       {
-        name: "Achievement Diary Cape",
+        name: "Achievement diary cape",
         img: "https://oldschool.runescape.wiki/images/Achievement_diary_cape_detail.png",
-        alt: "Achievement Diary Cape",
+        alt: "Achievement diary cape",
         apiCheck: { type: "diary-cape" },
       },
       {
-        name: "Any CoX Prayer Scroll",
+        name: "1/2 CoX prayer scrolls",
         img: "https://oldschool.runescape.wiki/images/Arcane_prayer_scroll_detail.png",
-        alt: "Augury or Rigour",
+        alt: "1/2 CoX prayer scrolls",
         apiCheck: {
           type: "collection-item",
           names: ["Arcane prayer scroll", "Dexterous prayer scroll"],
         },
       },
       {
-        name: "Toxic Blowpipe",
+        name: "Toxic blowpipe",
         img: "https://oldschool.runescape.wiki/images/Toxic_blowpipe_detail.png",
-        alt: "Toxic Blowpipe",
+        alt: "Toxic blowpipe",
         apiCheck: { type: "collection-item", names: ["Tanzanite fang"] },
       },
       {
-        name: "Amulet of Rancour",
+        name: "Amulet of rancour",
         img: "https://oldschool.runescape.wiki/images/Amulet_of_rancour_detail.png",
-        alt: "Amulet of Rancour",
+        alt: "Amulet of rancour",
         apiCheck: { type: "collection-item", names: ["Araxyte fang"] },
       },
       {
-        name: "Ferocious Gloves",
+        name: "Ferocious gloves",
         img: "https://oldschool.runescape.wiki/images/Ferocious_gloves_detail.png",
-        alt: "Ferocious Gloves",
+        alt: "Ferocious gloves",
         apiCheck: { type: "collection-item", names: ["Hydra leather"] },
       },
       {
-        name: "Noxious Halberd",
+        name: "Noxious halberd",
         img: "https://oldschool.runescape.wiki/images/Noxious_halberd_detail.png",
-        alt: "Noxious Halberd",
+        alt: "Noxious halberd",
         apiCheck: {
           type: "collection-any-of",
           primary: {
@@ -468,9 +474,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/3 Doom Uniques",
+        name: "2/3 Doom uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
-        alt: "Doom Unique",
+        alt: "2/3 Doom uniques",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -490,30 +496,30 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Onyx.png",
     items: [
       {
-        name: "Infernal Cape",
+        name: "Infernal cape",
         img: "https://oldschool.runescape.wiki/images/Infernal_cape_detail.png",
-        alt: "Infernal Cape",
+        alt: "Infernal cape",
         apiCheck: { type: "collection-item", names: ["Infernal cape"] },
       },
       {
-        name: "Avernic Defender",
+        name: "Avernic defender",
         img: "https://oldschool.runescape.wiki/images/Avernic_defender_detail.png",
-        alt: "Avernic Defender",
+        alt: "Avernic defender",
         apiCheck: { type: "collection-item", names: ["Avernic defender hilt"] },
       },
       {
-        name: "Dizana's Quiver",
+        name: "Dizana's quiver",
         img: "https://oldschool.runescape.wiki/images/Dizana%27s_quiver_detail.png",
-        alt: "Dizana's Quiver",
+        alt: "Dizana's quiver",
         apiCheck: {
           type: "collection-item",
           names: ["Dizana's quiver (uncharged)"],
         },
       },
       {
-        name: "Dragon Hunter Lance",
+        name: "Dragon hunter lance",
         img: "https://oldschool.runescape.wiki/images/Dragon_hunter_lance_detail.png",
-        alt: "Dragon Hunter Lance",
+        alt: "Dragon hunter lance",
         apiCheck: {
           type: "collection-count",
           names: ["Hydra's claw", "Zamorakian spear"],
@@ -521,9 +527,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/3 Masori",
-        img: "https://oldschool.runescape.wiki/images/Masori_body_detail.png",
-        alt: "Masori",
+        name: "2/3 Masori armour",
+        img: "https://oldschool.runescape.wiki/images/Masori_mask_detail.png",
+        alt: "2/3 Masori armour",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -532,9 +538,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/3 Oathplate or Torva",
-        img: "https://oldschool.runescape.wiki/images/Oathplate_chest_detail.png?",
-        alt: "2/3 Oathplate or Torva",
+        name: "2/3 Oathplate armour",
+        img: "https://oldschool.runescape.wiki/images/Oathplate_helm_detail.png",
+        alt: "2/3 Oathplate armour",
         multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
@@ -547,9 +553,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "1/4 DT2 Rings",
+        name: "1/4 DT2 rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
-        alt: "1/4 DT2 Rings",
+        alt: "1/4 DT2 rings",
         multiItem: true,
         apiCheck: {
           type: "collection-item",
@@ -562,9 +568,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "3/3 Doom Uniques",
+        name: "3/3 Doom uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
-        alt: "Doom Unique",
+        alt: "3/3 Doom uniques",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -584,15 +590,15 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Zenyte.png",
     items: [
       {
-        name: "Master CA Completed",
+        name: "Master combat achievements",
         img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_5_detail.png",
-        alt: "Ghommal's Hilt 5",
+        alt: "Master combat achievements",
         apiCheck: { type: "combat-achievement", tier: "Master" },
       },
       {
-        name: "Avernic Treads (Max)",
+        name: "Avernic treads (max)",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_%28max%29_detail.png",
-        alt: "Avernic Treads",
+        alt: "Avernic treads (max)",
         apiCheck: {
           type: "collection-count",
           names: [
@@ -607,26 +613,26 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Zaryte Vambraces",
+        name: "Zaryte vambraces",
         img: "https://oldschool.runescape.wiki/images/Zaryte_vambraces_detail.png",
-        alt: "Zaryte Vambraces",
+        alt: "Zaryte vambraces",
         apiCheck: { type: "collection-item", names: ["Zaryte vambraces"] },
       },
       {
-        name: "Blessed Dizana's Quiver",
+        name: "Blessed dizana's quiver",
         img: "https://oldschool.runescape.wiki/images/Blessed_dizana%27s_quiver_detail.png",
-        alt: "Blessed Dizana's Quiver",
+        alt: "Blessed dizana's quiver",
       },
       {
-        name: "TOA 500 Fang Kit",
-        img: "https://oldschool.runescape.wiki/images/Osmumten%27s_fang_%28or%29_detail.png",
-        alt: "TOA 500 Fang Kit",
+        name: "Cursed phalanx",
+        img: "https://oldschool.runescape.wiki/images/Cursed_phalanx_detail.png",
+        alt: "Cursed phalanx",
         apiCheck: { type: "collection-item", names: ["Cursed phalanx"] },
       },
       {
-        name: "3/3 Oathplate or Torva",
-        img: "https://oldschool.runescape.wiki/images/Oathplate_chest_detail.png?",
-        alt: "3/3 Oathplate or Torva",
+        name: "3/3 Oathplate armour",
+        img: "https://oldschool.runescape.wiki/images/Oathplate_helm_detail.png",
+        alt: "3/3 Oathplate armour",
         multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
@@ -639,9 +645,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Blood Torva",
+        name: "Ancient blood ornament kit",
         img: "https://oldschool.runescape.wiki/images/Ancient_blood_ornament_kit_detail.png",
-        alt: "Blood Torva",
+        alt: "Ancient blood ornament kit",
         apiCheck: {
           type: "combat-achievement-task",
           names: [
@@ -653,9 +659,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/4 DT2 Rings",
+        name: "2/4 DT2 rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
-        alt: "Ultor Ring",
+        alt: "2/4 DT2 rings",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -669,9 +675,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/3 Virtus or Ancestral",
-        img: "https://oldschool.runescape.wiki/images/Virtus_robe_top_detail.png",
-        alt: "Virtus",
+        name: "2/3 Virtus robes",
+        img: "https://oldschool.runescape.wiki/images/Virtus_mask_detail.png",
+        alt: "2/3 Virtus robes",
         multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
@@ -686,7 +692,7 @@ const ranks: Rank[] = [
       {
         name: "1/3 Megarares",
         img: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png",
-        alt: "Megarares",
+        alt: "1/3 Megarares",
         multiItem: true,
         apiCheck: {
           type: "collection-item",
@@ -705,21 +711,21 @@ const ranks: Rank[] = [
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_TzKal.png",
     items: [
       {
-        name: "2376 Total Level",
-        img: "https://oldschool.runescape.wiki/images/Stats_icon.png",
-        alt: "Total Level",
-        apiCheck: { type: "total-level", required: 2376 },
-      },
-      {
-        name: "Grandmaster CA Completed",
-        img: "https://oldschool.runescape.wiki/images/Ghommal%27s_hilt_6_detail.png",
-        alt: "Ghommal's Hilt 6",
+        name: "Grandmaster combat achievements",
+        img: "https://oldschool.runescape.wiki/images/Tzkal_slayer_helmet_detail.png",
+        alt: "Grandmaster combat achievements",
         apiCheck: { type: "combat-achievement", tier: "Grandmaster" },
       },
       {
-        name: "Zaryte Crossbow",
+        name: "Max cape",
+        img: "https://oldschool.runescape.wiki/images/Max_cape_detail.png",
+        alt: "Max cape",
+        apiCheck: { type: "total-level", required: 2376 },
+      },
+      {
+        name: "Zaryte crossbow",
         img: "https://oldschool.runescape.wiki/images/Zaryte_crossbow_detail.png",
-        alt: "Zaryte Crossbow",
+        alt: "Zaryte crossbow",
         apiCheck: {
           type: "collection-count",
           names: ["Nihil horn", "Armadyl crossbow"],
@@ -727,21 +733,21 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Saturated Heart",
+        name: "Saturated heart",
         img: "https://oldschool.runescape.wiki/images/Saturated_heart_detail.png",
-        alt: "Saturated Heart",
+        alt: "Saturated heart",
       },
       {
-        name: "3/3 Masori (F)",
-        img: "https://oldschool.runescape.wiki/images/Masori_body_%28f%29_detail.png",
-        alt: "3/3 Masori (F)",
+        name: "3/3 Masori armour (f)",
+        img: "https://oldschool.runescape.wiki/images/Masori_mask_%28f%29_detail.png",
+        alt: "3/3 Masori armour (f)",
         multiItem: true,
         apiCheck: { type: "collection-masori-f" },
       },
       {
-        name: "3/3 Ancestral",
-        img: "https://oldschool.runescape.wiki/images/Ancestral_robe_top_detail.png",
-        alt: "3/3 Ancestral",
+        name: "3/3 Ancestral robes",
+        img: "https://oldschool.runescape.wiki/images/Ancestral_hat_detail.png",
+        alt: "3/3 Ancestral robes",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -754,9 +760,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "3/3 Torva",
-        img: "https://oldschool.runescape.wiki/images/Torva_platebody_detail.png",
-        alt: "3/3 Torva",
+        name: "3/3 Torva armour",
+        img: "https://oldschool.runescape.wiki/images/Torva_full_helm_detail.png",
+        alt: "3/3 Torva armour",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -769,14 +775,14 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Radiant Oathplate",
-        img: "https://oldschool.runescape.wiki/images/Radiant_oathplate_chest_detail.png",
-        alt: "Radiant Oathplate",
+        name: "Radiant oathplate armour",
+        img: "https://oldschool.runescape.wiki/images/Purifying_sigil_detail.png",
+        alt: "Radiant oathplate armour",
       },
       {
-        name: "Completed Spirit Shield",
+        name: "Completed spirit shield",
         img: "https://oldschool.runescape.wiki/images/Elysian_spirit_shield_detail.png",
-        alt: "Spirit Shield",
+        alt: "Completed spirit shield",
         apiCheck: {
           type: "collection-all-plus-any",
           all: ["Spirit shield", "Holy elixir"],
@@ -784,9 +790,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "4/4 DT2 Rings",
+        name: "4/4 DT2 rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
-        alt: "Ultor Ring",
+        alt: "4/4 DT2 rings",
         multiItem: true,
         apiCheck: {
           type: "collection-count",
@@ -802,7 +808,7 @@ const ranks: Rank[] = [
       {
         name: "3/3 Megarares",
         img: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png",
-        alt: "Twisted Bow",
+        alt: "3/3 Megarares",
         multiItem: true,
         apiCheck: {
           type: "collection-count",

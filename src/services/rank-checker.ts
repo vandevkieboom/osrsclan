@@ -188,26 +188,40 @@ export function checkRequirement(
         (profile.itemMap.get("oathplate shards") ?? 0);
 
       let shardsRemaining = shardCount;
+      let primaryCount = 0;
+      let altCount = 0;
 
-      const typesRepresented = check.pieceGroups.filter((group) => {
+      for (const group of check.pieceGroups) {
+        const [primaryName, ...altNames] = group;
         if (
-          group.some(
+          primaryName !== undefined &&
+          (profile.itemMap.get(primaryName.toLowerCase()) ?? 0) > 0
+        ) {
+          primaryCount++;
+          continue;
+        }
+        const hasOathplateSlot =
+          primaryName !== undefined &&
+          oathplateSlots.includes(primaryName.toLowerCase());
+        if (hasOathplateSlot && shardsRemaining >= 450) {
+          shardsRemaining -= 450;
+          primaryCount++;
+          continue;
+        }
+        if (
+          altNames.some(
             (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
           )
         ) {
-          return true;
+          altCount++;
         }
-        const hasOathplateSlot = group.some((name) =>
-          oathplateSlots.includes(name.toLowerCase()),
-        );
-        if (hasOathplateSlot && shardsRemaining >= 450) {
-          shardsRemaining -= 450;
-          return true;
-        }
-        return false;
-      }).length;
+      }
 
-      if (typesRepresented >= check.required) return "pass";
+      const typesRepresented = primaryCount + altCount;
+
+      if (typesRepresented >= check.required) {
+        return altCount > 0 ? "pass-alt" : "pass";
+      }
       if (check.required >= 2 && typesRepresented >= check.required - 1) return "partial";
       return "fail";
     }
@@ -291,12 +305,16 @@ export function getRequirementProgress(
         (profile.itemMap.get("oathplate shards") ?? 0);
       let shardsRemaining = shardCount;
       const found = check.pieceGroups.filter((group) => {
-        if (group.some((name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0)) {
+        const [primaryName] = group;
+        if (
+          primaryName !== undefined &&
+          (profile.itemMap.get(primaryName.toLowerCase()) ?? 0) > 0
+        ) {
           return true;
         }
-        const hasOathplateSlot = group.some((name) =>
-          oathplateSlots.includes(name.toLowerCase()),
-        );
+        const hasOathplateSlot =
+          primaryName !== undefined &&
+          oathplateSlots.includes(primaryName.toLowerCase());
         if (hasOathplateSlot && shardsRemaining >= 450) {
           shardsRemaining -= 450;
           return true;

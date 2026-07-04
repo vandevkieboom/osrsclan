@@ -101,6 +101,11 @@ const CANDIDATE_ITEMS: Item[] = [
     img: "https://oldschool.runescape.wiki/images/Tonalztics_of_ralos_detail.png",
     alt: "Tonalztics of Ralos",
   },
+  {
+    name: "Masori crafting kit",
+    img: "https://oldschool.runescape.wiki/images/Masori_crafting_kit_detail.png",
+    alt: "Masori crafting kit",
+  },
 ];
 
 // Candidate items have no official rank yet, so they sort after every real
