@@ -645,9 +645,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Ancient blood ornament kit",
-        img: "https://oldschool.runescape.wiki/images/Ancient_blood_ornament_kit_detail.png",
-        alt: "Ancient blood ornament kit",
+        name: "1/2 Blorva or radiant",
+        img: "/bloodtorvaorradiantoathplate.png",
+        alt: "1/2 Blorva or radiant",
         apiCheck: {
           type: "combat-achievement-task",
           names: [
@@ -775,9 +775,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Radiant oathplate armour",
-        img: "https://oldschool.runescape.wiki/images/Purifying_sigil_detail.png",
-        alt: "Radiant oathplate armour",
+        name: "2/2 Blorva or radiant",
+        img: "/bloodtorvaorradiantoathplate.png",
+        alt: "2/2 Blorva or radiant",
       },
       {
         name: "Completed spirit shield",

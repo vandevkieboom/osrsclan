@@ -106,6 +106,26 @@ const CANDIDATE_ITEMS: Item[] = [
     img: "https://oldschool.runescape.wiki/images/Masori_crafting_kit_detail.png",
     alt: "Masori crafting kit",
   },
+  {
+    name: "3/3 Virtus robes",
+    img: "https://oldschool.runescape.wiki/images/Virtus_mask_detail.png",
+    alt: "3/3 Virtus robes",
+  },
+  {
+    name: "3/3 Masori armour",
+    img: "https://oldschool.runescape.wiki/images/Masori_mask_detail.png",
+    alt: "3/3 Masori armour",
+  },
+  {
+    name: "Zamorakian spear",
+    img: "https://oldschool.runescape.wiki/images/Zamorakian_spear_detail.png",
+    alt: "Zamorakian spear",
+  },
+  {
+    name: "Thread of elidinis",
+    img: "https://oldschool.runescape.wiki/images/Thread_of_elidinis_detail.png",
+    alt: "Thread of elidinis",
+  },
 ];
 
 // Candidate items have no official rank yet, so they sort after every real
@@ -153,7 +173,7 @@ export function TierFeedbackPage() {
   }, []);
 
   const [placements, setPlacements] = useState<Record<string, string>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [dragGhost, setDragGhost] = useState<{
     id: string;
     x: number;
@@ -210,7 +230,8 @@ export function TierFeedbackPage() {
       if (!drag) return;
 
       if (drag.moved) {
-        // Real drag-and-drop of an item. Dragging on empty space is a no-op.
+        // Real drag-and-drop of a single item, regardless of any multi-select.
+        // Dragging on empty space is a no-op.
         if (drag.id) {
           const el = document.elementFromPoint(e.clientX, e.clientY);
           const zoneEl = el?.closest<HTMLElement>("[data-dropzone]");
@@ -221,7 +242,7 @@ export function TierFeedbackPage() {
         }
         setDragGhost(null);
         setHoverZone(null);
-        setSelectedId(null);
+        setSelectedIds(new Set());
         return;
       }
 
@@ -229,19 +250,36 @@ export function TierFeedbackPage() {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const zoneEl = el?.closest<HTMLElement>("[data-dropzone]");
       const zone = zoneEl?.dataset.dropzone;
+      const multiSelect = e.shiftKey || e.ctrlKey || e.metaKey;
 
-      setSelectedId((current) => {
+      setSelectedIds((current) => {
         if (drag.id) {
-          // Tapped directly on an item — select it (or deselect if it was
-          // already selected). Switches instantly even if another item was
-          // previously picked up.
-          return current === drag.id ? null : drag.id;
+          const tappedId = drag.id;
+          if (multiSelect) {
+            // Shift/Ctrl/Cmd-click toggles this item without disturbing the
+            // rest of the selection, so several items can be queued up.
+            const next = new Set(current);
+            if (next.has(tappedId)) next.delete(tappedId);
+            else next.add(tappedId);
+            return next;
+          }
+          // Plain tap: select just this item, or clear if it was the only
+          // thing already selected.
+          if (current.size === 1 && current.has(tappedId)) return new Set();
+          return new Set([tappedId]);
         }
-        // Tapped empty space in a zone — drop whatever's currently picked up.
-        if (current && zone) {
-          setPlacements((prev) => ({ ...prev, [current]: zone }));
+        // Tapped empty space in a zone — drop the whole current selection there.
+        if (current.size > 0 && zone) {
+          setPlacements((prev) => {
+            const next = { ...prev };
+            current.forEach((id) => {
+              next[id] = zone;
+            });
+            return next;
+          });
+          return new Set();
         }
-        return null;
+        return current;
       });
     };
 
@@ -276,7 +314,7 @@ export function TierFeedbackPage() {
     };
   };
 
-  const isPlacing = Boolean(selectedId) || Boolean(dragGhost);
+  const isPlacing = selectedIds.size > 0 || Boolean(dragGhost);
 
   const itemsByZone = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -296,12 +334,12 @@ export function TierFeedbackPage() {
   const resetAll = () => {
     if (!window.confirm("Clear your entire tier list and start over?")) return;
     setPlacements({});
-    setSelectedId(null);
+    setSelectedIds(new Set());
   };
 
   const takeScreenshot = async () => {
     if (!pageRef.current) return;
-    setSelectedId(null);
+    setSelectedIds(new Set());
     setCapturing(true);
     const node = pageRef.current;
     // The decorative tiled background is hotlinked from the wiki and can
@@ -365,7 +403,7 @@ export function TierFeedbackPage() {
   const renderItem = (id: string) => {
     const item = ITEM_LOOKUP.get(id);
     if (!item) return null;
-    const isSelected = selectedId === id;
+    const isSelected = selectedIds.has(id);
     const isDragging = dragGhost?.id === id;
     return (
       <div
@@ -402,9 +440,10 @@ export function TierFeedbackPage() {
         <div className="tier-feedback-intro">
           <p>
             Drag each item into the tier you think it belongs in (or tap it,
-            then tap a tier). There's no right answer, just your honest opinion.
-            Items that shouldn't count toward any rank go in the "Shouldn't Be
-            Included" box below.
+            then tap a tier). Shift-click or Ctrl/Cmd-click to select several
+            items at once, then tap a tier to move them all in one go. There's
+            no right answer, just your honest opinion. Items that shouldn't
+            count toward any rank go in the "Shouldn't Be Included" box below.
           </p>
         </div>
         <div className="tier-feedback-toolbar">
@@ -419,6 +458,15 @@ export function TierFeedbackPage() {
           >
             {capturing ? "Capturing..." : "Screenshot"}
           </button>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              className="tracker-btn"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear selection ({selectedIds.size})
+            </button>
+          )}
         </div>
       </div>
 
@@ -447,7 +495,7 @@ export function TierFeedbackPage() {
         >
           <div className="tier-box-header">
             <span className="rank-name rank-name-exclude">
-              Shouldn't Be Included
+              Where to include these items
             </span>
             <span className="tier-box-count">
               {(itemsByZone.get(EXCLUDE_ZONE) ?? []).length}
