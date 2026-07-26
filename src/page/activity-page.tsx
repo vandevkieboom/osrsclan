@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { NavMenu } from "../components/nav-menu";
+import { useSearchParams } from "react-router-dom";
+import { SiteHeader } from "../components/site-header";
+import { SiteFooter } from "../components/site-footer";
 
 const CLAN = "Time Served";
 const LIMIT = 20;
@@ -415,31 +416,38 @@ export function ActivityPage() {
   }
 
   return (
-    <div className="page">
-      <NavMenu />
+    <>
+      <SiteHeader />
 
-      <div className="header">
-        <div className="header-deco">
-          <Link to="/" className="title-link">
-            <h1 className="title">Time Served</h1>
-          </Link>
+      <div className="page">
+        <div className="page-head">
+          <div className="page-eyebrow">
+            <span className="page-eyebrow-line" />
+            Live feed
+          </div>
+          <h1 className="page-title">Activity</h1>
+          <p className="page-sub">
+            Rare drops, level-ups, quests and combat achievements from the clan,
+            newest first.
+          </p>
+          <a
+            href="https://www.youtube.com/watch?v=5T5BY1j2MkE"
+            className="divider-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="divider" />
+          </a>
         </div>
-        <div className="subtitle">Clan Activity</div>
-        <a
-          href="https://www.youtube.com/watch?v=5T5BY1j2MkE"
-          className="divider-link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <div className="divider" />
-        </a>
+
+        <div className="metric-select-wrap activity-select-wrap">
+          <ActivityTypeSelect value={activityType} onChange={setActivityType} />
+        </div>
+
+        <ActivityFeed key={activityType} activityType={activityType} />
       </div>
 
-      <div className="metric-select-wrap activity-select-wrap">
-        <ActivityTypeSelect value={activityType} onChange={setActivityType} />
-      </div>
-
-      <ActivityFeed key={activityType} activityType={activityType} />
-    </div>
+      <SiteFooter />
+    </>
   );
 }

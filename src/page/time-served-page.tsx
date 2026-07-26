@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { NavMenu } from "../components/nav-menu";
+import { useSearchParams } from "react-router-dom";
+import { SiteHeader } from "../components/site-header";
+import { SiteFooter } from "../components/site-footer";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
 import Ruleset from "../components/rule-set";
@@ -232,35 +233,43 @@ export const ClanRankings = () => {
         loop
         style={{ display: "none" }}
       />
+      <SiteHeader>
+        <button
+          type="button"
+          onClick={handleAudioToggle}
+          className="audio-toggle-btn"
+          aria-label={isPlaying ? "Pause music" : "Play music"}
+        >
+          {isPlaying ? "Pause Music" : "Play Music"}
+        </button>
+      </SiteHeader>
+
       <div className="page">
-        <div className="header-actions">
-          <button
-            type="button"
-            onClick={handleAudioToggle}
-            className="audio-toggle-btn"
-            aria-label={isPlaying ? "Pause music" : "Play music"}
-          >
-            {isPlaying ? "Pause Music" : "Play Music"}
-          </button>
-          <div className="badge-legend">
-            <span className="legend-item">
-              <span className="legend-badge api-verified">✓</span>
-              Verified
-            </span>
-            <span className="legend-item">
-              <span className="legend-badge api-alt">~</span>
-              Alternative Item
-            </span>
+        <div className="page-head">
+          <div className="page-head-row">
+            <div className="page-head-text">
+              <div className="page-eyebrow">
+                <span className="page-eyebrow-line" />
+                Rank requirements
+              </div>
+              <h1 className="page-title">Clan Ranks</h1>
+              <p className="page-sub">
+                Every tier and what it takes to get there. Import your
+                RuneProfile collection log to check your progress
+                automatically, or tick items off by hand.
+              </p>
+            </div>
+            <div className="badge-legend">
+              <span className="legend-item">
+                <span className="legend-badge api-verified">✓</span>
+                Verified
+              </span>
+              <span className="legend-item">
+                <span className="legend-badge api-alt">~</span>
+                Alternative Item
+              </span>
+            </div>
           </div>
-        </div>
-        <NavMenu />
-        <div className="header">
-          <div className="header-deco">
-            <Link to="/" className="title-link">
-              <h1 className="title">Time Served</h1>
-            </Link>
-          </div>
-          <div className="subtitle">Clan Ranks</div>
           <a
             className="divider divider-link"
             href={DIVIDER_URL}
@@ -268,6 +277,9 @@ export const ClanRankings = () => {
             rel="noreferrer"
             aria-label="Open divider link"
           ></a>
+        </div>
+
+        <div className="tracker-controls">
           <div className="tracker-summary">
             Current highest eligible rank:{" "}
             <strong
@@ -391,6 +403,8 @@ export const ClanRankings = () => {
           <Ruleset />
         </div>
       </div>
+
+      <SiteFooter />
     </>
   );
 };

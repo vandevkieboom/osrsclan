@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { NavMenu } from "../components/nav-menu";
+import { useSearchParams } from "react-router-dom";
+import { SiteHeader } from "../components/site-header";
+import { SiteFooter } from "../components/site-footer";
 import {
   fetchClanHiscores,
   fetchCurrentEvent,
@@ -334,510 +335,517 @@ export function HiscoresPage() {
   const showXpCol = dataType === "skill";
 
   return (
-    <div className="page">
-      <NavMenu />
+    <>
+      <SiteHeader />
 
-      <div className="header">
-        <div className="header-deco">
-          <Link to="/" className="title-link">
-            <h1 className="title">Time Served</h1>
-          </Link>
+      <div className="page">
+        <div className="page-head">
+          <div className="page-eyebrow">
+            <span className="page-eyebrow-line" />
+            Wise Old Man
+          </div>
+          <h1 className="page-title">Hiscores</h1>
+          <p className="page-sub">
+            Clan leaderboards for every skill, boss and activity — plus gains
+            over the last week or month and the current event.
+          </p>
+          <a
+            href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            className="divider-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div className="divider" />
+          </a>
         </div>
-        <div className="subtitle">Clan Hiscores</div>
-        <a
-          href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-          className="divider-link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <div className="divider" />
-        </a>
-      </div>
 
-      <div className="metric-select-wrap">
-        <div className="event-tabs-left">
-          <button
-            type="button"
-            className={`event-tab-btn${view === "hiscores" ? " active" : ""}`}
-            onClick={() => updateParams({ tab: null })}
-          >
-            <img
-              src={getWomMetricIcon("overall")}
-              alt=""
-              className="event-tab-icon"
-            />
-            Clan Hiscores
-          </button>
-          <button
-            type="button"
-            className={`event-tab-btn event-tab-btn--event${view === "event" ? " active" : ""}`}
-            onClick={() => updateParams({ tab: "event" })}
-          >
-            <span className="event-tab-emoji" aria-hidden="true">
-              🏆
-            </span>
-            Event Hiscores
-          </button>
-        </div>
-        {view === "hiscores" && (
-          <div className="metric-controls-right">
-            <MetricSelect value={metric} onChange={(v) => updateParams({ metric: v === "overall" ? null : v })} />
+        <div className="metric-select-wrap">
+          <div className="event-tabs-left">
             <button
               type="button"
-              className={`tracker-btn${inactiveMonthOnly ? " active" : ""}`}
-              onClick={() => updateParams({ inactive: inactiveMonthOnly ? null : "1" })}
-              disabled={gainedMap === null}
-              title={gainedMap === null ? "Loading activity data…" : undefined}
+              className={`event-tab-btn${view === "hiscores" ? " active" : ""}`}
+              onClick={() => updateParams({ tab: null })}
             >
-              {gainedMap === null ? "Inactive…" : "Inactive"}
+              <img
+                src={getWomMetricIcon("overall")}
+                alt=""
+                className="event-tab-icon"
+              />
+              Clan Hiscores
             </button>
             <button
               type="button"
-              className={`tracker-btn${showPlayerSearch ? " active" : ""}`}
-              onClick={() => {
-                setShowPlayerSearch((v) => !v);
-                if (showPlayerSearch) setPlayerSearch("");
-              }}
-              aria-expanded={showPlayerSearch}
+              className={`event-tab-btn event-tab-btn--event${view === "event" ? " active" : ""}`}
+              onClick={() => updateParams({ tab: "event" })}
             >
-              search
+              <span className="event-tab-emoji" aria-hidden="true">
+                🏆
+              </span>
+              Event Hiscores
             </button>
           </div>
-        )}
-        {view === "event" && (
-          <div className="metric-controls-right">
-            <button
-              type="button"
-              className={`tracker-btn${showPlayerSearch ? " active" : ""}`}
-              onClick={() => {
-                setShowPlayerSearch((v) => !v);
-                if (showPlayerSearch) setPlayerSearch("");
-              }}
-              aria-expanded={showPlayerSearch}
-            >
-              Find Player
-            </button>
-          </div>
-        )}
-      </div>
+          {view === "hiscores" && (
+            <div className="metric-controls-right">
+              <MetricSelect value={metric} onChange={(v) => updateParams({ metric: v === "overall" ? null : v })} />
+              <button
+                type="button"
+                className={`tracker-btn${inactiveMonthOnly ? " active" : ""}`}
+                onClick={() => updateParams({ inactive: inactiveMonthOnly ? null : "1" })}
+                disabled={gainedMap === null}
+                title={gainedMap === null ? "Loading activity data…" : undefined}
+              >
+                {gainedMap === null ? "Inactive…" : "Inactive"}
+              </button>
+              <button
+                type="button"
+                className={`tracker-btn${showPlayerSearch ? " active" : ""}`}
+                onClick={() => {
+                  setShowPlayerSearch((v) => !v);
+                  if (showPlayerSearch) setPlayerSearch("");
+                }}
+                aria-expanded={showPlayerSearch}
+              >
+                search
+              </button>
+            </div>
+          )}
+          {view === "event" && (
+            <div className="metric-controls-right">
+              <button
+                type="button"
+                className={`tracker-btn${showPlayerSearch ? " active" : ""}`}
+                onClick={() => {
+                  setShowPlayerSearch((v) => !v);
+                  if (showPlayerSearch) setPlayerSearch("");
+                }}
+                aria-expanded={showPlayerSearch}
+              >
+                Find Player
+              </button>
+            </div>
+          )}
+        </div>
 
-      {showPlayerSearch && (
-        <div className="player-search-wrap">
-          <input
-            type="text"
-            className="player-search-input"
-            placeholder={
-              view === "hiscores"
-                ? "Search player in clan hiscores..."
-                : "Search player in current event..."
-            }
-            value={playerSearch}
-            onChange={(e) => setPlayerSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setShowPlayerSearch(false);
-                setPlayerSearch("");
+        {showPlayerSearch && (
+          <div className="player-search-wrap">
+            <input
+              type="text"
+              className="player-search-input"
+              placeholder={
+                view === "hiscores"
+                  ? "Search player in clan hiscores..."
+                  : "Search player in current event..."
               }
-            }}
-            autoFocus
-          />
-        </div>
-      )}
+              value={playerSearch}
+              onChange={(e) => setPlayerSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setShowPlayerSearch(false);
+                  setPlayerSearch("");
+                }
+              }}
+              autoFocus
+            />
+          </div>
+        )}
 
-      {view === "hiscores" && (
-        <>
-          {error && (
-            <div
-              className="rank-card"
-              style={{ textAlign: "center", padding: "2rem", color: "#e03a3a" }}
-            >
-              {error}
-            </div>
-          )}
+        {view === "hiscores" && (
+          <>
+            {error && (
+              <div
+                className="rank-card"
+                style={{ textAlign: "center", padding: "2rem", color: "#e03a3a" }}
+              >
+                {error}
+              </div>
+            )}
 
-          {loading && !error && (
-            <div
-              className="rank-card"
-              style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
-            >
-              Loading...
-            </div>
-          )}
+            {loading && !error && (
+              <div
+                className="rank-card"
+                style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
+              >
+                Loading...
+              </div>
+            )}
 
-          {!loading && !error && filteredEntries.length === 0 && (
-            <div
-              className="rank-card"
-              style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
-            >
-              {q
-                ? "No matches for that player search."
-                : "No data available for this metric."}
-            </div>
-          )}
+            {!loading && !error && filteredEntries.length === 0 && (
+              <div
+                className="rank-card"
+                style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
+              >
+                {q
+                  ? "No matches for that player search."
+                  : "No data available for this metric."}
+              </div>
+            )}
 
-          {!loading && !error && filteredEntries.length > 0 && (
-            <div className="hiscores-table-wrap">
-              <table className="hiscores-table">
-                <thead>
-                  <tr>
-                    <th className="hiscores-th hiscores-th-rank">Rank</th>
-                    <th className="hiscores-th hiscores-th-player">Player</th>
-                    {colHeaders.map((h) => (
-                      <th key={h} className="hiscores-th hiscores-th-num">
-                        {h}
-                      </th>
-                    ))}
-                    {showXpCol && (
-                      <th className="hiscores-th hiscores-th-num">
-                        Experience
-                      </th>
-                    )}
-                    <th className="hiscores-th hiscores-th-num">Global Rank</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageEntries.map((entry) => {
-                    const clanRank =
-                      entries.findIndex(
-                        (e) => e.player.username === entry.player.username,
-                      ) + 1;
-                    const typeIcon = getTypeIcon(entry.player.type);
-                    const gained = gainedMap?.get(
-                      entry.player.username.toLowerCase(),
-                    );
-                    const isStale =
-                      !!gained?.player.updatedAt &&
-                      (NOW - new Date(gained.player.updatedAt).getTime()) /
-                        (1000 * 60 * 60 * 24) >=
-                        7;
-                    return (
-                      <tr key={entry.player.username} className="hiscores-row">
-                        <td className="hiscores-td hiscores-td-rank">
-                          {clanRank}.
-                        </td>
-                        <td className="hiscores-td hiscores-td-player">
-                          {typeIcon && (
-                            <img
-                              src={typeIcon}
-                              alt={entry.player.type}
-                              className="player-badge"
-                            />
+            {!loading && !error && filteredEntries.length > 0 && (
+              <div className="hiscores-table-wrap">
+                <table className="hiscores-table">
+                  <thead>
+                    <tr>
+                      <th className="hiscores-th hiscores-th-rank">Rank</th>
+                      <th className="hiscores-th hiscores-th-player">Player</th>
+                      {colHeaders.map((h) => (
+                        <th key={h} className="hiscores-th hiscores-th-num">
+                          {h}
+                        </th>
+                      ))}
+                      {showXpCol && (
+                        <th className="hiscores-th hiscores-th-num">
+                          Experience
+                        </th>
+                      )}
+                      <th className="hiscores-th hiscores-th-num">Global Rank</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageEntries.map((entry) => {
+                      const clanRank =
+                        entries.findIndex(
+                          (e) => e.player.username === entry.player.username,
+                        ) + 1;
+                      const typeIcon = getTypeIcon(entry.player.type);
+                      const gained = gainedMap?.get(
+                        entry.player.username.toLowerCase(),
+                      );
+                      const isStale =
+                        !!gained?.player.updatedAt &&
+                        (NOW - new Date(gained.player.updatedAt).getTime()) /
+                          (1000 * 60 * 60 * 24) >=
+                          7;
+                      return (
+                        <tr key={entry.player.username} className="hiscores-row">
+                          <td className="hiscores-td hiscores-td-rank">
+                            {clanRank}.
+                          </td>
+                          <td className="hiscores-td hiscores-td-player">
+                            {typeIcon && (
+                              <img
+                                src={typeIcon}
+                                alt={entry.player.type}
+                                className="player-badge"
+                              />
+                            )}
+                            <a
+                              href={`https://wiseoldman.net/players/${encodeURIComponent(
+                                entry.player.displayName,
+                              )}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="player-link"
+                              title={`Open ${entry.player.displayName} on Wise Old Man`}
+                            >
+                              <span
+                                className={
+                                  [
+                                    clanRank === 1
+                                      ? "top3-player-name top1-player-name"
+                                      : clanRank === 2
+                                        ? "top3-player-name top2-player-name"
+                                        : clanRank === 3
+                                          ? "top3-player-name top3-player-name-bronze"
+                                          : undefined,
+                                    isStale ? "player-name--stale" : undefined,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ") || undefined
+                                }
+                                title={
+                                  isStale
+                                    ? "Profile hasn't been updated on WOM in 2+ weeks"
+                                    : undefined
+                                }
+                              >
+                                {entry.player.displayName}
+                              </span>
+                            </a>
+                          </td>
+                          {dataType === "skill" && (
+                            <td className="hiscores-td hiscores-td-num">
+                              {formatNumber(entry.data.level)}
+                            </td>
                           )}
+                          {(dataType === "boss" || dataType === "activity") && (
+                            <td className="hiscores-td hiscores-td-num">
+                              {getPrimaryCol(entry, dataType)}
+                            </td>
+                          )}
+                          {dataType === "computed" && (
+                            <td className="hiscores-td hiscores-td-num">
+                              {getPrimaryCol(entry, dataType)}
+                            </td>
+                          )}
+                          {showXpCol && (
+                            <td className="hiscores-td hiscores-td-num">
+                              {formatCompact(entry.data.experience)}
+                            </td>
+                          )}
+                          <td className="hiscores-td hiscores-td-num hiscores-td-global">
+                            {entry.data.rank >= 0
+                              ? formatNumber(entry.data.rank)
+                              : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {totalPages > 1 && (
+                  <div className="hiscores-pagination">
+                    <button
+                      type="button"
+                      className="tracker-btn"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                      aria-label="Previous page"
+                    >
+                      <img
+                        src="/arrow-left-small.svg"
+                        alt="Previous"
+                        className="pagination-arrow-icon"
+                      />
+                      Prev
+                    </button>
+                    <span className="hiscores-pagination-info">
+                      Page {page} of {totalPages}
+                      <span className="hiscores-pagination-total">
+                        &nbsp;({filteredEntries.length} members)
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="tracker-btn"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      aria-label="Next page"
+                    >
+                      Next
+                      <img
+                        src="/arrow-right-small.svg"
+                        alt="Next"
+                        className="pagination-arrow-icon"
+                      />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {view === "event" && (
+          <div className="event-leaderboard">
+            {eventLoading && (
+              <div
+                className="rank-card"
+                style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
+              >
+                Loading event...
+              </div>
+            )}
+            {eventError && (
+              <div
+                className="rank-card"
+                style={{ textAlign: "center", padding: "2rem", color: "#e03a3a" }}
+              >
+                {eventError}
+              </div>
+            )}
+            {!eventLoading &&
+              !eventError &&
+              event &&
+              (() => {
+                const sortedAll = [...event.participations].sort(
+                  (a, b) => b.progress.gained - a.progress.gained,
+                );
+                const filteredParticipations = q
+                  ? sortedAll.filter((p) => {
+                      const display = p.player.displayName.toLowerCase();
+                      const username = p.player.username.toLowerCase();
+                      return display.includes(q) || username.includes(q);
+                    })
+                  : sortedAll;
+                const sorted = filteredParticipations;
+                const eventTotalPages = Math.max(
+                  1,
+                  Math.ceil(sorted.length / PAGE_SIZE),
+                );
+                const eventPageEntries = sorted.slice(
+                  (eventPage - 1) * PAGE_SIZE,
+                  eventPage * PAGE_SIZE,
+                );
+                return (
+                  <>
+                    <div className="event-header">
+                      <div className="event-header-meta">
+                        <img
+                          src={getWomMetricIcon(event.metric)}
+                          alt={event.metric}
+                          className="event-metric-icon"
+                        />
+                        <div>
                           <a
-                            href={`https://wiseoldman.net/players/${encodeURIComponent(
-                              entry.player.displayName,
-                            )}`}
+                            className="event-title"
+                            href={`https://wiseoldman.net/competitions/${event.id}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="player-link"
-                            title={`Open ${entry.player.displayName} on Wise Old Man`}
                           >
-                            <span
-                              className={
-                                [
-                                  clanRank === 1
-                                    ? "top3-player-name top1-player-name"
-                                    : clanRank === 2
-                                      ? "top3-player-name top2-player-name"
-                                      : clanRank === 3
-                                        ? "top3-player-name top3-player-name-bronze"
-                                        : undefined,
-                                  isStale ? "player-name--stale" : undefined,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ") || undefined
-                              }
-                              title={
-                                isStale
-                                  ? "Profile hasn't been updated on WOM in 2+ weeks"
-                                  : undefined
-                              }
-                            >
-                              {entry.player.displayName}
-                            </span>
+                            {event.title}
                           </a>
-                        </td>
-                        {dataType === "skill" && (
-                          <td className="hiscores-td hiscores-td-num">
-                            {formatNumber(entry.data.level)}
-                          </td>
-                        )}
-                        {(dataType === "boss" || dataType === "activity") && (
-                          <td className="hiscores-td hiscores-td-num">
-                            {getPrimaryCol(entry, dataType)}
-                          </td>
-                        )}
-                        {dataType === "computed" && (
-                          <td className="hiscores-td hiscores-td-num">
-                            {getPrimaryCol(entry, dataType)}
-                          </td>
-                        )}
-                        {showXpCol && (
-                          <td className="hiscores-td hiscores-td-num">
-                            {formatCompact(entry.data.experience)}
-                          </td>
-                        )}
-                        <td className="hiscores-td hiscores-td-num hiscores-td-global">
-                          {entry.data.rank >= 0
-                            ? formatNumber(entry.data.rank)
-                            : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {totalPages > 1 && (
-                <div className="hiscores-pagination">
-                  <button
-                    type="button"
-                    className="tracker-btn"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                    aria-label="Previous page"
-                  >
-                    <img
-                      src="/arrow-left-small.svg"
-                      alt="Previous"
-                      className="pagination-arrow-icon"
-                    />
-                    Prev
-                  </button>
-                  <span className="hiscores-pagination-info">
-                    Page {page} of {totalPages}
-                    <span className="hiscores-pagination-total">
-                      &nbsp;({filteredEntries.length} members)
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    className="tracker-btn"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages}
-                    aria-label="Next page"
-                  >
-                    Next
-                    <img
-                      src="/arrow-right-small.svg"
-                      alt="Next"
-                      className="pagination-arrow-icon"
-                    />
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {view === "event" && (
-        <div className="event-leaderboard">
-          {eventLoading && (
-            <div
-              className="rank-card"
-              style={{ textAlign: "center", padding: "2rem", color: "#d8b0b0" }}
-            >
-              Loading event...
-            </div>
-          )}
-          {eventError && (
-            <div
-              className="rank-card"
-              style={{ textAlign: "center", padding: "2rem", color: "#e03a3a" }}
-            >
-              {eventError}
-            </div>
-          )}
-          {!eventLoading &&
-            !eventError &&
-            event &&
-            (() => {
-              const sortedAll = [...event.participations].sort(
-                (a, b) => b.progress.gained - a.progress.gained,
-              );
-              const filteredParticipations = q
-                ? sortedAll.filter((p) => {
-                    const display = p.player.displayName.toLowerCase();
-                    const username = p.player.username.toLowerCase();
-                    return display.includes(q) || username.includes(q);
-                  })
-                : sortedAll;
-              const sorted = filteredParticipations;
-              const eventTotalPages = Math.max(
-                1,
-                Math.ceil(sorted.length / PAGE_SIZE),
-              );
-              const eventPageEntries = sorted.slice(
-                (eventPage - 1) * PAGE_SIZE,
-                eventPage * PAGE_SIZE,
-              );
-              return (
-                <>
-                  <div className="event-header">
-                    <div className="event-header-meta">
-                      <img
-                        src={getWomMetricIcon(event.metric)}
-                        alt={event.metric}
-                        className="event-metric-icon"
-                      />
-                      <div>
-                        <a
-                          className="event-title"
-                          href={`https://wiseoldman.net/competitions/${event.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {event.title}
-                        </a>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="hiscores-table-wrap">
-                    {sorted.length === 0 && (
-                      <div
-                        className="rank-card"
-                        style={{
-                          textAlign: "center",
-                          padding: "2rem",
-                          color: "#d8b0b0",
-                        }}
-                      >
-                        No matches for that player search.
-                      </div>
-                    )}
-                    {sorted.length > 0 && (
-                      <table className="hiscores-table">
-                        <thead>
-                          <tr>
-                            <th className="hiscores-th hiscores-th-rank">
-                              Rank
-                            </th>
-                            <th className="hiscores-th hiscores-th-player">
-                              Player
-                            </th>
-                            <th className="hiscores-th hiscores-th-num">
-                              Gained
-                            </th>
-                            <th className="hiscores-th hiscores-th-num">
-                              Start
-                            </th>
-                            <th className="hiscores-th hiscores-th-num">End</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {eventPageEntries.map((p) => {
-                            const rank =
-                              sortedAll.findIndex(
-                                (x) =>
-                                  x.player.username.toLowerCase() ===
-                                  p.player.username.toLowerCase(),
-                              ) + 1;
-                            const typeIcon = getTypeIcon(p.player.type);
-                            return (
-                              <tr
-                                key={p.player.username}
-                                className="hiscores-row"
-                              >
-                                <td className="hiscores-td hiscores-td-rank">
-                                  {rank}.
-                                </td>
-                                <td className="hiscores-td hiscores-td-player">
-                                  {typeIcon && (
-                                    <img
-                                      src={typeIcon}
-                                      alt={p.player.type}
-                                      className="player-badge"
-                                    />
-                                  )}
-                                  <a
-                                    href={`https://wiseoldman.net/players/${encodeURIComponent(p.player.displayName)}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="player-link"
-                                    title={`Open ${p.player.displayName} on Wise Old Man`}
-                                  >
-                                    <span
-                                      className={
-                                        rank === 1
-                                          ? "top3-player-name top1-player-name"
-                                          : rank === 2
-                                            ? "top3-player-name top2-player-name"
-                                            : rank === 3
-                                              ? "top3-player-name top3-player-name-bronze"
-                                              : undefined
-                                      }
+                    <div className="hiscores-table-wrap">
+                      {sorted.length === 0 && (
+                        <div
+                          className="rank-card"
+                          style={{
+                            textAlign: "center",
+                            padding: "2rem",
+                            color: "#d8b0b0",
+                          }}
+                        >
+                          No matches for that player search.
+                        </div>
+                      )}
+                      {sorted.length > 0 && (
+                        <table className="hiscores-table">
+                          <thead>
+                            <tr>
+                              <th className="hiscores-th hiscores-th-rank">
+                                Rank
+                              </th>
+                              <th className="hiscores-th hiscores-th-player">
+                                Player
+                              </th>
+                              <th className="hiscores-th hiscores-th-num">
+                                Gained
+                              </th>
+                              <th className="hiscores-th hiscores-th-num">
+                                Start
+                              </th>
+                              <th className="hiscores-th hiscores-th-num">End</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {eventPageEntries.map((p) => {
+                              const rank =
+                                sortedAll.findIndex(
+                                  (x) =>
+                                    x.player.username.toLowerCase() ===
+                                    p.player.username.toLowerCase(),
+                                ) + 1;
+                              const typeIcon = getTypeIcon(p.player.type);
+                              return (
+                                <tr
+                                  key={p.player.username}
+                                  className="hiscores-row"
+                                >
+                                  <td className="hiscores-td hiscores-td-rank">
+                                    {rank}.
+                                  </td>
+                                  <td className="hiscores-td hiscores-td-player">
+                                    {typeIcon && (
+                                      <img
+                                        src={typeIcon}
+                                        alt={p.player.type}
+                                        className="player-badge"
+                                      />
+                                    )}
+                                    <a
+                                      href={`https://wiseoldman.net/players/${encodeURIComponent(p.player.displayName)}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="player-link"
+                                      title={`Open ${p.player.displayName} on Wise Old Man`}
                                     >
-                                      {p.player.displayName}
-                                    </span>
-                                  </a>
-                                </td>
-                                <td className="hiscores-td hiscores-td-num event-gained">
-                                  {p.progress.gained > 0 ? "+" : ""}
-                                  {formatNumber(p.progress.gained)}
-                                </td>
-                                <td className="hiscores-td hiscores-td-num">
-                                  {formatNumber(p.progress.start)}
-                                </td>
-                                <td className="hiscores-td hiscores-td-num">
-                                  {formatNumber(p.progress.end)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                    {eventTotalPages > 1 && (
-                      <div className="hiscores-pagination">
-                        <button
-                          type="button"
-                          className="tracker-btn"
-                          onClick={() =>
-                            setEventPage((p) => Math.max(1, p - 1))
-                          }
-                          disabled={eventPage <= 1}
-                          aria-label="Previous page"
-                        >
-                          <img
-                            src="/arrow-left-small.svg"
-                            alt="Previous"
-                            className="pagination-arrow-icon"
-                          />
-                          Prev
-                        </button>
-                        <span className="hiscores-pagination-info">
-                          Page {eventPage} of {eventTotalPages}
-                          <span className="hiscores-pagination-total">
-                            &nbsp;({sorted.length} participants)
+                                      <span
+                                        className={
+                                          rank === 1
+                                            ? "top3-player-name top1-player-name"
+                                            : rank === 2
+                                              ? "top3-player-name top2-player-name"
+                                              : rank === 3
+                                                ? "top3-player-name top3-player-name-bronze"
+                                                : undefined
+                                        }
+                                      >
+                                        {p.player.displayName}
+                                      </span>
+                                    </a>
+                                  </td>
+                                  <td className="hiscores-td hiscores-td-num event-gained">
+                                    {p.progress.gained > 0 ? "+" : ""}
+                                    {formatNumber(p.progress.gained)}
+                                  </td>
+                                  <td className="hiscores-td hiscores-td-num">
+                                    {formatNumber(p.progress.start)}
+                                  </td>
+                                  <td className="hiscores-td hiscores-td-num">
+                                    {formatNumber(p.progress.end)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                      {eventTotalPages > 1 && (
+                        <div className="hiscores-pagination">
+                          <button
+                            type="button"
+                            className="tracker-btn"
+                            onClick={() =>
+                              setEventPage((p) => Math.max(1, p - 1))
+                            }
+                            disabled={eventPage <= 1}
+                            aria-label="Previous page"
+                          >
+                            <img
+                              src="/arrow-left-small.svg"
+                              alt="Previous"
+                              className="pagination-arrow-icon"
+                            />
+                            Prev
+                          </button>
+                          <span className="hiscores-pagination-info">
+                            Page {eventPage} of {eventTotalPages}
+                            <span className="hiscores-pagination-total">
+                              &nbsp;({sorted.length} participants)
+                            </span>
                           </span>
-                        </span>
-                        <button
-                          type="button"
-                          className="tracker-btn"
-                          onClick={() =>
-                            setEventPage((p) =>
-                              Math.min(eventTotalPages, p + 1),
-                            )
-                          }
-                          disabled={eventPage >= eventTotalPages}
-                          aria-label="Next page"
-                        >
-                          Next
-                          <img
-                            src="/arrow-right-small.svg"
-                            alt="Next"
-                            className="pagination-arrow-icon"
-                          />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
-        </div>
-      )}
-    </div>
+                          <button
+                            type="button"
+                            className="tracker-btn"
+                            onClick={() =>
+                              setEventPage((p) =>
+                                Math.min(eventTotalPages, p + 1),
+                              )
+                            }
+                            disabled={eventPage >= eventTotalPages}
+                            aria-label="Next page"
+                          >
+                            Next
+                            <img
+                              src="/arrow-right-small.svg"
+                              alt="Next"
+                              className="pagination-arrow-icon"
+                            />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+          </div>
+        )}
+      </div>
+
+      <SiteFooter />
+    </>
   );
 }
