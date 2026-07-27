@@ -25,8 +25,7 @@ export function Hero({ stats, liveCount }: HeroProps) {
       <div className="hero-media" aria-hidden="true">
         <img
           className="hero-img"
-          src="/hunllef-hero-1800.jpg"
-          srcSet="/hunllef-hero-1200.jpg 1200w, /hunllef-hero-1800.jpg 1800w, /hunllef-hero-2600.jpg 2600w"
+          src="/example.png"
           sizes="(max-width: 720px) 100vw, 72vw"
           alt=""
           fetchPriority="high"
