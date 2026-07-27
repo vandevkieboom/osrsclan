@@ -16,7 +16,7 @@ interface SiteHeaderProps {
   children?: ReactNode;
 }
 
-export function SiteHeader({ variant = "bar", children }: SiteHeaderProps) {
+export function SiteHeader({ variant = "hero", children }: SiteHeaderProps) {
   const location = useLocation();
 
   return (

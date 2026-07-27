@@ -432,7 +432,6 @@ export function TierFeedbackPage() {
           data-dropzone={POOL_ZONE}
           onPointerDown={handleZonePointerDown}
         >
-<<<<<<< Updated upstream
           <div className="tier-box-header">
             <span className="rank-name rank-name-exclude">
               Shouldn't Be Included
@@ -440,11 +439,6 @@ export function TierFeedbackPage() {
             <span className="tier-box-count">
               {(itemsByZone.get(EXCLUDE_ZONE) ?? []).length}
             </span>
-=======
-          <div className="tier-pool-header">
-            {(itemsByZone.get(POOL_ZONE) ?? []).length} items ({placedCount}{" "}
-            placed)
->>>>>>> Stashed changes
           </div>
           <div className="tier-items">
             {(itemsByZone.get(POOL_ZONE) ?? []).map(renderItem)}

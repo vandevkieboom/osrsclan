@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Hero } from "../components/hero";
 import { SiteFooter } from "../components/site-footer";
 import { DISCORD_URL } from "../data/links";
+import { SiteHeader } from "../components/site-header";
 
 const WOM_GROUP_ID = 22206;
 const WOM_BASE = "https://api.wiseoldman.net/v2";
@@ -121,6 +122,8 @@ export function HomePage() {
 
   return (
     <>
+      <SiteHeader />
+
       <Hero stats={clanStats} liveCount={streams.length} />
 
       <div className="page">
@@ -217,73 +220,6 @@ export function HomePage() {
                 </div>
               </a>
             ))}
-          </div>
-
-          <div className="home-panel">
-            <div className="home-panel-header">
-              <span className="home-panel-title">Clan Stats</span>
-              <img
-                src="https://cdn.jsdelivr.net/gh/wise-old-man/wise-old-man@master/app/public/img/metrics/overall.png"
-                alt=""
-                className="home-panel-clan-icon"
-              />
-            </div>
-            {statsLoading && <div className="home-status">Loading…</div>}
-            {!statsLoading && !clanStats && (
-              <div className="home-status">Stats unavailable.</div>
-            )}
-            {clanStats && (
-              <div className="home-clan-stats">
-                <div className="home-clan-stat home-clan-stat--hero">
-                  <span className="home-clan-stat-value">
-                    {clanStats.memberCount.toLocaleString()}
-                  </span>
-                  <span className="home-clan-stat-label">Members</span>
-                </div>
-
-                <div className="home-clan-stat">
-                  <span className="home-clan-stat-value">
-                    {clanStats.totalXp >= 1e12
-                      ? `${(clanStats.totalXp / 1e12).toFixed(1)}T`
-                      : clanStats.totalXp >= 1e9
-                        ? `${(clanStats.totalXp / 1e9).toFixed(1)}B`
-                        : `${(clanStats.totalXp / 1e6).toFixed(0)}M`}
-                  </span>
-                  <span className="home-clan-stat-label">Total Clan XP</span>
-                </div>
-                <div className="home-clan-stat">
-                  <span className="home-clan-stat-value">
-                    {clanStats.avgTotalLevel.toLocaleString()}
-                  </span>
-                  <span className="home-clan-stat-label">Avg. Total Level</span>
-                </div>
-                <div className="home-clan-stat">
-                  <span className="home-clan-stat-value">
-                    {clanStats.maxedCombat.toLocaleString()}
-                  </span>
-                  <span className="home-clan-stat-label">Max Combat</span>
-                </div>
-                <div className="home-clan-stat">
-                  <span className="home-clan-stat-value">
-                    {clanStats.maxedTotal.toLocaleString()}
-                  </span>
-                  <span className="home-clan-stat-label">Maxed Total</span>
-                </div>
-
-                <div className="home-clan-stat">
-                  <span className="home-clan-stat-value">
-                    {clanStats.avgEhp.toLocaleString()}
-                  </span>
-                  <span className="home-clan-stat-label">Avg. EHP</span>
-                </div>
-                <div className="home-clan-stat">
-                  <span className="home-clan-stat-value">
-                    {clanStats.avgEhb.toLocaleString()}
-                  </span>
-                  <span className="home-clan-stat-label">Avg. EHB</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
