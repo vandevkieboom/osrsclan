@@ -22,8 +22,8 @@ export function Hero({ stats, liveCount }: HeroProps) {
       <div className="hero-media" aria-hidden="true">
         <img
           className="hero-img"
-          src="/hunllef-hero-1800.webp"
-          srcSet="/hunllef-hero-1200.webp 1800w, /hunllef-hero-1800.webp 2700w, /hunllef-hero-2600.webp 3900w"
+          src="/hunllef-hero-1800.jpg"
+          srcSet="/hunllef-hero-1200.jpg 1200w, /hunllef-hero-1800.jpg 1800w, /hunllef-hero-2600.jpg 2600w"
           sizes="(max-width: 720px) 100vw, 72vw"
           alt=""
           fetchPriority="high"
@@ -35,10 +35,11 @@ export function Hero({ stats, liveCount }: HeroProps) {
       <div className="hero-layer">
         <div className="hero-inner">
           <div className="hero-copy">
-            <div className="hero-eyebrow">Old School RuneScape Clan</div>
+            <div className="hero-eyebrow">if you read this you are bald</div>
             <h1 className="hero-title">Time Served</h1>
             <p className="hero-lede">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+              Ironman clan for those who have served their sentence in the
+              Corrupted Gauntlet.
             </p>
           </div>
 
@@ -71,7 +72,7 @@ export function Hero({ stats, liveCount }: HeroProps) {
             {stats && stats.memberCount >= CLAN_CAPACITY ? (
               <span className="hero-live hero-live--full">
                 <span className="hero-live-offline-dot" />
-                Clan is currently at max capacity
+                Clan is currently full
               </span>
             ) : (
               stats && (

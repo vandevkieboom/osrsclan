@@ -39,6 +39,18 @@
      the hero copy, page content and footer all line up. */
   --content-max: 1400px;
   --gutter: 2rem;
+
+  /* Single source of truth for the page background. Every background that
+     should read as "the page showing through" (body, header, footer, the
+     hero and its veil) derives from this — change it once here. Semi-
+     transparent variants use color-mix() instead of hardcoded alpha hex so
+     they always track this value exactly. */
+  --bg: #0c0607;
+
+  /* Text roles: headings (page/section/card titles, wordmarks) vs. body
+     copy (descriptions, taglines, secondary status text). */
+  --text-heading: #fdf3f1;
+  --text-body: #a08c89;
 }
 
 *,
@@ -50,7 +62,7 @@
 }
 
 body {
-  background: #0c0607;
+  background: var(--bg);
   font-family: "Manrope", "Roboto", Arial, Helvetica, sans-serif;
   color: #d8b0b0;
   min-height: 100vh;
@@ -59,16 +71,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;
-}
-
-body::after {
-  content: "";
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(ellipse at center, transparent 60%, #000 100%);
-  opacity: 0.7;
 }
 
 /* The content column: no frame, no tile — the cards and sections inside
@@ -125,16 +127,14 @@ body::after {
   font-size: clamp(1.9rem, 4vw, 2.9rem);
   font-weight: 400;
   line-height: 1;
-  color: #f2d3d3;
-  text-shadow:
-    0 1px 0 #000,
-    0 0 18px #6d171b66;
+  color: var(--text-heading);
+  text-shadow: 0 2px 16px #000a;
 }
 
 .page-sub {
   font-size: 0.95rem;
   line-height: 1.6;
-  color: #8d6366;
+  color: var(--text-body);
   max-width: 60ch;
 }
 
@@ -746,7 +746,7 @@ body::after {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #e8a0a0;
+  color: var(--text-heading);
   margin-bottom: 1rem;
   letter-spacing: 0.03em;
   text-shadow: 0 0 8px #a81a2a55;
@@ -1055,7 +1055,7 @@ body::after {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: #0c0607e6;
+  background: var(--bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid #2a1315;
 }
@@ -1063,7 +1063,7 @@ body::after {
 /* On the homepage the header rides on top of the hero art. */
 .site-header--hero {
   position: relative;
-  background: transparent;
+  background: var(--bg);
   backdrop-filter: none;
   border-bottom: 1px solid #2a1315;
 }
@@ -1081,7 +1081,7 @@ body::after {
 .site-mark {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.25rem;
-  color: #f0e8e6;
+  color: var(--text-heading);
   letter-spacing: 0.03em;
   text-decoration: none;
   margin-right: auto;
@@ -1090,7 +1090,7 @@ body::after {
 }
 
 .site-mark:hover {
-  color: #fdf3f1;
+  color: var(--text-heading);
 }
 
 .site-nav {
@@ -1199,7 +1199,7 @@ body::after {
 
 .site-footer {
   border-top: 1px solid #2a1315;
-  background: #0c0607b3;
+  background: var(--bg);
   position: relative;
   z-index: 1;
 }
@@ -1224,7 +1224,7 @@ body::after {
 .site-footer-mark {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.1rem;
-  color: #f0e8e6;
+  color: var(--text-heading);
 }
 
 .site-footer-tag,
@@ -1232,13 +1232,15 @@ body::after {
   font-family: "Manrope", Arial, Helvetica, sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
-  color: #8a7674;
+  color: var(--text-body);
 }
 
 .site-footer-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem 1.4rem;
+  text-align: right;
+  margin-left: auto;
 }
 
 .site-footer-nav a {
@@ -1949,7 +1951,17 @@ body::after {
   box-shadow: 0 0 14px #e8574a2e;
 }
 
+/* .home-card-icon {
+  display: block;
+  font-size: 1.6rem;
+  line-height: 1;
+  margin-bottom: 0.4rem;
+  filter: drop-shadow(0 0 6px #000a);
+} */
+
 .home-card-icon {
+  width: 52px;
+  height: 52px;
   display: block;
   font-size: 1.6rem;
   line-height: 1;
@@ -1960,13 +1972,13 @@ body::after {
 .home-card-title {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.05rem;
-  color: #f0e8e6;
+  color: var(--text-heading);
   letter-spacing: 0.02em;
 }
 
 .home-card-desc {
   font-size: 0.78rem;
-  color: #a08c89;
+  color: var(--text-body);
   font-family: "Manrope", Arial, Helvetica, sans-serif;
   line-height: 1.5;
 }
@@ -1975,7 +1987,7 @@ body::after {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.25rem;
   font-weight: 400;
-  color: #f0e8e6;
+  color: var(--text-heading);
   letter-spacing: 0.02em;
   margin-bottom: 1.375rem;
   position: relative;
@@ -1986,7 +1998,7 @@ body::after {
   text-align: center;
   font-size: 0.75rem;
   font-family: "Manrope", Arial, Helvetica, sans-serif;
-  color: #8a7674;
+  color: var(--text-body);
   margin-bottom: 1.5rem;
   position: relative;
   z-index: 2;
@@ -2137,11 +2149,20 @@ body::after {
   box-shadow: 0 0 14px #9089ad33;
 }
 
-.home-discord-icon {
+/* .home-discord-icon {
   display: block;
   font-size: 1.25rem;
   line-height: 1;
   flex-shrink: 0;
+} */
+
+.home-discord-icon {
+  width: 28px;
+  height: 28px;
+  fill: #5865f2;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px #5865f244);
+  margin-right: 0.2rem;
 }
 
 .home-discord-text {
@@ -2154,7 +2175,7 @@ body::after {
 .home-discord-label {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 0.85rem;
-  color: #f0e8e6;
+  color: var(--text-heading);
   letter-spacing: 0.02em;
 }
 
@@ -2220,13 +2241,13 @@ body::after {
 .home-panel-title {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 0.95rem;
-  color: #f0e8e6;
+  color: var(--text-heading);
   letter-spacing: 0.04em;
 }
 
 .home-panel-more {
   font-size: 0.62rem;
-  color: #a08c89;
+  color: var(--text-body);
   font-family: "Manrope", Arial, Helvetica, sans-serif;
   text-decoration: none;
   transition: color 0.15s;
@@ -2237,13 +2258,6 @@ body::after {
 }
 
 /* Twitch panel */
-.home-panel-twitch-logo {
-  font-size: 0.9rem;
-  line-height: 1;
-  color: #9c85e8;
-  flex-shrink: 0;
-}
-
 .home-panel-clan-icon {
   width: 18px;
   height: 18px;
@@ -2255,7 +2269,7 @@ body::after {
 
 .home-twitch-offline {
   font-size: 0.8125rem;
-  color: #8a7674;
+  color: var(--text-body);
   font-family: "Manrope", Arial, Helvetica, sans-serif;
   padding: 0.5rem 0;
 }
@@ -2298,7 +2312,7 @@ body::after {
 .home-twitch-name {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 0.72rem;
-  color: #f0e8e6;
+  color: var(--text-heading);
   transition: color 0.15s;
   white-space: nowrap;
   overflow: hidden;
@@ -2307,7 +2321,7 @@ body::after {
 
 .home-twitch-game {
   font-size: 0.6rem;
-  color: #a08c89;
+  color: var(--text-body);
   font-family: "Manrope", Arial, Helvetica, sans-serif;
   white-space: nowrap;
   overflow: hidden;
@@ -2589,15 +2603,41 @@ body::after {
   overflow: hidden;
   isolation: isolate;
   z-index: 1;
+  /* Matches body's background exactly — the .hero-media mask below fades
+     the image to transparent at the edges, revealing this color. */
+  background-color: var(--bg);
 }
 
 .hero-media {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* No side mask needed anymore — the source image now has real matching-
-     color padding baked in with a feathered seam, so it blends into the
-     page background on its own at any viewport width. */
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    rgba(0, 0, 0, 0.15) 40px,
+    rgba(0, 0, 0, 0.5) 100px,
+    rgba(0, 0, 0, 0.82) 160px,
+    #000 220px,
+    #000 calc(100% - 220px),
+    rgba(0, 0, 0, 0.82) calc(100% - 160px),
+    rgba(0, 0, 0, 0.5) calc(100% - 100px),
+    rgba(0, 0, 0, 0.15) calc(100% - 40px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    rgba(0, 0, 0, 0.15) 40px,
+    rgba(0, 0, 0, 0.5) 100px,
+    rgba(0, 0, 0, 0.82) 160px,
+    #000 220px,
+    #000 calc(100% - 220px),
+    rgba(0, 0, 0, 0.82) calc(100% - 160px),
+    rgba(0, 0, 0, 0.5) calc(100% - 100px),
+    rgba(0, 0, 0, 0.15) calc(100% - 40px),
+    transparent 100%
+  );
 }
 
 .hero-img {
@@ -2605,10 +2645,7 @@ body::after {
   height: 100%;
   display: block;
   object-fit: cover;
-  /* The image now carries 25%-per-side padding, so there's real horizontal
-     slack to reposition the subject — adjust freely, this is just a start. */
-  object-position: 67% 40%;
-  filter: brightness(1.05) saturate(1.02);
+  object-position: 50% 70%;
   -webkit-mask-image: linear-gradient(
     180deg,
     #000 0%,
@@ -2619,8 +2656,8 @@ body::after {
   mask-image: linear-gradient(
     180deg,
     #000 0%,
-    #000 62%,
-    #0000008c 84%,
+    #000 70%,
+    #0000008c 85%,
     transparent 100%
   );
 }
@@ -2630,10 +2667,16 @@ body::after {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(58% 92% at 12% 50%, #0c0607de 0%, transparent 72%),
-    linear-gradient(90deg, #0c0607c2 0%, #0c060773 32%, transparent 56%),
-    linear-gradient(270deg, #0c060799 0%, transparent 14%),
-    linear-gradient(180deg, #0c060799 0%, transparent 24%);
+    radial-gradient(
+      62% 95% at 15% 50%,
+      color-mix(in srgb, var(--bg) 88%, transparent) 0%,
+      transparent 78%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg) 60%, transparent) 0%,
+      transparent 24%
+    );
 }
 
 /* Header + copy share one stacking layer above the art. */
@@ -2687,7 +2730,7 @@ body::after {
   font-weight: 400;
   line-height: 0.95;
   letter-spacing: 0.01em;
-  color: #fdf3f1;
+  color: var(--text-heading);
   text-shadow: 0 2px 16px #000a;
 }
 
@@ -2695,7 +2738,7 @@ body::after {
   font-family: "Manrope", Arial, Helvetica, sans-serif;
   font-size: clamp(0.9rem, 1.6vw, 1.05rem);
   line-height: 1.6;
-  color: #d8c4c1;
+  color: var(--text-body);
   max-width: 46ch;
 }
 
@@ -2730,7 +2773,7 @@ body::after {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.625rem;
   line-height: 1;
-  color: #f0e8e6;
+  color: var(--text-heading);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2814,7 +2857,7 @@ body::after {
   }
 
   .hero-img {
-    object-position: 53% 42%;
+    object-position: 54% 42%;
     -webkit-mask-image: linear-gradient(
       180deg,
       #000 0%,
@@ -2833,8 +2876,17 @@ body::after {
 
   .hero-veil {
     background:
-      linear-gradient(180deg, #0c0607cc 0%, #0c060773 42%, #0c0607e6 100%),
-      radial-gradient(85% 45% at 22% 62%, #0c0607a6 0%, transparent 72%);
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg) 80%, transparent) 0%,
+        color-mix(in srgb, var(--bg) 45%, transparent) 42%,
+        color-mix(in srgb, var(--bg) 90%, transparent) 100%
+      ),
+      radial-gradient(
+        85% 45% at 22% 62%,
+        color-mix(in srgb, var(--bg) 65%, transparent) 0%,
+        transparent 72%
+      );
   }
 
   .hero-copy {
