@@ -50,11 +50,8 @@
 }
 
 body {
-  background: #12080a
-    url("https://oldschool.runescape.wiki/images/Corrupted_Gauntlet_background.png")
-    repeat center center fixed;
-  background-size: cover;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  background: #0c0607;
+  font-family: "Manrope", "Roboto", Arial, Helvetica, sans-serif;
   color: #d8b0b0;
   min-height: 100vh;
   letter-spacing: 0;
@@ -198,29 +195,6 @@ body::after {
 
 .tracker-controls .profile-lookup-row {
   justify-content: flex-end;
-}
-
-/* Section heading inside a page (homepage) */
-.home-section-head {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.home-section-title {
-  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 1.15rem;
-  font-weight: 400;
-  color: #d8a0a0;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-}
-
-.home-section-rule {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, #3a1818 0%, transparent 100%);
 }
 
 @media (max-width: 640px) {
@@ -1081,9 +1055,9 @@ body::after {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: #0e0607e6;
+  background: #0c0607e6;
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid #2a1214;
+  border-bottom: 1px solid #2a1315;
 }
 
 /* On the homepage the header rides on top of the hero art. */
@@ -1091,7 +1065,7 @@ body::after {
   position: relative;
   background: transparent;
   backdrop-filter: none;
-  border-bottom: 0;
+  border-bottom: 1px solid #2a1315;
 }
 
 .site-header-inner {
@@ -1107,7 +1081,7 @@ body::after {
 .site-mark {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.25rem;
-  color: #d8a0a0;
+  color: #f0e8e6;
   letter-spacing: 0.03em;
   text-decoration: none;
   margin-right: auto;
@@ -1116,7 +1090,7 @@ body::after {
 }
 
 .site-mark:hover {
-  color: #ffd9d9;
+  color: #fdf3f1;
 }
 
 .site-nav {
@@ -1125,10 +1099,12 @@ body::after {
 }
 
 .site-nav-link {
-  font-size: 0.8rem;
-  letter-spacing: 0.14em;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #c39a9a;
+  color: #c9b8b6;
   text-decoration: none;
   padding: 0.35rem 0;
   border-bottom: 1px solid transparent;
@@ -1139,13 +1115,13 @@ body::after {
 }
 
 .site-nav-link:hover {
-  color: #ffd9d9;
-  border-color: #ff5364;
+  color: #f0e8e6;
+  border-color: #e8574a;
 }
 
 .site-nav-link.active {
-  color: #ffdcdc;
-  border-color: #b02a2a;
+  color: #f0e8e6;
+  border-color: #e8574a;
 }
 
 .site-header-discord {
@@ -1222,8 +1198,8 @@ body::after {
    ===================== */
 
 .site-footer {
-  border-top: 1px solid #2a1214;
-  background: #0c0507b3;
+  border-top: 1px solid #2a1315;
+  background: #0c0607b3;
   position: relative;
   z-index: 1;
 }
@@ -1248,14 +1224,15 @@ body::after {
 .site-footer-mark {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.1rem;
-  color: #b47a7a;
+  color: #f0e8e6;
 }
 
 .site-footer-tag,
 .site-footer-credit {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
-  color: #6a4a4c;
+  color: #8a7674;
 }
 
 .site-footer-nav {
@@ -1265,14 +1242,15 @@ body::after {
 }
 
 .site-footer-nav a {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   font-size: 0.78rem;
-  color: #a1767a;
+  color: #b09b98;
   text-decoration: none;
   transition: color 0.18s;
 }
 
 .site-footer-nav a:hover {
-  color: #e8c8c8;
+  color: #f0e8e6;
 }
 
 .site-footer-credit {
@@ -1940,10 +1918,10 @@ body::after {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  padding: 1.1rem 2.6rem 1.15rem 1.1rem;
-  border: 1px solid #3a1818;
+  padding: 1.1rem 1.6rem 1.15rem 1.6rem;
+  border: 1px solid #2a1315;
   border-radius: 2px;
-  background: #1a0a0acc;
+  background: #120809;
   text-decoration: none;
   color: inherit;
   opacity: 0;
@@ -1966,41 +1944,40 @@ body::after {
 }
 
 .home-card:hover {
-  border-color: #7a2222;
-  background: #24101299;
-  box-shadow: 0 0 14px #b02a2a33;
+  border-color: #e8574a;
+  background: #17090a;
+  box-shadow: 0 0 14px #e8574a2e;
 }
 
 .home-card-icon {
-  width: 52px;
-  height: 52px;
-  object-fit: contain;
-  image-rendering: pixelated;
+  display: block;
+  font-size: 1.6rem;
+  line-height: 1;
+  margin-bottom: 0.4rem;
   filter: drop-shadow(0 0 6px #000a);
-  margin-bottom: 0.2rem;
 }
 
 .home-card-title {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 1.05rem;
-  color: #e0a5a5;
+  color: #f0e8e6;
   letter-spacing: 0.02em;
 }
 
 .home-card-desc {
   font-size: 0.78rem;
-  color: #8d6366;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  color: #a08c89;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   line-height: 1.5;
 }
 
 .home-section-title {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 0.95rem;
-  color: #e8a0a0;
-  letter-spacing: 0.05em;
-  text-align: center;
-  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: #f0e8e6;
+  letter-spacing: 0.02em;
+  margin-bottom: 1.375rem;
   position: relative;
   z-index: 2;
 }
@@ -2008,8 +1985,8 @@ body::after {
 .home-status {
   text-align: center;
   font-size: 0.75rem;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
-  color: #9a8080;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  color: #8a7674;
   margin-bottom: 1.5rem;
   position: relative;
   z-index: 2;
@@ -2141,9 +2118,9 @@ body::after {
   align-items: center;
   gap: 0.85rem;
   padding: 0.85rem 1.2rem;
-  border: 1.5px solid #3a3a6a;
+  border: 1.5px solid #33294a;
   border-radius: 4px;
-  background: #10102acc;
+  background: #151020;
   text-decoration: none;
   color: inherit;
   margin-top: 2rem;
@@ -2156,16 +2133,15 @@ body::after {
 }
 
 .home-discord:hover {
-  border-color: #5865f2aa;
-  box-shadow: 0 0 14px #5865f233;
+  border-color: #9089ad;
+  box-shadow: 0 0 14px #9089ad33;
 }
 
 .home-discord-icon {
-  width: 28px;
-  height: 28px;
-  fill: #5865f2;
+  display: block;
+  font-size: 1.25rem;
+  line-height: 1;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 6px #5865f244);
 }
 
 .home-discord-text {
@@ -2178,19 +2154,19 @@ body::after {
 .home-discord-label {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 0.85rem;
-  color: #c8c8e8;
+  color: #f0e8e6;
   letter-spacing: 0.02em;
 }
 
 .home-discord-sub {
   font-size: 0.65rem;
-  color: #7a7a9a;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  color: #9089ad;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
 }
 
 .home-discord-arrow {
   font-size: 0.9rem;
-  color: #5865f2;
+  color: #9089ad;
   flex-shrink: 0;
 }
 
@@ -2217,11 +2193,11 @@ body::after {
 
 .home-panel {
   gap: 0.3rem;
-  padding: 1.1rem 2.6rem 1.15rem 1.1rem;
-  border: 1px solid #3a1818;
+  padding: 1.5rem 1.625rem;
+  border: 1px solid #2a1315;
   border-radius: 2px;
   min-height: 180px;
-  background: #1a0a0acc;
+  background: #120809;
   text-decoration: none;
   color: inherit;
   opacity: 0;
@@ -2243,28 +2219,28 @@ body::after {
 
 .home-panel-title {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 0.82rem;
-  color: #e8a0a0;
+  font-size: 0.95rem;
+  color: #f0e8e6;
   letter-spacing: 0.04em;
 }
 
 .home-panel-more {
   font-size: 0.62rem;
-  color: #7a5050;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  color: #a08c89;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   text-decoration: none;
   transition: color 0.15s;
 }
 
 .home-panel-more:hover {
-  color: #b02a2a;
+  color: #e8574a;
 }
 
 /* Twitch panel */
 .home-panel-twitch-logo {
-  width: 14px;
-  height: 14px;
-  fill: #9147ff;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: #9c85e8;
   flex-shrink: 0;
 }
 
@@ -2278,21 +2254,10 @@ body::after {
 }
 
 .home-twitch-offline {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.68rem;
-  color: #6a5050;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.8125rem;
+  color: #8a7674;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   padding: 0.5rem 0;
-}
-
-.home-twitch-offline-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #6a5050;
-  flex-shrink: 0;
 }
 
 .home-twitch-stream {
@@ -2302,7 +2267,7 @@ body::after {
   text-decoration: none;
   color: inherit;
   padding: 0.3rem 0;
-  border-bottom: 1px solid #3a181833;
+  border-bottom: 1px solid #2a131533;
   transition: background 0.15s;
 }
 
@@ -2311,7 +2276,7 @@ body::after {
 }
 
 .home-twitch-stream:hover .home-twitch-name {
-  color: #9147ff;
+  color: #9c85e8;
 }
 
 .home-twitch-thumb {
@@ -2333,7 +2298,7 @@ body::after {
 .home-twitch-name {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 0.72rem;
-  color: #e8a0a0;
+  color: #f0e8e6;
   transition: color 0.15s;
   white-space: nowrap;
   overflow: hidden;
@@ -2342,8 +2307,8 @@ body::after {
 
 .home-twitch-game {
   font-size: 0.6rem;
-  color: #9a8080;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  color: #a08c89;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2354,8 +2319,8 @@ body::after {
   align-items: center;
   gap: 0.25rem;
   font-size: 0.6rem;
-  color: #7ae28e;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  color: #9fc98f;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
 }
 
 .home-twitch-live-dot {
@@ -2612,7 +2577,12 @@ body::after {
 
 .hero {
   width: 100%;
-  min-height: clamp(400px, 44vw, 600px);
+  /* Upper bound raised from 600px: capping height while width keeps growing
+     forces object-fit: cover to crop an ever-smaller vertical slice on wide
+     screens, which reads as the art "zooming in". Letting height keep
+     tracking width (up to 900px, around a 2045px-wide viewport) keeps the
+     crop close to the source image's own aspect ratio instead. */
+  min-height: clamp(400px, 44vw, 900px);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2623,29 +2593,11 @@ body::after {
 
 .hero-media {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc((100vw - var(--content-max)) / 2 + var(--gutter) - 250px);
-  right: calc((100vw - var(--content-max)) / 2 + var(--gutter) - 250px);
+  inset: 0;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(0, 0, 0, 0.4) 10%,
-    #000 15%,
-    #000 85%,
-    rgba(0, 0, 0, 0.4) 90%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(0, 0, 0, 0.4) 10%,
-    #000 15%,
-    #000 85%,
-    rgba(0, 0, 0, 0.4) 90%,
-    transparent 100%
-  );
+  /* No side mask needed anymore — the source image now has real matching-
+     color padding baked in with a feathered seam, so it blends into the
+     page background on its own at any viewport width. */
 }
 
 .hero-img {
@@ -2653,8 +2605,10 @@ body::after {
   height: 100%;
   display: block;
   object-fit: cover;
-  object-position: 50% 70%;
-  filter: brightness(1.12) saturate(1.06);
+  /* The image now carries 25%-per-side padding, so there's real horizontal
+     slack to reposition the subject — adjust freely, this is just a start. */
+  object-position: 67% 40%;
+  filter: brightness(1.05) saturate(1.02);
   -webkit-mask-image: linear-gradient(
     180deg,
     #000 0%,
@@ -2676,9 +2630,10 @@ body::after {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(58% 92% at 12% 50%, #0c0507de 0%, transparent 72%),
-    linear-gradient(90deg, #12080ac2 0%, #12080a73 32%, transparent 56%),
-    linear-gradient(180deg, #0c050799 0%, transparent 24%);
+    radial-gradient(58% 92% at 12% 50%, #0c0607de 0%, transparent 72%),
+    linear-gradient(90deg, #0c0607c2 0%, #0c060773 32%, transparent 56%),
+    linear-gradient(270deg, #0c060799 0%, transparent 14%),
+    linear-gradient(180deg, #0c060799 0%, transparent 24%);
 }
 
 /* Header + copy share one stacking layer above the art. */
@@ -2700,9 +2655,8 @@ body::after {
   padding: 0 var(--gutter);
 }
 
-.hero-btn:focus-visible,
 .hero-live:focus-visible {
-  outline: 2px solid #ff5364;
+  outline: 2px solid #e8574a;
   outline-offset: 3px;
 }
 
@@ -2719,19 +2673,12 @@ body::after {
 }
 
 .hero-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   font-size: 0.72rem;
-  letter-spacing: 0.3em;
+  font-weight: 700;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #b07070;
-}
-
-.hero-eyebrow-line {
-  width: 46px;
-  height: 1px;
-  background: #b02a2a;
+  color: #e2938a;
 }
 
 .hero-title {
@@ -2740,72 +2687,16 @@ body::after {
   font-weight: 400;
   line-height: 0.95;
   letter-spacing: 0.01em;
-  color: #f2d3d3;
-  text-shadow:
-    0 2px 0 #000,
-    0 0 22px #6d171b,
-    0 0 60px #40080c;
+  color: #fdf3f1;
+  text-shadow: 0 2px 16px #000a;
 }
 
 .hero-lede {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
   font-size: clamp(0.9rem, 1.6vw, 1.05rem);
   line-height: 1.6;
-  color: #b58e8e;
+  color: #d8c4c1;
   max-width: 46ch;
-}
-
-.hero-cta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.3rem;
-}
-
-.hero-btn {
-  display: inline-flex;
-  align-items: center;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
-  font-size: 0.85rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-decoration: none;
-  padding: 0.75em 1.5em;
-  border-radius: 2px;
-  transition:
-    background 0.18s,
-    border-color 0.18s,
-    color 0.18s,
-    transform 0.18s,
-    box-shadow 0.18s;
-}
-
-.hero-btn-primary {
-  background: linear-gradient(180deg, #8f1c22, #5d1013);
-  border: 1px solid #b8393c;
-  color: #ffe4e4;
-  box-shadow:
-    0 0 0 1px #00000080,
-    0 6px 20px -10px #ff2b3b;
-}
-
-.hero-btn-primary:hover {
-  background: linear-gradient(180deg, #a92329, #6d1418);
-  transform: translateY(-1px);
-  box-shadow:
-    0 0 0 1px #00000080,
-    0 10px 26px -10px #ff2b3b;
-}
-
-.hero-btn-ghost {
-  background: #14090acc;
-  border: 1px solid #4b2124;
-  color: #c9a2a2;
-}
-
-.hero-btn-ghost:hover {
-  border-color: #7a3034;
-  color: #f0d2d2;
-  transform: translateY(-1px);
 }
 
 /* Hero stat bar */
@@ -2815,7 +2706,6 @@ body::after {
   flex-wrap: wrap;
   gap: 1rem 2.6rem;
   padding: 1.1rem 0;
-  border-top: 1px solid #2a1214;
 }
 
 .hero-statband {
@@ -2838,40 +2728,50 @@ body::after {
 .hero-stat-value {
   display: block;
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 1.5rem;
+  font-size: 1.625rem;
   line-height: 1;
-  color: #e8b9b9;
+  color: #f0e8e6;
   font-variant-numeric: tabular-nums;
 }
 
 .hero-stat-label {
   display: block;
-  font-size: 0.66rem;
-  letter-spacing: 0.18em;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 0.69rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #8d6366;
+  color: #c9b8b6;
   margin-top: 0.35em;
 }
 
 .hero-live {
   display: flex;
   align-items: center;
-  gap: 0.55em;
+  gap: 0.5em;
   margin-left: auto;
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #a97b7e;
   text-decoration: none;
   transition: color 0.18s;
+}
+
+.hero-live--open {
+  color: #9fc98f;
+}
+
+.hero-live--full {
+  color: #e2938a;
 }
 
 .hero-live-offline-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #ff5364;
-  box-shadow: 0 0 8px #ff5364;
+  background: #e8574a;
+  box-shadow: 0 0 8px #e8574a;
   animation: hero-live-pulse 2.4s ease-in-out infinite;
 }
 
@@ -2879,8 +2779,8 @@ body::after {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #61ff53;
-  box-shadow: 0 0 8px #61ff53;
+  background: #7fd66a;
+  box-shadow: 0 0 8px #7fd66a;
   animation: hero-live-pulse 2.4s ease-in-out infinite;
 }
 
@@ -2914,7 +2814,7 @@ body::after {
   }
 
   .hero-img {
-    object-position: 54% 42%;
+    object-position: 53% 42%;
     -webkit-mask-image: linear-gradient(
       180deg,
       #000 0%,
@@ -2933,8 +2833,8 @@ body::after {
 
   .hero-veil {
     background:
-      linear-gradient(180deg, #0c0507cc 0%, #12080a73 42%, #12080ae6 100%),
-      radial-gradient(85% 45% at 22% 62%, #0c0507a6 0%, transparent 72%);
+      linear-gradient(180deg, #0c0607cc 0%, #0c060773 42%, #0c0607e6 100%),
+      radial-gradient(85% 45% at 22% 62%, #0c0607a6 0%, transparent 72%);
   }
 
   .hero-copy {

@@ -1,6 +1,3 @@
-import { Link } from "react-router-dom";
-import { DISCORD_URL } from "../data/links";
-
 const CLAN_CAPACITY = 500;
 
 interface HeroProps {
@@ -25,7 +22,8 @@ export function Hero({ stats, liveCount }: HeroProps) {
       <div className="hero-media" aria-hidden="true">
         <img
           className="hero-img"
-          src="/example.png"
+          src="/hunllef-hero-1800.webp"
+          srcSet="/hunllef-hero-1200.webp 1800w, /hunllef-hero-1800.webp 2700w, /hunllef-hero-2600.webp 3900w"
           sizes="(max-width: 720px) 100vw, 72vw"
           alt=""
           fetchPriority="high"
@@ -37,27 +35,11 @@ export function Hero({ stats, liveCount }: HeroProps) {
       <div className="hero-layer">
         <div className="hero-inner">
           <div className="hero-copy">
-            <div className="hero-eyebrow">
-              <span className="hero-eyebrow-line" />
-              Old School RuneScape Clan
-            </div>
+            <div className="hero-eyebrow">Old School RuneScape Clan</div>
             <h1 className="hero-title">Time Served</h1>
             <p className="hero-lede">
               Lorem ipsum dolor sit amet, consectetur adipiscing elit.
             </p>
-            <div className="hero-cta">
-              <Link to="/rankings" className="hero-btn hero-btn-primary">
-                Check your rank
-              </Link>
-              <a
-                href={DISCORD_URL}
-                className="hero-btn hero-btn-ghost"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Join Discord
-              </a>
-            </div>
           </div>
 
           <div className="hero-stats">
@@ -87,13 +69,13 @@ export function Hero({ stats, liveCount }: HeroProps) {
             </div>
 
             {stats && stats.memberCount >= CLAN_CAPACITY ? (
-              <span className="hero-live">
+              <span className="hero-live hero-live--full">
                 <span className="hero-live-offline-dot" />
                 Clan is currently at max capacity
               </span>
             ) : (
               stats && (
-                <span className="hero-live">
+                <span className="hero-live hero-live--open">
                   <span className="hero-live-online-dot" />
                   {CLAN_CAPACITY - stats.memberCount} clan spots open
                 </span>
