@@ -4,6 +4,7 @@ const ranks: Rank[] = [
   {
     name: "Sapphire",
     color: "#2a62e5",
+    textColor: "#5b8fef",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Sapphire.png",
     items: [
       {
@@ -90,6 +91,7 @@ const ranks: Rank[] = [
   {
     name: "Emerald",
     color: "#21c04b",
+    textColor: "#3fd268",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Emerald.png",
     items: [
       {
@@ -261,6 +263,7 @@ const ranks: Rank[] = [
   {
     name: "Ruby",
     color: "#e03a3a",
+    textColor: "#ec5f5f",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Ruby.png",
     items: [
       {
@@ -340,6 +343,7 @@ const ranks: Rank[] = [
   {
     name: "Diamond",
     color: "#f5f5f5",
+    textColor: "#e8e8f0",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Diamond.png",
     items: [
       {
@@ -408,6 +412,7 @@ const ranks: Rank[] = [
   {
     name: "Dragonstone",
     color: "#a259c6",
+    textColor: "#c088e0",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Dragonstone.png",
     items: [
       {
@@ -493,6 +498,7 @@ const ranks: Rank[] = [
   {
     name: "Onyx",
     color: "#2e2929",
+    textColor: "#c9c9c9",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Onyx.png",
     items: [
       {
@@ -587,6 +593,7 @@ const ranks: Rank[] = [
   {
     name: "Zenyte",
     color: "#ff9900",
+    textColor: "#ffb340",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_Zenyte.png",
     items: [
       {
@@ -708,6 +715,7 @@ const ranks: Rank[] = [
   {
     name: "Infernal",
     color: "#ff6622",
+    textColor: "#ff8a5c",
     icon: "https://oldschool.runescape.wiki/images/Clan_icon_-_TzKal.png",
     items: [
       {

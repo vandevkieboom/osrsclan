@@ -4,8 +4,16 @@ import ItemCard, { type Item, type CheckResult } from "./item-card";
 export type Rank = {
   name: string;
   color: string;
+  textColor: string;
   icon: string;
   items: Item[];
+};
+
+type RankStats = {
+  total: number;
+  requiredCount: number;
+  satisfiedCount: number;
+  isSatisfied: boolean;
 };
 
 type RankCardProps = Rank & {
@@ -16,12 +24,14 @@ type RankCardProps = Rank & {
   hideCompleted: boolean;
   eligible: boolean;
   priorRanksMet: boolean;
+  stats: RankStats;
   onCycleState: (rankIndex: number, itemIndex: number) => void;
 };
 
 const RankCard: React.FC<RankCardProps> = ({
   name,
   color,
+  textColor,
   icon,
   items,
   rankIndex,
@@ -31,6 +41,7 @@ const RankCard: React.FC<RankCardProps> = ({
   hideCompleted,
   eligible,
   priorRanksMet,
+  stats,
   onCycleState,
 }) => {
   const rankStateClass = eligible
@@ -44,8 +55,20 @@ const RankCard: React.FC<RankCardProps> = ({
       ? "Complete this rank"
       : "Missing prior rank requirements";
 
+  const pct = stats.total
+    ? Math.round((stats.satisfiedCount / stats.total) * 100)
+    : 0;
+
   return (
-    <div className="rank-card" style={{ ["--rank-color" as any]: color }}>
+    <div
+      className={`rank-card${eligible ? " is-eligible" : ""}`}
+      style={
+        {
+          "--rank-color": color,
+          "--rank-text-color": textColor,
+        } as React.CSSProperties
+      }
+    >
       <div className="rank-header">
         <img
           className="rank-gem"
@@ -56,6 +79,13 @@ const RankCard: React.FC<RankCardProps> = ({
         <span className="rank-name">{name}</span>
       </div>
       <div className={`rank-state ${rankStateClass}`}>{rankStateText}</div>
+      <div className="rank-progress-track">
+        <div className="rank-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="rank-progress-count">
+        {stats.satisfiedCount} / {stats.total} complete ({stats.requiredCount}{" "}
+        needed)
+      </div>
       <div className="items-grid">
         {items.map((item, itemIndex) => {
           const key = `${rankIndex}-${itemIndex}`;

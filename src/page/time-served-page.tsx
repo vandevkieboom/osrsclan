@@ -4,13 +4,15 @@ import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
-import Ruleset from "../components/rule-set";
 import {
   fetchRuneProfile,
   getBossKc,
   type RuneProfile,
 } from "../services/runeprofile";
-import { checkRequirement, getRequirementProgress } from "../services/rank-checker";
+import {
+  checkRequirement,
+  getRequirementProgress,
+} from "../services/rank-checker";
 import type { Item, CheckResult } from "../components/item-card";
 
 type StateMap = Record<string, boolean>;
@@ -20,8 +22,6 @@ type SavedProgress = {
 };
 
 const STORAGE_KEY = "clan-rankings-progress-v1";
-const DIVIDER_URL =
-  "https://www.twitch.tv/sardaco/clip/StylishInquisitiveBadgerWholeWheat-nb2VbAXPnoKyARLz";
 
 const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
@@ -92,7 +92,9 @@ export const ClanRankings = () => {
     return result;
   }, [profile]);
 
-  const apiProgress = useMemo<Record<string, { found: number; required: number }>>(() => {
+  const apiProgress = useMemo<
+    Record<string, { found: number; required: number }>
+  >(() => {
     if (!profile) return {};
     const result: Record<string, { found: number; required: number }> = {};
     ranks.forEach((rank, rankIndex) => {
@@ -136,10 +138,13 @@ export const ClanRankings = () => {
       setUsername(u);
       loadProfile(u);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isMultiItemHardFail = (item: Item, apiKey: CheckResult | undefined): boolean => {
+  const isMultiItemHardFail = (
+    item: Item,
+    apiKey: CheckResult | undefined,
+  ): boolean => {
     if (!item.multiItem || apiKey !== "fail" || !item.apiCheck) return false;
     switch (item.apiCheck.type) {
       case "collection-count":
@@ -213,6 +218,21 @@ export const ClanRankings = () => {
     return lastEligible;
   }, [eligibleByRank]);
 
+  const overallStats = useMemo(() => {
+    let total = 0;
+    let satisfied = 0;
+    ranks.forEach((_, rankIndex) => {
+      const stats = getRankStats(rankIndex);
+      total += stats.total;
+      satisfied += stats.satisfiedCount;
+    });
+    return {
+      total,
+      satisfied,
+      pct: total ? Math.round((satisfied / total) * 100) : 0,
+    };
+  }, [completed, apiVerified]);
+
   const cycleItemState = (rankIndex: number, itemIndex: number) => {
     const key = getKey(rankIndex, itemIndex);
     setCompleted((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -246,56 +266,58 @@ export const ClanRankings = () => {
 
       <div className="page">
         <div className="page-head">
-          <div className="page-head-row">
-            <div className="page-head-text">
-              <div className="page-eyebrow">
-                <span className="page-eyebrow-line" />
-                Rank requirements
-              </div>
-              <h1 className="page-title">Clan Ranks</h1>
-              <p className="page-sub">
-                Every tier and what it takes to get there. Import your
-                RuneProfile collection log to check your progress
-                automatically, or tick items off by hand.
-              </p>
+          <div className="page-head-text">
+            <div className="page-eyebrow">Rank requirements</div>
+            <h1 className="page-title">Clan Ranks</h1>
+            <p className="page-sub">
+              Every tier and what it takes to get there. Import your RuneProfile
+              collection log to check your progress automatically, or tick items
+              off by hand.
+            </p>
+          </div>
+          <div className="badge-legend">
+            <span className="legend-item">
+              <span className="legend-badge api-verified">✓</span>
+              Verified
+            </span>
+            <span className="legend-item">
+              <span className="legend-badge api-alt">~</span>
+              Alternative Item
+            </span>
+          </div>
+        </div>
+
+        <div className="overall-progress">
+          <div className="overall-progress-row">
+            <div className="overall-progress-label">
+              Current highest eligible rank:{" "}
+              <strong
+                style={{
+                  color:
+                    highestEligibleRank >= 0
+                      ? ranks[highestEligibleRank].textColor
+                      : undefined,
+                  fontFamily: "MedievalSharp, Arial, Helvetica, sans-serif",
+                }}
+              >
+                {highestEligibleRank >= 0
+                  ? ranks[highestEligibleRank].name
+                  : "None yet"}
+              </strong>
             </div>
-            <div className="badge-legend">
-              <span className="legend-item">
-                <span className="legend-badge api-verified">✓</span>
-                Verified
-              </span>
-              <span className="legend-item">
-                <span className="legend-badge api-alt">~</span>
-                Alternative Item
-              </span>
+            <div className="overall-progress-count">
+              {overallStats.satisfied} / {overallStats.total} items collected
             </div>
           </div>
-          <a
-            className="divider divider-link"
-            href={DIVIDER_URL}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Open divider link"
-          ></a>
+          <div className="overall-progress-track">
+            <div
+              className="overall-progress-fill"
+              style={{ width: `${overallStats.pct}%` }}
+            />
+          </div>
         </div>
 
         <div className="tracker-controls">
-          <div className="tracker-summary">
-            Current highest eligible rank:{" "}
-            <strong
-              style={{
-                color:
-                  highestEligibleRank >= 0
-                    ? ranks[highestEligibleRank].color
-                    : undefined,
-                fontFamily: "MedievalSharp, Arial, Helvetica, sans-serif",
-              }}
-            >
-              {highestEligibleRank >= 0
-                ? ranks[highestEligibleRank].name
-                : "None yet"}
-            </strong>
-          </div>
           <div className="tracker-toolbar">
             <button type="button" className="tracker-btn" onClick={resetAll}>
               Reset Progress
@@ -397,10 +419,10 @@ export const ClanRankings = () => {
               hideCompleted={hideCompleted}
               eligible={eligibleByRank[rankIndex]}
               priorRanksMet={priorRanksMetByRank[rankIndex]}
+              stats={getRankStats(rankIndex)}
               onCycleState={cycleItemState}
             />
           ))}
-          <Ruleset />
         </div>
       </div>
 
