@@ -832,4 +832,13 @@ const ranks: Rank[] = [
   },
 ];
 
+// Maps a Wise Old Man group role (lowercased) to that rank's clan icon, so
+// the Hiscores page can show a player's rank gem without a per-player
+// RuneProfile lookup. WOM's role for the top rank is "tzkal" (matching the
+// TzKal-Zuk-themed icon file), not "infernal", so it's aliased here.
+export const rankIconByRole: Record<string, string> = {
+  ...Object.fromEntries(ranks.map((r) => [r.name.toLowerCase(), r.icon])),
+  tzkal: ranks.find((r) => r.name === "Infernal")!.icon,
+};
+
 export default ranks;

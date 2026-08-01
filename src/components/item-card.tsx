@@ -39,35 +39,22 @@ export type Item = {
 };
 
 type ItemCardProps = Item & {
-  isCompleted: boolean;
   apiResult: CheckResult | null;
   progress: { found: number; required: number } | null;
-  onCycleState: () => void;
 };
 
 const ItemCard: React.FC<ItemCardProps> = ({
   name,
   img,
   alt,
-  isCompleted,
   apiResult,
   progress,
-  onCycleState,
 }) => {
-  const isDone =
-    isCompleted || apiResult === "pass" || apiResult === "pass-alt";
-  const nextAction = isDone ? "clear completion" : "mark as completed";
+  const isDone = apiResult === "pass" || apiResult === "pass-alt";
 
   return (
     <div className={`item ${isDone ? "is-complete" : ""}`}>
-      <button
-        type="button"
-        className="item-hitbox"
-        onClick={onCycleState}
-        title={`Click to ${nextAction}`}
-        aria-label={`${name}: click to ${nextAction}`}
-        aria-pressed={isDone}
-      >
+      <div className="item-hitbox">
         <span className="item-icon-wrap">
           <img
             className="item-sprite"
@@ -75,7 +62,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
             src={img}
             alt={alt}
           />
-          {apiResult === "pass" && !isCompleted && (
+          {apiResult === "pass" && (
             <span
               className="item-status api-verified"
               title="Verified via RuneProfile"
@@ -83,7 +70,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
               ✓
             </span>
           )}
-          {apiResult === "pass-alt" && !isCompleted && (
+          {apiResult === "pass-alt" && (
             <span
               className="item-status api-alt"
               title="Passed via alternative — primary item not in collection log"
@@ -91,7 +78,6 @@ const ItemCard: React.FC<ItemCardProps> = ({
               ~
             </span>
           )}
-          {isCompleted && <span className="item-status done">✓</span>}
           {!isDone && progress && (
             <span
               className="item-status api-partial"
@@ -102,7 +88,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
           )}
         </span>
         <span className="item-name">{name}</span>
-      </button>
+      </div>
     </div>
   );
 };

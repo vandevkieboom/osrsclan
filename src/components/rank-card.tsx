@@ -18,14 +18,12 @@ type RankStats = {
 
 type RankCardProps = Rank & {
   rankIndex: number;
-  completed: Record<string, boolean>;
   apiVerified: Record<string, CheckResult>;
   apiProgress: Record<string, { found: number; required: number }>;
   hideCompleted: boolean;
   eligible: boolean;
   priorRanksMet: boolean;
   stats: RankStats;
-  onCycleState: (rankIndex: number, itemIndex: number) => void;
 };
 
 const RankCard: React.FC<RankCardProps> = ({
@@ -35,33 +33,37 @@ const RankCard: React.FC<RankCardProps> = ({
   icon,
   items,
   rankIndex,
-  completed,
   apiVerified,
   apiProgress,
   hideCompleted,
   eligible,
   priorRanksMet,
   stats,
-  onCycleState,
 }) => {
+  // Ranks are cumulative, so "progress" (prior ranks met, this one isn't
+  // yet) can only ever be true for a single rank at a time — the next one
+  // up. Everything after it is necessarily "locked" (a prior rank failed).
   const rankStateClass = eligible
     ? "eligible"
     : priorRanksMet
       ? "progress"
       : "locked";
-  const rankStateText = eligible
-    ? "Eligible"
-    : priorRanksMet
-      ? "Complete this rank"
-      : "Missing prior rank requirements";
+  const isNext = rankStateClass === "progress";
+  const rankStateText = eligible ? "Eligible" : isNext ? "In Progress" : "Locked";
 
   const pct = stats.total
     ? Math.round((stats.satisfiedCount / stats.total) * 100)
     : 0;
 
+  const cardStateClass = eligible
+    ? " is-eligible"
+    : isNext
+      ? " is-next"
+      : " is-locked";
+
   return (
     <div
-      className={`rank-card${eligible ? " is-eligible" : ""}`}
+      className={`rank-card${cardStateClass}`}
       style={
         {
           "--rank-color": color,
@@ -69,6 +71,7 @@ const RankCard: React.FC<RankCardProps> = ({
         } as React.CSSProperties
       }
     >
+      {isNext && <div className="rank-next-badge">Next Up</div>}
       <div className="rank-header">
         <img
           className="rank-gem"
@@ -89,10 +92,9 @@ const RankCard: React.FC<RankCardProps> = ({
       <div className="items-grid">
         {items.map((item, itemIndex) => {
           const key = `${rankIndex}-${itemIndex}`;
-          const isManual = Boolean(completed[key]);
           const apiResult = apiVerified[key] ?? null;
           const isApiDone = apiResult === "pass" || apiResult === "pass-alt";
-          if (hideCompleted && (isManual || isApiDone)) {
+          if (hideCompleted && isApiDone) {
             return null;
           }
 
@@ -100,10 +102,8 @@ const RankCard: React.FC<RankCardProps> = ({
             <ItemCard
               key={key}
               {...item}
-              isCompleted={isManual}
               apiResult={apiResult}
               progress={apiProgress[key] ?? null}
-              onCycleState={() => onCycleState(rankIndex, itemIndex)}
             />
           );
         })}

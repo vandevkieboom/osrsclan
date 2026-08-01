@@ -52,7 +52,7 @@ export interface MetricGroup {
   metrics: MetricOption[];
 }
 
-export interface WomGainedEntry {
+export interface WomBulkGainedEntry {
   player: {
     username: string;
     displayName: string;
@@ -60,13 +60,31 @@ export interface WomGainedEntry {
     updatedAt: string | null;
     lastChangedAt: string | null;
   };
-  data: {
-    gained: number;
-    start: number;
-    end: number;
-  };
   startDate: string;
   endDate: string;
+  data: Array<{ metric: string; gained: number; start: number; end: number }>;
+}
+
+interface WomBulkMetricStat {
+  metric: string;
+  rank: number;
+  level?: number;
+  experience?: number;
+  kills?: number;
+  score?: number;
+  value?: number;
+}
+
+export interface WomBulkHiscoresEntry {
+  player: WomHiscoresEntry["player"];
+  data: {
+    data: {
+      skills: Record<string, WomBulkMetricStat>;
+      bosses: Record<string, WomBulkMetricStat>;
+      activities: Record<string, WomBulkMetricStat>;
+      computed: Record<string, WomBulkMetricStat>;
+    };
+  } | null;
 }
 
 const ICON_OVERRIDES: Record<string, string> = {
@@ -656,41 +674,14 @@ export const METRIC_GROUPS: MetricGroup[] = [
   },
 ];
 
-export async function fetchClanHiscores(
-  metric: string,
-): Promise<WomHiscoresEntry[]> {
-  const key = `hiscores:${metric}`;
-  const cached = getCached<WomHiscoresEntry[]>(key);
-  if (cached) return cached;
-
-  const res = await fetch(
-    `/api/wom-proxy?type=hiscores&metric=${encodeURIComponent(metric)}`,
-  );
-
-  if (res.status === 429) {
-    throw new Error("Rate limit hit — wait a moment and try again.");
-  }
-  if (!res.ok) {
-    throw new Error(`Failed to load hiscores (${res.status}).`);
-  }
-
-  const data = (await res.json()) as WomHiscoresEntry[];
-  setCached(key, data);
-  return data;
-}
-
-export async function fetchGroupGained(
-  metric: string,
+export async function fetchGroupBulkGained(
   period: "week" | "month",
-  limit = 500,
-): Promise<WomGainedEntry[]> {
-  const key = `gained:${metric}:${period}:${limit}`;
-  const cached = getCached<WomGainedEntry[]>(key);
+): Promise<WomBulkGainedEntry[]> {
+  const key = `bulk-gained:${period}`;
+  const cached = getCached<WomBulkGainedEntry[]>(key);
   if (cached) return cached;
 
-  const res = await fetch(
-    `/api/wom-proxy?type=gained&metric=${encodeURIComponent(metric)}&period=${period}&limit=${limit}`,
-  );
+  const res = await fetch(`/api/wom-proxy?type=bulk-gained&period=${period}`);
 
   if (res.status === 429) {
     throw new Error("Rate limit hit — wait a moment and try again.");
@@ -699,9 +690,107 @@ export async function fetchGroupGained(
     throw new Error(`Failed to load gained data (${res.status}).`);
   }
 
-  const data = (await res.json()) as WomGainedEntry[];
+  const data = (await res.json()) as WomBulkGainedEntry[];
   setCached(key, data);
   return data;
+}
+
+export async function fetchGroupBulkHiscores(): Promise<
+  WomBulkHiscoresEntry[]
+> {
+  const key = "bulk-hiscores";
+  const cached = getCached<WomBulkHiscoresEntry[]>(key);
+  if (cached) return cached;
+
+  const res = await fetch(`/api/wom-proxy?type=bulk-hiscores`);
+
+  if (res.status === 429) {
+    throw new Error("Rate limit hit — wait a moment and try again.");
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load hiscores (${res.status}).`);
+  }
+
+  const data = (await res.json()) as WomBulkHiscoresEntry[];
+  setCached(key, data);
+  return data;
+}
+
+const METRIC_GROUP_KEY: Record<
+  MetricOption["dataType"],
+  "skills" | "bosses" | "activities" | "computed"
+> = {
+  skill: "skills",
+  boss: "bosses",
+  activity: "activities",
+  computed: "computed",
+};
+
+// Reshapes + sorts bulk-hiscores into the same shape (and same ranking
+// order) the old single-metric /hiscores endpoint gave us, so the rest of
+// the app doesn't need to know bulk-hiscores exists. WOM's own per-metric
+// ranking rule: skills sort by level then experience, everything else sorts
+// by its one numeric stat — all descending.
+export function getMetricEntries(
+  bulk: WomBulkHiscoresEntry[],
+  metric: string,
+  dataType: MetricOption["dataType"],
+): WomHiscoresEntry[] {
+  const groupKey = METRIC_GROUP_KEY[dataType];
+  const rows: WomHiscoresEntry[] = bulk.map((entry) => {
+    const stat = entry.data?.data[groupKey]?.[metric];
+    return {
+      player: entry.player,
+      data: {
+        type: dataType,
+        rank: stat?.rank ?? -1,
+        level: dataType === "skill" ? (stat?.level ?? 1) : undefined,
+        experience: dataType === "skill" ? (stat?.experience ?? 0) : undefined,
+        kills: dataType === "boss" ? (stat?.kills ?? 0) : undefined,
+        score: dataType === "activity" ? (stat?.score ?? 0) : undefined,
+        value: dataType === "computed" ? (stat?.value ?? 0) : undefined,
+      },
+    };
+  });
+
+  rows.sort((a, b) => {
+    if (dataType === "skill") {
+      const levelDiff = (b.data.level ?? 0) - (a.data.level ?? 0);
+      if (levelDiff !== 0) return levelDiff;
+      return (b.data.experience ?? 0) - (a.data.experience ?? 0);
+    }
+    if (dataType === "boss") return (b.data.kills ?? 0) - (a.data.kills ?? 0);
+    if (dataType === "activity")
+      return (b.data.score ?? 0) - (a.data.score ?? 0);
+    return (b.data.value ?? 0) - (a.data.value ?? 0);
+  });
+
+  return rows;
+}
+
+export async function fetchGroupRoles(): Promise<Map<string, string>> {
+  const key = "group:roles";
+  const cached = getCached<Map<string, string>>(key);
+  if (cached) return cached;
+
+  const res = await fetch(`/api/wom-proxy?type=roles`);
+
+  if (res.status === 429) {
+    throw new Error("Rate limit hit — wait a moment and try again.");
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to load clan roles (${res.status}).`);
+  }
+
+  const data = (await res.json()) as {
+    memberships: Array<{ player: { username: string }; role: string }>;
+  };
+  const map = new Map<string, string>();
+  for (const m of data.memberships) {
+    map.set(m.player.username.toLowerCase(), m.role.toLowerCase());
+  }
+  setCached(key, map);
+  return map;
 }
 
 export interface EventParticipation {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
@@ -15,42 +15,19 @@ import {
 } from "../services/rank-checker";
 import type { Item, CheckResult } from "../components/item-card";
 
-type StateMap = Record<string, boolean>;
-type SavedProgress = {
-  completed: StateMap;
-  hideCompleted: boolean;
-};
-
-const STORAGE_KEY = "clan-rankings-progress-v1";
+const STORAGE_KEY = "clan-rankings-hide-completed-v1";
 
 const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [completed, setCompleted] = useState<StateMap>({});
   const [hideCompleted, setHideCompleted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   const [username, setUsername] = useState("");
   const [profile, setProfile] = useState<RuneProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = 0.2;
-      if (isPlaying) {
-        audioRef.current.play().catch(() => {});
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [isPlaying]);
-  const handleAudioToggle = () => {
-    setIsPlaying((prev) => !prev);
-  };
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -59,21 +36,15 @@ export const ClanRankings = () => {
     }
 
     try {
-      const parsed = JSON.parse(raw) as SavedProgress;
-      setCompleted(parsed.completed ?? {});
-      setHideCompleted(Boolean(parsed.hideCompleted));
+      setHideCompleted(Boolean(JSON.parse(raw)));
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
   }, []);
 
   useEffect(() => {
-    const payload: SavedProgress = {
-      completed,
-      hideCompleted,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [completed, hideCompleted]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(hideCompleted));
+  }, [hideCompleted]);
 
   const apiVerified = useMemo<Record<string, CheckResult>>(() => {
     if (!profile) {
@@ -119,7 +90,6 @@ export const ClanRankings = () => {
     setSearchParams({ u: trimmed }, { replace: true });
     setProfileLoading(true);
     setProfileError(null);
-    setCompleted({});
     try {
       const data = await fetchRuneProfile(trimmed);
       setProfile(data);
@@ -169,7 +139,7 @@ export const ClanRankings = () => {
     ranks[rankIndex].items.forEach((item, itemIndex) => {
       const key = getKey(rankIndex, itemIndex);
       const apiKey = apiVerified[key];
-      if (completed[key] || apiKey === "pass" || apiKey === "pass-alt") {
+      if (apiKey === "pass" || apiKey === "pass-alt") {
         satisfiedCount += 1;
       } else if (isMultiItemHardFail(item, apiKey)) {
         hardFailCount += 1;
@@ -195,7 +165,7 @@ export const ClanRankings = () => {
       }
       return true;
     });
-  }, [completed, apiVerified]);
+  }, [apiVerified]);
 
   const priorRanksMetByRank = useMemo(() => {
     return ranks.map((_, rankIndex) => {
@@ -206,7 +176,7 @@ export const ClanRankings = () => {
       }
       return true;
     });
-  }, [completed, apiVerified]);
+  }, [apiVerified]);
 
   const highestEligibleRank = useMemo(() => {
     let lastEligible = -1;
@@ -231,41 +201,20 @@ export const ClanRankings = () => {
       satisfied,
       pct: total ? Math.round((satisfied / total) * 100) : 0,
     };
-  }, [completed, apiVerified]);
-
-  const cycleItemState = (rankIndex: number, itemIndex: number) => {
-    const key = getKey(rankIndex, itemIndex);
-    setCompleted((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  }, [apiVerified]);
 
   const resetAll = () => {
-    setCompleted({});
+    setUsername("");
     setProfile(null);
     setProfileError(null);
   };
 
   return (
     <>
-      <audio
-        ref={audioRef}
-        src="/The_Gauntlet.ogg"
-        autoPlay
-        loop
-        style={{ display: "none" }}
-      />
-      <SiteHeader>
-        <button
-          type="button"
-          onClick={handleAudioToggle}
-          className="audio-toggle-btn"
-          aria-label={isPlaying ? "Pause music" : "Play music"}
-        >
-          {isPlaying ? "Pause Music" : "Play Music"}
-        </button>
-      </SiteHeader>
+      <SiteHeader />
 
       <div className="page">
-        <div className="page-head">
+        <div className="page-head page-head--rankings">
           <div className="page-head-text">
             <div className="page-eyebrow">Rank requirements</div>
             <h1 className="page-title">Clan Ranks</h1>
@@ -296,8 +245,9 @@ export const ClanRankings = () => {
                   color:
                     highestEligibleRank >= 0
                       ? ranks[highestEligibleRank].textColor
-                      : undefined,
+                      : "#f0e8e6",
                   fontFamily: "MedievalSharp, Arial, Helvetica, sans-serif",
+                  fontWeight: 700,
                 }}
               >
                 {highestEligibleRank >= 0
@@ -332,6 +282,53 @@ export const ClanRankings = () => {
           </div>
           <div className="profile-lookup">
             <div className="profile-lookup-row">
+              {profile && !profileError && (
+                <div className="profile-lookup-success">
+                  Clan Req:{" "}
+                  {(() => {
+                    const enhancedSeedCount =
+                      profile.itemMap.get("enhanced crystal weapon seed") ??
+                      0;
+                    const armourSeeds = Math.max(
+                      profile.itemMap.get("crystal armour seed") ?? 0,
+                      profile.itemMap.get("crystal armor seed") ?? 0,
+                    );
+                    if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
+                      return (
+                        <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                          ✓ {enhancedSeedCount} Enhanced Crystal Weapon Seed
+                          {enhancedSeedCount > 1 ? "s" : ""} + {armourSeeds}{" "}
+                          Crystal Armour Seed
+                          {armourSeeds > 1 ? "s" : ""}
+                        </span>
+                      );
+                    }
+                    const cgKc = getBossKc(profile.bossKcMap, [
+                      "corrupted gauntlet",
+                      "the corrupted gauntlet",
+                    ]);
+                    if (cgKc >= 800) {
+                      return (
+                        <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                          ✓ Corrupted Gauntlet ({cgKc} kc)
+                        </span>
+                      );
+                    }
+                    if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
+                      return (
+                        <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                          ✓ Twisted Bow
+                        </span>
+                      );
+                    }
+                    return (
+                      <span style={{ color: "#ff5364", fontWeight: 600 }}>
+                        ✗ Not met (or RuneProfile outdated)
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
               <input
                 className="profile-lookup-input"
                 type="text"
@@ -354,57 +351,6 @@ export const ClanRankings = () => {
             {profileError && (
               <div className="profile-lookup-error">{profileError}</div>
             )}
-            {profile && !profileError && (
-              <div className="profile-lookup-success">
-                {profile && (
-                  <div style={{ marginTop: 3 }}>
-                    Clan Req:{" "}
-                    {(() => {
-                      const enhancedSeedCount =
-                        profile.itemMap.get("enhanced crystal weapon seed") ??
-                        0;
-                      const armourSeeds = Math.max(
-                        profile.itemMap.get("crystal armour seed") ?? 0,
-                        profile.itemMap.get("crystal armor seed") ?? 0,
-                      );
-                      if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
-                        return (
-                          <span style={{ color: "#1f9d53", fontWeight: 600 }}>
-                            ✓ {enhancedSeedCount} Enhanced Crystal Weapon Seed
-                            {enhancedSeedCount > 1 ? "s" : ""} + {armourSeeds}{" "}
-                            Crystal Armour Seed
-                            {armourSeeds > 1 ? "s" : ""}
-                          </span>
-                        );
-                      }
-                      const cgKc = getBossKc(profile.bossKcMap, [
-                        "corrupted gauntlet",
-                        "the corrupted gauntlet",
-                      ]);
-                      if (cgKc >= 800) {
-                        return (
-                          <span style={{ color: "#1f9d53", fontWeight: 600 }}>
-                            ✓ Corrupted Gauntlet ({cgKc} kc)
-                          </span>
-                        );
-                      }
-                      if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
-                        return (
-                          <span style={{ color: "#1f9d53", fontWeight: 600 }}>
-                            ✓ Twisted Bow
-                          </span>
-                        );
-                      }
-                      return (
-                        <span style={{ color: "#ff5364", fontWeight: 600 }}>
-                          ✗ Not met (or RuneProfile outdated)
-                        </span>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
         <div className="ranks-grid">
@@ -413,14 +359,12 @@ export const ClanRankings = () => {
               key={rank.name}
               {...rank}
               rankIndex={rankIndex}
-              completed={completed}
               apiVerified={apiVerified}
               apiProgress={apiProgress}
               hideCompleted={hideCompleted}
               eligible={eligibleByRank[rankIndex]}
               priorRanksMet={priorRanksMetByRank[rankIndex]}
               stats={getRankStats(rankIndex)}
-              onCycleState={cycleItemState}
             />
           ))}
         </div>

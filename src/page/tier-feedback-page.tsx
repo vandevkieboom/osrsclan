@@ -410,7 +410,6 @@ export function TierFeedbackPage() {
             Items that shouldn't count toward any rank go in the "Shouldn't Be
             Included" box below.
           </p>
-          <div className="divider" />
         </div>
 
         <div className="tier-feedback-toolbar">

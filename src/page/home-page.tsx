@@ -136,10 +136,12 @@ export function HomePage() {
               className="home-card-icon"
               alt=""
             />
-            <div className="home-card-title">Rankings</div>
-            <div className="home-card-desc">
-              Verify your rank eligibility by importing your RuneProfile
-              collection log and checking your progress through every tier.
+            <div className="home-card-body">
+              <div className="home-card-title">Rankings</div>
+              <div className="home-card-desc">
+                Verify your rank eligibility by importing your RuneProfile
+                collection log and checking your progress through every tier.
+              </div>
             </div>
           </Link>
           <Link to="/hiscores" className="home-card">
@@ -148,10 +150,12 @@ export function HomePage() {
               className="home-card-icon"
               alt=""
             />
-            <div className="home-card-title">Hiscores</div>
-            <div className="home-card-desc">
-              Browse clan member leaderboards across every skill, boss, and
-              activity. Filter by active players or view the latest event.
+            <div className="home-card-body">
+              <div className="home-card-title">Hiscores</div>
+              <div className="home-card-desc">
+                Browse clan member leaderboards across every skill, boss, and
+                activity. Filter by active players or view the latest event.
+              </div>
             </div>
           </Link>
           <Link to="/activity" className="home-card">
@@ -160,10 +164,12 @@ export function HomePage() {
               className="home-card-icon"
               alt=""
             />
-            <div className="home-card-title">Activity</div>
-            <div className="home-card-desc">
-              Live clan feed showing rare drops, level-ups, quests, and combat
-              achievements as they happen.
+            <div className="home-card-body">
+              <div className="home-card-title">Activity</div>
+              <div className="home-card-desc">
+                Live clan feed showing rare drops, level-ups, quests, and
+                combat achievements as they happen.
+              </div>
             </div>
           </Link>
         </div>

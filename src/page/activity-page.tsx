@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
+import { fetchGroupRoles } from "../services/wom";
+import { rankIconByRole } from "../data/ranks-data";
 
 const CLAN = "Time Served";
 const LIMIT = 20;
@@ -117,10 +119,29 @@ function timeAgo(iso: string): string {
   return `${Math.floor(d / 30)}mo ago`;
 }
 
-function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
+// Per-activity-type highlight colors, matching the mockup's distinct accent
+// per event kind (collection log items blue, gp gold, diaries green, etc).
+const HIGHLIGHT_COLORS: Record<string, string> = {
+  new_item_obtained: "#5b9bd5",
+  valuable_drop: "#d4b158",
+  achievement_diary_tier_completed: "#5fbf6a",
+  level_up: "#e8574a",
+  xp_milestone: "#e8574a",
+};
+
+function ActivityRow({
+  activity,
+  roleMap,
+}: {
+  activity: RuneProfileActivity;
+  roleMap: Map<string, string> | null;
+}) {
   const { type, data, enriched, createdAt, account } = activity;
   const typeIcon = getAccountIcon(account.accountType.key);
+  const role = roleMap?.get(account.username.toLowerCase());
+  const rankIcon = role ? rankIconByRole[role] : undefined;
   const womUrl = `https://wiseoldman.net/players/${encodeURIComponent(account.username)}`;
+  const highlightColor = HIGHLIGHT_COLORS[type] ?? "#f0e8e6";
 
   let skillImg: string | null = null;
   let description: React.ReactNode = null;
@@ -133,11 +154,15 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
         reached{" "}
         {data.level !== undefined && (
           <>
-            <span className="activity-highlight">level {data.level}</span>{" "}
+            <span className="activity-highlight" style={{ color: highlightColor }}>
+              level {data.level}
+            </span>{" "}
             in{" "}
           </>
         )}
-        <span className="activity-highlight">{displayName}</span>
+        <span className="activity-highlight" style={{ color: highlightColor }}>
+          {displayName}
+        </span>
       </>
     );
   } else if (type === "valuable_drop") {
@@ -146,7 +171,7 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
     description = (
       <>
         received a valuable drop worth{" "}
-        <span className="activity-highlight">
+        <span className="activity-highlight" style={{ color: highlightColor }}>
           {data.value !== undefined
             ? formatXp(data.value) + " gp"
             : String(enriched?.itemName ?? "Unknown item")}
@@ -159,7 +184,7 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
     description = (
       <>
         added{" "}
-        <span className="activity-highlight">
+        <span className="activity-highlight" style={{ color: highlightColor }}>
           {String(enriched?.itemName ?? "an item")}
         </span>{" "}
         to their collection log
@@ -170,7 +195,7 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
     description = (
       <>
         completed{" "}
-        <span className="activity-highlight">
+        <span className="activity-highlight" style={{ color: highlightColor }}>
           {String(enriched?.questName ?? "a quest")}
         </span>
       </>
@@ -183,7 +208,7 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
     description = (
       <>
         completed the{" "}
-        <span className="activity-highlight">
+        <span className="activity-highlight" style={{ color: highlightColor }}>
           {[tier, area, "Achievement Diary"].filter(Boolean).join(" ")}
         </span>
       </>
@@ -197,8 +222,11 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
         : "a";
     description = (
       <>
-        reached <span className="activity-highlight">{tierName}</span> combat
-        achievement tier
+        reached{" "}
+        <span className="activity-highlight" style={{ color: highlightColor }}>
+          {tierName}
+        </span>{" "}
+        combat achievement tier
       </>
     );
   } else if (type === "maxed") {
@@ -206,7 +234,9 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
     description = (
       <>
         achieved{" "}
-        <span className="activity-highlight">max level in all skills</span>
+        <span className="activity-highlight" style={{ color: highlightColor }}>
+          max level in all skills
+        </span>
       </>
     );
   } else if (type === "xp_milestone") {
@@ -218,16 +248,23 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
         reached{" "}
         {xpStr && (
           <>
-            <span className="activity-highlight">{xpStr} XP</span> in{" "}
+            <span className="activity-highlight" style={{ color: highlightColor }}>
+              {xpStr} XP
+            </span>{" "}
+            in{" "}
           </>
         )}
         {!xpStr && <>an XP milestone in </>}
-        <span className="activity-highlight">{displayName}</span>
+        <span className="activity-highlight" style={{ color: highlightColor }}>
+          {displayName}
+        </span>
       </>
     );
   } else {
     description = (
-      <span className="activity-highlight">{type.replace(/_/g, " ")}</span>
+      <span className="activity-highlight" style={{ color: highlightColor }}>
+        {type.replace(/_/g, " ")}
+      </span>
     );
   }
 
@@ -248,6 +285,15 @@ function ActivityRow({ activity }: { activity: RuneProfileActivity }) {
                 src={typeIcon}
                 alt={account.accountType.name}
                 className="player-badge"
+              />
+            )}
+            {rankIcon && (
+              <img
+                src={rankIcon}
+                alt={role}
+                title={role}
+                className="player-rank-icon"
+                referrerPolicy="no-referrer"
               />
             )}
             <a
@@ -363,7 +409,13 @@ function ActivityTypeSelect({
   );
 }
 
-function ActivityFeed({ activityType }: { activityType: string }) {
+function ActivityFeed({
+  activityType,
+  roleMap,
+}: {
+  activityType: string;
+  roleMap: Map<string, string> | null;
+}) {
   const [result, setResult] = useState<ActivitiesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -401,7 +453,7 @@ function ActivityFeed({ activityType }: { activityType: string }) {
       {!loading &&
         !error &&
         result?.activities.map((act, i) => (
-          <ActivityRow key={i} activity={act} />
+          <ActivityRow key={i} activity={act} roleMap={roleMap} />
         ))}
     </div>
   );
@@ -410,10 +462,25 @@ function ActivityFeed({ activityType }: { activityType: string }) {
 export function ActivityPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activityType = searchParams.get("type") || "all";
+  const [roleMap, setRoleMap] = useState<Map<string, string> | null>(null);
 
   function setActivityType(v: string) {
     setSearchParams(v === "all" ? {} : { type: v }, { replace: true });
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchGroupRoles()
+      .then((map) => {
+        if (!cancelled) setRoleMap(map);
+      })
+      .catch(() => {
+        if (!cancelled) setRoleMap(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <>
@@ -430,21 +497,19 @@ export function ActivityPage() {
             Rare drops, level-ups, quests and combat achievements from the clan,
             newest first.
           </p>
-          <a
-            href="https://www.youtube.com/watch?v=5T5BY1j2MkE"
-            className="divider-link"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <div className="divider" />
-          </a>
         </div>
 
         <div className="metric-select-wrap activity-select-wrap">
           <ActivityTypeSelect value={activityType} onChange={setActivityType} />
         </div>
 
-        <ActivityFeed key={activityType} activityType={activityType} />
+        <div className="activity-panel">
+          <ActivityFeed
+            key={activityType}
+            activityType={activityType}
+            roleMap={roleMap}
+          />
+        </div>
       </div>
 
       <SiteFooter />
