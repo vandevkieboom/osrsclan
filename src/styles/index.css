@@ -2901,15 +2901,16 @@ body {
 
 .bingo-teams-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
   margin-bottom: 3.5rem;
+  max-width: 1312px;
 }
 
 .bingo-team-card {
   border: 1px solid #2a1315;
   border-top: 3px solid var(--team-accent, #e8574a);
-  background: color-mix(in srgb, #120809, var(--team-accent, #e8574a) 6%);
+  background: #120809;
   padding: 1.375rem;
   border-radius: 8px;
   position: relative;
@@ -3182,9 +3183,19 @@ body {
   margin-top: 1rem;
 }
 
+@media (max-width: 900px) {
+  .bingo-teams-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   .bingo-admin-row {
     flex-wrap: wrap;
+  }
+
+  .bingo-teams-grid {
+    grid-template-columns: 1fr;
   }
 }
 

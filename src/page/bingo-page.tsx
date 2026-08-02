@@ -40,7 +40,14 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 1,
       name: "Crimson Fang",
       memberCount: 6,
-      members: ["izJordy", "AtomicKilo", "BreauxChacho", "BHops", "Lamboat", "YoonA"],
+      members: [
+        "izJordy",
+        "AtomicKilo",
+        "BreauxChacho",
+        "BHops",
+        "Lamboat",
+        "YoonA",
+      ],
       completeCount: 18,
       totalTiles: 25,
       pct: 72,
@@ -51,7 +58,13 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 2,
       name: "Onyx Talon",
       memberCount: 5,
-      members: ["Indaco", "Treecio", "AnotherPlayer", "SomePlayer", "Solo Nostalg"],
+      members: [
+        "Indaco",
+        "Treecio",
+        "AnotherPlayer",
+        "SomePlayer",
+        "Solo Nostalg",
+      ],
       completeCount: 9,
       totalTiles: 25,
       pct: 36,
@@ -62,7 +75,15 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 3,
       name: "Zenyte Vanguard",
       memberCount: 7,
-      members: ["ABearCat", "Helesta", "Wafas", "Eskett", "Mevvz", "Player7", "Player8"],
+      members: [
+        "ABearCat",
+        "Helesta",
+        "Wafas",
+        "Eskett",
+        "Mevvz",
+        "Player7",
+        "Player8",
+      ],
       completeCount: 14,
       totalTiles: 25,
       pct: 56,
@@ -79,7 +100,10 @@ const PLACEHOLDER_BOARD: BoardData = {
       iconUrl: PLACEHOLDER_ICON,
       status: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length],
       proofUrl: null,
-      completedBy: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "none" ? null : "izJordy",
+      completedBy:
+        PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "none"
+          ? null
+          : "izJordy",
     })),
   },
 };
@@ -117,7 +141,9 @@ function TeamCard({ team }: { team: BoardData["teams"][number] }) {
       )}
       <div className="bingo-team-name">{team.name}</div>
       <div className="bingo-team-members">
-        {team.members.length > 0 ? team.members.join(", ") : `${team.memberCount} members`}
+        {team.members.length > 0
+          ? team.members.join(", ")
+          : `${team.memberCount} members`}
       </div>
       <div className="bingo-team-progress-track">
         <div
@@ -378,8 +404,7 @@ export function BingoPage() {
             )}
             {user && !board.myTeam && (
               <div className="bingo-admin-empty">
-                You haven't been assigned to a team yet — ask an admin to add
-                you to one.
+                You haven't been assigned to a team yet.
               </div>
             )}
             {user && board.myTeam && (
