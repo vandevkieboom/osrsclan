@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { DISCORD_URL } from "../data/links";
+import { useAuth } from "../context/auth-context";
 
 const NAV_ITEMS = [
   { to: "/", label: "Home" },
@@ -55,7 +56,45 @@ export function SiteHeader({ variant = "hero", children }: SiteHeaderProps) {
             Discord
           </a>
         )}
+
+        <SiteHeaderAccount />
       </div>
     </header>
+  );
+}
+
+function SiteHeaderAccount() {
+  const { user, isLoading, login, logout } = useAuth();
+
+  if (isLoading) return null;
+
+  if (!user) {
+    return (
+      <button
+        type="button"
+        className="site-header-login"
+        onClick={() => login()}
+      >
+        Log in with Discord
+      </button>
+    );
+  }
+
+  return (
+    <div className="site-header-account">
+      {user.avatarUrl && (
+        <img src={user.avatarUrl} alt="" className="site-header-avatar" />
+      )}
+      <span className="site-header-username">
+        {user.globalName ?? user.username}
+      </span>
+      <button
+        type="button"
+        className="site-header-logout"
+        onClick={() => logout()}
+      >
+        Log out
+      </button>
+    </div>
   );
 }

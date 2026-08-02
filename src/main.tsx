@@ -8,18 +8,21 @@ import { HiscoresPage } from "./page/hiscores-page.tsx";
 import { ActivityPage } from "./page/activity-page.tsx";
 import { TierFeedbackPage } from "./page/tier-feedback-page.tsx";
 import { Analytics } from "@vercel/analytics/react";
+import { AuthProvider } from "./context/auth-context.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/rankings" element={<ClanRankings />} />
-        <Route path="/hiscores" element={<HiscoresPage />} />
-        <Route path="/activity" element={<ActivityPage />} />
-        <Route path="/rankings-feedback" element={<TierFeedbackPage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/rankings" element={<ClanRankings />} />
+          <Route path="/hiscores" element={<HiscoresPage />} />
+          <Route path="/activity" element={<ActivityPage />} />
+          <Route path="/rankings-feedback" element={<TierFeedbackPage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
     <Analytics />
   </StrictMode>,
 );

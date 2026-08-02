@@ -969,9 +969,74 @@ body {
   color: #f0d2d2;
 }
 
+.site-header-login {
+  display: inline-flex;
+  align-items: center;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c9a2a2;
+  border: 1px solid #4b2124;
+  border-radius: 2px;
+  padding: 0.5rem 0.9rem;
+  background: #1a0a0acc;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    color 0.18s;
+}
+
+.site-header-login:hover {
+  background: #24101299;
+  border-color: #7a3034;
+  color: #f0d2d2;
+}
+
+.site-header-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  white-space: nowrap;
+}
+
+.site-header-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.site-header-username {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  color: #f0e8e6;
+}
+
+.site-header-logout {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c9a2a2;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.18s;
+}
+
+.site-header-logout:hover {
+  color: #f0d2d2;
+}
+
 .site-mark:focus-visible,
 .site-nav-link:focus-visible,
 .site-header-discord:focus-visible,
+.site-header-login:focus-visible,
+.site-header-logout:focus-visible,
 .site-footer-nav a:focus-visible {
   outline: 2px solid #e8574a;
   outline-offset: 3px;
