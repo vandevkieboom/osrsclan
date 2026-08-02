@@ -23,13 +23,26 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Dev-only stand-in so every login-gated page/tab is visible for local
+// styling under plain `npm run dev`, which has no backend to authenticate
+// against at all. Never used in production — import.meta.env.DEV is false
+// in a real build regardless of whether a real session is present.
+const DEV_PREVIEW_USER: AuthUser = {
+  id: 0,
+  username: "dev-preview",
+  globalName: "Dev Preview",
+  avatarUrl: null,
+  isAdmin: true,
+  team: { id: 0, name: "Dev Team" },
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchCurrentUser().then((u) => {
-      setUser(u);
+      setUser(u ?? (import.meta.env.DEV ? DEV_PREVIEW_USER : null));
       setIsLoading(false);
     });
   }, []);

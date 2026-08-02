@@ -1,20 +1,123 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import { useAuth } from "../context/auth-context";
-import { fetchBoard, submitTileProof, type BoardData, type MyTeamTile } from "../services/board";
-import { fetchAdminSubmissions, reviewSubmission, type AdminSubmission } from "../services/admin";
+import {
+  fetchBoard,
+  submitTileProof,
+  type BoardData,
+  type MyTeamTile,
+} from "../services/board";
+import {
+  fetchAdminSubmissions,
+  reviewSubmission,
+  type AdminSubmission,
+} from "../services/admin";
 
 type View = "leaderboard" | "board" | "admin";
 
+// Dev-only fallback so the page has something to render under plain
+// `npm run dev`, which has no backend at all. Never used in production —
+// `fetchBoard`/`fetchAdminSubmissions` failures there surface as real errors.
+const PLACEHOLDER_ICON =
+  "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png";
+const PLACEHOLDER_STATUSES = [
+  "approved",
+  "approved",
+  "pending",
+  "none",
+  "rejected",
+] as const;
+const PLACEHOLDER_BOARD: BoardData = {
+  config: {
+    name: "Summer Blackout Bingo",
+    dateRange: "Aug 2 – Aug 16, 2026",
+    size: 5,
+  },
+  teams: [
+    {
+      id: 1,
+      name: "Crimson Fang",
+      memberCount: 6,
+      completeCount: 18,
+      totalTiles: 25,
+      pct: 72,
+      accentColor: "#e8574a",
+      isLeading: true,
+    },
+    {
+      id: 2,
+      name: "Onyx Talon",
+      memberCount: 5,
+      completeCount: 9,
+      totalTiles: 25,
+      pct: 36,
+      accentColor: "#c9c9c9",
+      isLeading: false,
+    },
+    {
+      id: 3,
+      name: "Zenyte Vanguard",
+      memberCount: 7,
+      completeCount: 14,
+      totalTiles: 25,
+      pct: 56,
+      accentColor: "#ffb340",
+      isLeading: false,
+    },
+  ],
+  myTeam: {
+    id: 1,
+    name: "Crimson Fang",
+    tiles: Array.from({ length: 25 }, (_, i) => ({
+      tileId: i,
+      name: `Tile ${i + 1}`,
+      iconUrl: PLACEHOLDER_ICON,
+      status: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length],
+      proofUrl: null,
+    })),
+  },
+};
+const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
+  {
+    id: 1,
+    status: "pending",
+    proofUrl: null,
+    teamName: "Crimson Fang",
+    tileName: "Twisted Bow",
+    iconUrl: PLACEHOLDER_ICON,
+    submittedBy: "SomePlayer",
+    createdAt: "2026-08-02T00:00:00.000Z",
+  },
+  {
+    id: 2,
+    status: "pending",
+    proofUrl: null,
+    teamName: "Onyx Talon",
+    tileName: "Scythe of Vitur",
+    iconUrl: PLACEHOLDER_ICON,
+    submittedBy: "AnotherPlayer",
+    createdAt: "2026-08-02T00:00:00.000Z",
+  },
+];
+
 function TeamCard({ team }: { team: BoardData["teams"][number] }) {
   return (
-    <div className="bingo-team-card" style={{ "--team-accent": team.accentColor } as React.CSSProperties}>
-      {team.isLeading && <div className="bingo-team-leading-badge">LEADING</div>}
+    <div
+      className="bingo-team-card"
+      style={{ "--team-accent": team.accentColor } as React.CSSProperties}
+    >
+      {team.isLeading && (
+        <div className="bingo-team-leading-badge">LEADING</div>
+      )}
       <div className="bingo-team-name">{team.name}</div>
       <div className="bingo-team-members">{team.memberCount} members</div>
       <div className="bingo-team-progress-track">
-        <div className="bingo-team-progress-fill" style={{ width: `${team.pct}%` }} />
+        <div
+          className="bingo-team-progress-fill"
+          style={{ width: `${team.pct}%` }}
+        />
       </div>
       <div className="bingo-team-count">
         {team.completeCount} / {team.totalTiles} tiles complete
@@ -50,34 +153,49 @@ function BoardTile({
         <span className="bingo-tile-status bingo-tile-status--rejected">✕</span>
       )}
       <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
-      <div className="bingo-tile-name">{isUploading ? "Uploading…" : tile.name}</div>
+      <div className="bingo-tile-name">
+        {isUploading ? "Uploading…" : tile.name}
+      </div>
     </button>
   );
 }
 
 export function BingoPage() {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin, login } = useAuth();
   const [view, setView] = useState<View>("leaderboard");
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadingTileId, setUploadingTileId] = useState<number | null>(null);
-  const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(null);
+  const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(
+    null,
+  );
   const pendingTileId = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function reloadBoard() {
     fetchBoard()
       .then(setBoard)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load board"));
+      .catch((err: unknown) => {
+        if (import.meta.env.DEV) {
+          setBoard(PLACEHOLDER_BOARD);
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Failed to load board");
+      });
   }
 
   useEffect(reloadBoard, []);
 
   function reloadSubmissions() {
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      Promise.resolve(null).then(setSubmissions);
+      return;
+    }
     fetchAdminSubmissions("pending")
       .then(setSubmissions)
-      .catch(() => setSubmissions(null));
+      .catch(() =>
+        setSubmissions(import.meta.env.DEV ? PLACEHOLDER_SUBMISSIONS : null),
+      );
   }
 
   useEffect(reloadSubmissions, [isAdmin]);
@@ -111,7 +229,9 @@ export function BingoPage() {
       reloadSubmissions();
       reloadBoard();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to review submission");
+      setError(
+        err instanceof Error ? err.message : "Failed to review submission",
+      );
     }
   }
 
@@ -121,6 +241,7 @@ export function BingoPage() {
         <SiteHeader />
         <div className="page">
           <div className="page-head">
+            <div className="page-eyebrow">Clan Event</div>
             <h1 className="page-title">Bingo</h1>
           </div>
           <div className="admin-error">{error}</div>
@@ -136,6 +257,7 @@ export function BingoPage() {
         <SiteHeader />
         <div className="page">
           <div className="page-head">
+            <div className="page-eyebrow">Clan Event</div>
             <h1 className="page-title">Bingo</h1>
           </div>
           <p className="page-sub">Loading…</p>
@@ -153,14 +275,17 @@ export function BingoPage() {
         <div className="page-head">
           <div className="page-head-row">
             <div className="page-head-text">
+              <div className="page-eyebrow">Clan Event</div>
               <h1 className="page-title">{board.config.name}</h1>
+              <p className="page-sub">
+                First team to complete every tile on their board wins. Submit a
+                screenshot for a tile once you've gotten the drop
+              </p>
             </div>
-            {board.config.dateRange && <div className="bingo-date-range">{board.config.dateRange}</div>}
+            {board.config.dateRange && (
+              <div className="bingo-date-range">{board.config.dateRange}</div>
+            )}
           </div>
-          <p className="page-sub">
-            First team to complete every tile on their board wins. Submit a screenshot for a
-            tile once you've gotten the drop — an officer will review and approve it.
-          </p>
         </div>
 
         <div className="bingo-tabs">
@@ -179,16 +304,21 @@ export function BingoPage() {
             MY TEAM BOARD
           </button>
           {isAdmin && (
-            <button
-              type="button"
-              className={`bingo-tab${view === "admin" ? " active" : ""}`}
-              onClick={() => setView("admin")}
-            >
-              ADMIN REVIEW
-              {submissions && submissions.length > 0 && (
-                <span className="bingo-tab-badge">{submissions.length}</span>
-              )}
-            </button>
+            <>
+              <button
+                type="button"
+                className={`bingo-tab${view === "admin" ? " active" : ""}`}
+                onClick={() => setView("admin")}
+              >
+                ADMIN REVIEW
+                {submissions && submissions.length > 0 && (
+                  <span className="bingo-tab-badge">{submissions.length}</span>
+                )}
+              </button>
+              <Link to="/admin" className="bingo-tab">
+                ADMIN PANEL
+              </Link>
+            </>
           )}
         </div>
 
@@ -207,29 +337,53 @@ export function BingoPage() {
             {board.teams.map((team) => (
               <TeamCard key={team.id} team={team} />
             ))}
-            {board.teams.length === 0 && <div className="admin-empty">No teams yet.</div>}
+            {board.teams.length === 0 && (
+              <div className="admin-empty">No teams yet.</div>
+            )}
           </div>
         )}
 
         {view === "board" && (
           <>
-            {!board.myTeam && (
+            {!user && (
               <div className="bingo-admin-empty">
-                You haven't been assigned to a team yet — ask an admin to add you to one.
+                Log in with Discord to view your team's board.
+                <div className="bingo-login-prompt">
+                  <button
+                    type="button"
+                    className="site-header-login"
+                    onClick={() => login()}
+                  >
+                    Log in with Discord
+                  </button>
+                </div>
               </div>
             )}
-            {board.myTeam && (
+            {user && !board.myTeam && (
+              <div className="bingo-admin-empty">
+                You haven't been assigned to a team yet — ask an admin to add
+                you to one.
+              </div>
+            )}
+            {user && board.myTeam && (
               <>
                 <div className="bingo-board-head">
-                  <div className="bingo-board-title">{board.myTeam.name}'s Board</div>
+                  <div className="bingo-board-title">
+                    {board.myTeam.name}'s Board
+                  </div>
                   <div className="bingo-board-count">
-                    {board.myTeam.tiles.filter((t) => t.status === "approved").length} /{" "}
-                    {board.myTeam.tiles.length} complete
+                    {
+                      board.myTeam.tiles.filter((t) => t.status === "approved")
+                        .length
+                    }{" "}
+                    / {board.myTeam.tiles.length} complete
                   </div>
                 </div>
                 <div
                   className="bingo-tiles-grid"
-                  style={{ gridTemplateColumns: `repeat(${board.config.size}, 1fr)` }}
+                  style={{
+                    gridTemplateColumns: `repeat(${board.config.size}, 1fr)`,
+                  }}
                 >
                   {board.myTeam.tiles.map((tile) => (
                     <BoardTile
@@ -260,14 +414,27 @@ export function BingoPage() {
                   </div>
                 </div>
                 {sub.proofUrl && (
-                  <a href={sub.proofUrl} target="_blank" rel="noreferrer" className="bingo-admin-proof-link">
+                  <a
+                    href={sub.proofUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bingo-admin-proof-link"
+                  >
                     View proof
                   </a>
                 )}
-                <button type="button" className="bingo-admin-approve" onClick={() => handleReview(sub.id, "approved")}>
+                <button
+                  type="button"
+                  className="bingo-admin-approve"
+                  onClick={() => handleReview(sub.id, "approved")}
+                >
                   APPROVE
                 </button>
-                <button type="button" className="bingo-admin-reject" onClick={() => handleReview(sub.id, "rejected")}>
+                <button
+                  type="button"
+                  className="bingo-admin-reject"
+                  onClick={() => handleReview(sub.id, "rejected")}
+                >
                   REJECT
                 </button>
               </div>

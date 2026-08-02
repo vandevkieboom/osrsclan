@@ -131,7 +131,11 @@ function UsersPanel() {
           {users?.map((u) => (
             <tr key={u.id}>
               <td className="admin-user-cell">
-                {u.avatarUrl && <img src={u.avatarUrl} alt="" className="admin-user-avatar" />}
+                {u.avatarUrl ? (
+                  <img src={u.avatarUrl} alt="" className="admin-user-avatar" />
+                ) : (
+                  <span className="admin-user-avatar admin-user-avatar--placeholder" />
+                )}
                 {u.globalName ?? u.username}
               </td>
               <td>{u.isAdmin ? "Yes" : ""}</td>
@@ -208,7 +212,7 @@ function BoardConfigPanel() {
         />
       </label>
       <label className="admin-field">
-        <span>Board width (tiles per row)</span>
+        <span>Board size (N × N tiles)</span>
         <input
           type="number"
           min={2}
@@ -227,43 +231,121 @@ function BoardConfigPanel() {
   );
 }
 
-function TilesPanel() {
-  const [tiles, setTiles] = useState<AdminTile[] | null>(null);
+function TileSlotAddForm({
+  onSave,
+  onCancel,
+}: {
+  onSave: (name: string, iconUrl: string) => void;
+  onCancel: () => void;
+}) {
   const [name, setName] = useState("");
   const [iconUrl, setIconUrl] = useState("");
+  return (
+    <div className="admin-tile-slot admin-tile-slot--editing">
+      <input
+        type="text"
+        className="admin-input"
+        placeholder="Tile name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoFocus
+      />
+      <input
+        type="text"
+        className="admin-input"
+        placeholder="Icon image URL"
+        value={iconUrl}
+        onChange={(e) => setIconUrl(e.target.value)}
+      />
+      <div className="admin-tile-slot-actions">
+        <button
+          type="button"
+          className="admin-btn-primary"
+          onClick={() => name.trim() && iconUrl.trim() && onSave(name.trim(), iconUrl.trim())}
+        >
+          Save
+        </button>
+        <button type="button" className="admin-btn-ghost" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TileSlotEditForm({
+  tile,
+  onSave,
+  onCancel,
+}: {
+  tile: AdminTile;
+  onSave: (name: string, iconUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(tile.name);
+  const [iconUrl, setIconUrl] = useState(tile.iconUrl);
+  return (
+    <div className="admin-tile-slot admin-tile-slot--editing">
+      <input
+        type="text"
+        className="admin-input"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoFocus
+      />
+      <input
+        type="text"
+        className="admin-input"
+        value={iconUrl}
+        onChange={(e) => setIconUrl(e.target.value)}
+      />
+      <div className="admin-tile-slot-actions">
+        <button
+          type="button"
+          className="admin-btn-primary"
+          onClick={() => name.trim() && iconUrl.trim() && onSave(name.trim(), iconUrl.trim())}
+        >
+          Save
+        </button>
+        <button type="button" className="admin-btn-ghost" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TilesPanel() {
+  const [config, setConfig] = useState<BoardConfig | null>(null);
+  const [tiles, setTiles] = useState<AdminTile[] | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editIconUrl, setEditIconUrl] = useState("");
+  const [addingPosition, setAddingPosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function reload() {
-    fetchAdminTiles().then(setTiles).catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load tiles"));
+    Promise.all([fetchBoardConfig(), fetchAdminTiles()])
+      .then(([c, t]) => {
+        setConfig(c);
+        setTiles(t);
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load tiles"));
   }
 
   useEffect(reload, []);
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !iconUrl.trim()) return;
+  async function handleAdd(position: number, name: string, iconUrl: string) {
     try {
-      await createTile(name.trim(), iconUrl.trim());
-      setName("");
-      setIconUrl("");
+      await createTile(position, name, iconUrl);
+      setAddingPosition(null);
       reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create tile");
     }
   }
 
-  function startEdit(tile: AdminTile) {
-    setEditingId(tile.id);
-    setEditName(tile.name);
-    setEditIconUrl(tile.iconUrl);
-  }
-
-  async function handleSaveEdit(id: number) {
+  async function handleSaveEdit(id: number, name: string, iconUrl: string) {
     try {
-      await updateTile(id, editName.trim(), editIconUrl.trim());
+      await updateTile(id, name, iconUrl);
       setEditingId(null);
       reload();
     } catch (err) {
@@ -281,66 +363,96 @@ function TilesPanel() {
     }
   }
 
+  if (!config || !tiles) return <div className="admin-panel">{error ?? "Loading..."}</div>;
+
+  const slotCount = config.size * config.size;
+  const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
+  const overflowTiles = tiles.filter((t) => t.position >= slotCount);
+
   return (
     <div className="admin-panel">
-      <form className="admin-inline-form" onSubmit={handleCreate}>
-        <input
-          type="text"
-          placeholder="Tile name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="admin-input"
-        />
-        <input
-          type="text"
-          placeholder="Icon image URL"
-          value={iconUrl}
-          onChange={(e) => setIconUrl(e.target.value)}
-          className="admin-input admin-input--wide"
-        />
-        <button type="submit" className="admin-btn-primary">
-          Add tile
-        </button>
-      </form>
       {error && <div className="admin-error">{error}</div>}
-      <div className="admin-tiles-list">
-        {tiles?.map((tile) =>
-          editingId === tile.id ? (
-            <div key={tile.id} className="admin-tile-row admin-tile-row--editing">
-              <input
-                type="text"
-                className="admin-input"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+      <p className="page-sub">
+        A {config.size} × {config.size} board — {slotCount} tiles total. Change the size on the
+        Board Config tab.
+      </p>
+      <div
+        className="admin-tiles-grid"
+        style={{ gridTemplateColumns: `repeat(${config.size}, 1fr)` }}
+      >
+        {Array.from({ length: slotCount }, (_, position) => {
+          const tile = tileByPosition.get(position);
+
+          if (tile && editingId === tile.id) {
+            return (
+              <TileSlotEditForm
+                key={position}
+                tile={tile}
+                onSave={(name, iconUrl) => handleSaveEdit(tile.id, name, iconUrl)}
+                onCancel={() => setEditingId(null)}
               />
-              <input
-                type="text"
-                className="admin-input admin-input--wide"
-                value={editIconUrl}
-                onChange={(e) => setEditIconUrl(e.target.value)}
+            );
+          }
+
+          if (tile) {
+            return (
+              <div key={position} className="admin-tile-slot">
+                <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
+                <span className="admin-tile-name">{tile.name}</span>
+                <div className="admin-tile-slot-actions">
+                  <button type="button" className="admin-btn-ghost" onClick={() => setEditingId(tile.id)}>
+                    Edit
+                  </button>
+                  <button type="button" className="admin-btn-danger" onClick={() => handleDelete(tile.id)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          if (addingPosition === position) {
+            return (
+              <TileSlotAddForm
+                key={position}
+                onSave={(name, iconUrl) => handleAdd(position, name, iconUrl)}
+                onCancel={() => setAddingPosition(null)}
               />
-              <button type="button" className="admin-btn-primary" onClick={() => handleSaveEdit(tile.id)}>
-                Save
-              </button>
-              <button type="button" className="admin-btn-ghost" onClick={() => setEditingId(null)}>
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div key={tile.id} className="admin-tile-row">
-              <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
-              <span className="admin-tile-name">{tile.name}</span>
-              <button type="button" className="admin-btn-ghost" onClick={() => startEdit(tile)}>
-                Edit
-              </button>
-              <button type="button" className="admin-btn-danger" onClick={() => handleDelete(tile.id)}>
-                Delete
-              </button>
-            </div>
-          ),
-        )}
-        {tiles?.length === 0 && <div className="admin-empty">No tiles yet.</div>}
+            );
+          }
+
+          return (
+            <button
+              key={position}
+              type="button"
+              className="admin-tile-slot admin-tile-slot--empty"
+              onClick={() => setAddingPosition(position)}
+            >
+              + Add tile
+            </button>
+          );
+        })}
       </div>
+
+      {overflowTiles.length > 0 && (
+        <div className="admin-panel">
+          <p className="page-sub">
+            These tiles are outside the current {config.size} × {config.size} board (from a
+            larger size before) — hidden from the live board until you grow the size again.
+          </p>
+          <div className="admin-tiles-list">
+            {overflowTiles.map((tile) => (
+              <div key={tile.id} className="admin-tile-row">
+                <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
+                <span className="admin-tile-name">{tile.name}</span>
+                <button type="button" className="admin-btn-danger" onClick={() => handleDelete(tile.id)}>
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -353,8 +465,13 @@ export function AdminPage() {
       <SiteHeader />
       <div className="page">
         <div className="page-head">
+          <div className="page-eyebrow">Clan Management</div>
           <h1 className="page-title">Admin</h1>
-          <p className="page-sub">Manage teams, users, and the bingo board.</p>
+          <p className="page-sub">
+            Create teams and assign members to them, configure the current
+            bingo event's name and board size, and add or edit the tiles
+            players complete.
+          </p>
         </div>
 
         <div className="admin-tabs">

@@ -1,18 +1,24 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { sql } from "./_lib/db.js";
-import { requireUser } from "./_lib/auth.js";
+import { getSessionUser, requireUser } from "./_lib/auth.js";
 
 const ACCENT_PALETTE = ["#e8574a", "#5b9bd5", "#ffb340", "#3fae5c", "#c9c9c9", "#a76ee8"];
 
+// The leaderboard is public — anyone can see team standings without logging
+// in. Only "my team's board" (which team you're even on) needs a session.
 async function getBoard(req: VercelRequest, res: VercelResponse) {
-  const user = await requireUser(req, res);
-  if (!user) return;
+  const user = await getSessionUser(req);
 
   const configRows = await sql`SELECT name, date_range, size FROM board_config WHERE id = 1`;
   const config = configRows[0];
+  const slotCount = config.size * config.size;
 
-  const tileRows = await sql`SELECT id, position, name, icon_url FROM tiles ORDER BY position`;
+  // A bingo board is always size x size — tiles beyond that (left over from
+  // a larger board that got shrunk) stay in the database but drop off the
+  // board until size grows back to cover them again.
+  const tileRows = await sql`
+    SELECT id, position, name, icon_url FROM tiles WHERE position < ${slotCount} ORDER BY position`;
   const tiles = tileRows.map((t) => ({ id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url }));
 
   const teamRows = await sql`
@@ -45,7 +51,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   const teams = teamsWithPct.map((t) => ({ ...t, isLeading: t.pct === leaderPct && leaderPct > 0 }));
 
   let myTeam = null;
-  if (user.teamId) {
+  if (user?.teamId) {
     const subRows = await sql`
       SELECT tile_id, status, proof_url FROM submissions WHERE team_id = ${user.teamId}`;
     const subByTile = new Map(subRows.map((r) => [r.tile_id, { status: r.status, proofUrl: r.proof_url }]));

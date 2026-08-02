@@ -99,11 +99,11 @@ export async function fetchAdminTiles(): Promise<AdminTile[]> {
   return data.tiles;
 }
 
-export async function createTile(name: string, iconUrl: string): Promise<AdminTile> {
+export async function createTile(position: number, name: string, iconUrl: string): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, iconUrl }),
+    body: JSON.stringify({ position, name, iconUrl }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;

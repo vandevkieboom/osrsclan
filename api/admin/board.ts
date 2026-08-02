@@ -38,18 +38,28 @@ async function listTiles(res: VercelResponse) {
 }
 
 async function createTile(req: VercelRequest, res: VercelResponse) {
+  const position = Number(req.body?.position);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const iconUrl = typeof req.body?.iconUrl === "string" ? req.body.iconUrl.trim() : "";
-  if (!name || !iconUrl) {
-    res.status(400).json({ error: "name and iconUrl are required" });
+  if (!Number.isInteger(position) || position < 0 || !name || !iconUrl) {
+    res.status(400).json({ error: "position, name and iconUrl are required" });
     return;
   }
-  const rows = await sql`
-    INSERT INTO tiles (position, name, icon_url)
-    VALUES ((SELECT COALESCE(MAX(position), -1) + 1 FROM tiles), ${name}, ${iconUrl})
-    RETURNING id, position, name, icon_url`;
-  const t = rows[0];
-  res.status(201).json({ tile: { id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url } });
+  try {
+    const rows = await sql`
+      INSERT INTO tiles (position, name, icon_url)
+      VALUES (${position}, ${name}, ${iconUrl})
+      RETURNING id, position, name, icon_url`;
+    const t = rows[0];
+    res.status(201).json({ tile: { id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("duplicate key")) {
+      res.status(409).json({ error: "That board slot is already filled" });
+      return;
+    }
+    res.status(500).json({ error: "Failed to create tile" });
+  }
 }
 
 async function updateTile(req: VercelRequest, res: VercelResponse) {
