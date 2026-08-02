@@ -2,6 +2,7 @@ export interface AdminTeam {
   id: number;
   name: string;
   slug: string;
+  accentColor: string;
   memberCount: number;
 }
 
@@ -60,6 +61,31 @@ export async function createTeam(name: string): Promise<AdminTeam> {
   });
   const data = await json<{ team: AdminTeam }>(res);
   return data.team;
+}
+
+export async function renameTeam(id: number, name: string): Promise<AdminTeam> {
+  const res = await fetch("/api/admin/teams", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, name }),
+  });
+  const data = await json<{ team: AdminTeam }>(res);
+  return data.team;
+}
+
+export async function recolorTeam(id: number, accentColor: string): Promise<AdminTeam> {
+  const res = await fetch("/api/admin/teams", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, accentColor }),
+  });
+  const data = await json<{ team: AdminTeam }>(res);
+  return data.team;
+}
+
+export async function deleteTeam(id: number): Promise<void> {
+  const res = await fetch(`/api/admin/teams?id=${id}`, { method: "DELETE" });
+  await json(res);
 }
 
 export async function fetchAdminUsers(): Promise<AdminUser[]> {

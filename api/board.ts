@@ -2,16 +2,14 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { sql } from "./_lib/db.js";
 import { getSessionUser, requireUser } from "./_lib/auth.js";
-
-const ACCENT_PALETTE = ["#e8574a", "#5b9bd5", "#ffb340", "#3fae5c", "#c9c9c9", "#a76ee8"];
+import { getOrCreateBoardConfig } from "./_lib/board.js";
 
 // The leaderboard is public — anyone can see team standings without logging
 // in. Only "my team's board" (which team you're even on) needs a session.
 async function getBoard(req: VercelRequest, res: VercelResponse) {
   const user = await getSessionUser(req);
 
-  const configRows = await sql`SELECT name, date_range, size FROM board_config WHERE id = 1`;
-  const config = configRows[0];
+  const config = await getOrCreateBoardConfig();
   const slotCount = config.size * config.size;
 
   // A bingo board is always size x size — tiles beyond that (left over from
@@ -22,11 +20,21 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   const tiles = tileRows.map((t) => ({ id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url }));
 
   const teamRows = await sql`
-    SELECT tm.id, tm.name, COUNT(u.id)::int AS member_count
+    SELECT tm.id, tm.name, tm.accent_color, COUNT(u.id)::int AS member_count
     FROM teams tm
     LEFT JOIN users u ON u.team_id = tm.id
     GROUP BY tm.id
     ORDER BY tm.name`;
+
+  const memberRows = await sql`
+    SELECT team_id, discord_username, discord_global_name
+    FROM users WHERE team_id IS NOT NULL ORDER BY discord_username`;
+  const membersByTeam = new Map<number, string[]>();
+  for (const r of memberRows) {
+    const list = membersByTeam.get(r.team_id) ?? [];
+    list.push(r.discord_global_name ?? r.discord_username);
+    membersByTeam.set(r.team_id, list);
+  }
 
   const completeRows = await sql`
     SELECT team_id, COUNT(*) FILTER (WHERE status = 'approved')::int AS complete
@@ -34,17 +42,18 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   const completeByTeam = new Map<number, number>(completeRows.map((r) => [r.team_id, r.complete]));
 
   const totalTiles = tiles.length;
-  const teamsWithPct = teamRows.map((t, i) => {
+  const teamsWithPct = teamRows.map((t) => {
     const completeCount = completeByTeam.get(t.id) ?? 0;
     const pct = totalTiles > 0 ? Math.round((completeCount / totalTiles) * 100) : 0;
     return {
       id: t.id,
       name: t.name,
       memberCount: t.member_count,
+      members: membersByTeam.get(t.id) ?? [],
       completeCount,
       totalTiles,
       pct,
-      accentColor: ACCENT_PALETTE[i % ACCENT_PALETTE.length],
+      accentColor: t.accent_color,
     };
   });
   const leaderPct = teamsWithPct.length > 0 ? Math.max(...teamsWithPct.map((t) => t.pct)) : 0;
@@ -53,8 +62,20 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   let myTeam = null;
   if (user?.teamId) {
     const subRows = await sql`
-      SELECT tile_id, status, proof_url FROM submissions WHERE team_id = ${user.teamId}`;
-    const subByTile = new Map(subRows.map((r) => [r.tile_id, { status: r.status, proofUrl: r.proof_url }]));
+      SELECT s.tile_id, s.status, s.proof_url, u.discord_global_name, u.discord_username
+      FROM submissions s
+      LEFT JOIN users u ON u.id = s.submitted_by
+      WHERE s.team_id = ${user.teamId}`;
+    const subByTile = new Map(
+      subRows.map((r) => [
+        r.tile_id,
+        {
+          status: r.status,
+          proofUrl: r.proof_url,
+          completedBy: r.discord_global_name ?? r.discord_username ?? null,
+        },
+      ]),
+    );
     myTeam = {
       id: user.teamId,
       name: user.teamName,
@@ -64,6 +85,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
         iconUrl: t.iconUrl,
         status: subByTile.get(t.id)?.status ?? "none",
         proofUrl: subByTile.get(t.id)?.proofUrl ?? null,
+        completedBy: subByTile.get(t.id)?.completedBy ?? null,
       })),
     };
   }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
+import { AdminPanelTabs } from "../components/admin-panel-tabs";
 import { useAuth } from "../context/auth-context";
 import {
   fetchBoard,
@@ -15,7 +15,7 @@ import {
   type AdminSubmission,
 } from "../services/admin";
 
-type View = "leaderboard" | "board" | "admin";
+type View = "leaderboard" | "board" | "admin" | "panel";
 
 // Dev-only fallback so the page has something to render under plain
 // `npm run dev`, which has no backend at all. Never used in production —
@@ -40,6 +40,7 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 1,
       name: "Crimson Fang",
       memberCount: 6,
+      members: ["izJordy", "AtomicKilo", "BreauxChacho", "BHops", "Lamboat", "YoonA"],
       completeCount: 18,
       totalTiles: 25,
       pct: 72,
@@ -50,6 +51,7 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 2,
       name: "Onyx Talon",
       memberCount: 5,
+      members: ["Indaco", "Treecio", "AnotherPlayer", "SomePlayer", "Solo Nostalg"],
       completeCount: 9,
       totalTiles: 25,
       pct: 36,
@@ -60,6 +62,7 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 3,
       name: "Zenyte Vanguard",
       memberCount: 7,
+      members: ["ABearCat", "Helesta", "Wafas", "Eskett", "Mevvz", "Player7", "Player8"],
       completeCount: 14,
       totalTiles: 25,
       pct: 56,
@@ -76,6 +79,7 @@ const PLACEHOLDER_BOARD: BoardData = {
       iconUrl: PLACEHOLDER_ICON,
       status: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length],
       proofUrl: null,
+      completedBy: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "none" ? null : "izJordy",
     })),
   },
 };
@@ -112,7 +116,9 @@ function TeamCard({ team }: { team: BoardData["teams"][number] }) {
         <div className="bingo-team-leading-badge">LEADING</div>
       )}
       <div className="bingo-team-name">{team.name}</div>
-      <div className="bingo-team-members">{team.memberCount} members</div>
+      <div className="bingo-team-members">
+        {team.members.length > 0 ? team.members.join(", ") : `${team.memberCount} members`}
+      </div>
       <div className="bingo-team-progress-track">
         <div
           className="bingo-team-progress-fill"
@@ -136,12 +142,16 @@ function BoardTile({
   onClick: () => void;
 }) {
   const clickable = tile.status === "none" || tile.status === "rejected";
+  const title = tile.completedBy
+    ? `${tile.status === "approved" ? "Completed" : "Submitted"} by ${tile.completedBy}`
+    : undefined;
   return (
     <button
       type="button"
       className={`bingo-tile bingo-tile--${tile.status}`}
       onClick={onClick}
       disabled={!clickable || isUploading}
+      title={title}
     >
       {tile.status === "approved" && (
         <span className="bingo-tile-status bingo-tile-status--approved">✓</span>
@@ -156,6 +166,9 @@ function BoardTile({
       <div className="bingo-tile-name">
         {isUploading ? "Uploading…" : tile.name}
       </div>
+      {tile.completedBy && (
+        <div className="bingo-tile-completed-by">{tile.completedBy}</div>
+      )}
     </button>
   );
 }
@@ -315,9 +328,13 @@ export function BingoPage() {
                   <span className="bingo-tab-badge">{submissions.length}</span>
                 )}
               </button>
-              <Link to="/admin" className="bingo-tab">
+              <button
+                type="button"
+                className={`bingo-tab${view === "panel" ? " active" : ""}`}
+                onClick={() => setView("panel")}
+              >
                 ADMIN PANEL
-              </Link>
+              </button>
             </>
           )}
         </div>
@@ -441,6 +458,8 @@ export function BingoPage() {
             ))}
           </div>
         )}
+
+        {view === "panel" && isAdmin && <AdminPanelTabs />}
       </div>
 
       <SiteFooter />

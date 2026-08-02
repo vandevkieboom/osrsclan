@@ -8,10 +8,8 @@ import { HiscoresPage } from "./page/hiscores-page.tsx";
 import { ActivityPage } from "./page/activity-page.tsx";
 import { TierFeedbackPage } from "./page/tier-feedback-page.tsx";
 import { BingoPage } from "./page/bingo-page.tsx";
-import { AdminPage } from "./page/admin-page.tsx";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "./context/auth-context.tsx";
-import { RequireAdmin } from "./components/route-guards.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -23,17 +21,10 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/hiscores" element={<HiscoresPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/rankings-feedback" element={<TierFeedbackPage />} />
-          {/* Public: the leaderboard is visible to everyone. "My Team Board" and
-              "Admin Review" gate themselves inside BingoPage based on login state. */}
+          {/* Public: the leaderboard is visible to everyone. "My Team Board",
+              "Admin Review", and "Admin Panel" gate themselves inside BingoPage
+              based on login state — all four are tabs on this one page. */}
           <Route path="/bingo" element={<BingoPage />} />
-          <Route
-            path="/admin"
-            element={
-              <RequireAdmin>
-                <AdminPage />
-              </RequireAdmin>
-            }
-          />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

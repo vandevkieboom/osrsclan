@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
+import { getOrCreateBoardConfig } from "../_lib/board.js";
 
 async function getConfig(res: VercelResponse) {
-  const rows = await sql`SELECT name, date_range, size FROM board_config WHERE id = 1`;
-  const c = rows[0];
+  const c = await getOrCreateBoardConfig();
   res.status(200).json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });
 }
 
@@ -22,9 +22,14 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Upsert rather than a plain UPDATE — board_config is a singleton, but if
+  // it was ever deleted by hand, a plain "WHERE id = 1" would silently touch
+  // zero rows instead of recreating it.
   const rows = await sql`
-    UPDATE board_config SET name = ${name}, date_range = ${dateRange}, size = ${size}, updated_at = now()
-    WHERE id = 1
+    INSERT INTO board_config (id, name, date_range, size)
+    VALUES (1, ${name}, ${dateRange}, ${size})
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name, date_range = EXCLUDED.date_range, size = EXCLUDED.size, updated_at = now()
     RETURNING name, date_range, size`;
   const c = rows[0];
   res.status(200).json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });

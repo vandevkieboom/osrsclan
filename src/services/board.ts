@@ -4,6 +4,7 @@ export interface BoardTeam {
   id: number;
   name: string;
   memberCount: number;
+  members: string[];
   completeCount: number;
   totalTiles: number;
   pct: number;
@@ -17,6 +18,7 @@ export interface MyTeamTile {
   iconUrl: string;
   status: "none" | "pending" | "approved" | "rejected";
   proofUrl: string | null;
+  completedBy: string | null;
 }
 
 export interface BoardData {
