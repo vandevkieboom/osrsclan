@@ -1,7 +1,15 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getSessionUser } from "../_lib/auth.js";
+import { destroySession, getSessionUser } from "../_lib/auth.js";
 
+// "Who am I" and "log out" are combined into one function to stay under the
+// Vercel Hobby plan's 12-function-per-deployment cap.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === "DELETE") {
+    await destroySession(req, res);
+    res.status(200).json({ ok: true });
+    return;
+  }
+
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
     return;

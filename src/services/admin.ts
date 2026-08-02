@@ -63,13 +63,13 @@ export async function createTeam(name: string): Promise<AdminTeam> {
 }
 
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
-  const res = await fetch("/api/admin/users");
+  const res = await fetch("/api/admin/teams?resource=users");
   const data = await json<{ users: AdminUser[] }>(res);
   return data.users;
 }
 
 export async function assignTeam(userId: number, teamId: number | null): Promise<void> {
-  const res = await fetch("/api/admin/assign-team", {
+  const res = await fetch("/api/admin/teams?resource=assign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, teamId }),
@@ -78,13 +78,13 @@ export async function assignTeam(userId: number, teamId: number | null): Promise
 }
 
 export async function fetchBoardConfig(): Promise<BoardConfig> {
-  const res = await fetch("/api/admin/board-config");
+  const res = await fetch("/api/admin/board");
   const data = await json<{ config: BoardConfig }>(res);
   return data.config;
 }
 
 export async function updateBoardConfig(config: BoardConfig): Promise<BoardConfig> {
-  const res = await fetch("/api/admin/board-config", {
+  const res = await fetch("/api/admin/board", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -94,13 +94,13 @@ export async function updateBoardConfig(config: BoardConfig): Promise<BoardConfi
 }
 
 export async function fetchAdminTiles(): Promise<AdminTile[]> {
-  const res = await fetch("/api/admin/tiles");
+  const res = await fetch("/api/admin/board?resource=tiles");
   const data = await json<{ tiles: AdminTile[] }>(res);
   return data.tiles;
 }
 
 export async function createTile(name: string, iconUrl: string): Promise<AdminTile> {
-  const res = await fetch("/api/admin/tiles", {
+  const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, iconUrl }),
@@ -110,7 +110,7 @@ export async function createTile(name: string, iconUrl: string): Promise<AdminTi
 }
 
 export async function updateTile(id: number, name: string, iconUrl: string): Promise<AdminTile> {
-  const res = await fetch("/api/admin/tiles", {
+  const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, name, iconUrl }),
@@ -120,7 +120,7 @@ export async function updateTile(id: number, name: string, iconUrl: string): Pro
 }
 
 export async function deleteTile(id: number): Promise<void> {
-  const res = await fetch(`/api/admin/tiles?id=${id}`, { method: "DELETE" });
+  const res = await fetch(`/api/admin/board?resource=tiles&id=${id}`, { method: "DELETE" });
   await json(res);
 }
 
@@ -131,7 +131,7 @@ export async function fetchAdminSubmissions(status: string): Promise<AdminSubmis
 }
 
 export async function reviewSubmission(id: number, decision: "approved" | "rejected"): Promise<void> {
-  const res = await fetch("/api/admin/review", {
+  const res = await fetch("/api/admin/submissions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, decision }),

@@ -1,14 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { sql } from "./_lib/db.js";
 import { requireUser } from "./_lib/auth.js";
 
 const ACCENT_PALETTE = ["#e8574a", "#5b9bd5", "#ffb340", "#3fae5c", "#c9c9c9", "#a76ee8"];
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "GET") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
+async function getBoard(req: VercelRequest, res: VercelResponse) {
   const user = await requireUser(req, res);
   if (!user) return;
 
@@ -70,4 +67,84 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     teams,
     myTeam,
   });
+}
+
+async function submitTile(req: VercelRequest, res: VercelResponse) {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  if (!user.teamId) {
+    res.status(400).json({ error: "You are not assigned to a team yet" });
+    return;
+  }
+
+  const tileId = Number(req.body?.tileId);
+  const proofUrl = typeof req.body?.proofUrl === "string" ? req.body.proofUrl : "";
+  if (!Number.isInteger(tileId) || !proofUrl) {
+    res.status(400).json({ error: "tileId and proofUrl are required" });
+    return;
+  }
+
+  const tileRows = await sql`SELECT id FROM tiles WHERE id = ${tileId}`;
+  if (tileRows.length === 0) {
+    res.status(404).json({ error: "Tile not found" });
+    return;
+  }
+
+  await sql`
+    INSERT INTO submissions (team_id, tile_id, status, proof_url, submitted_by)
+    VALUES (${user.teamId}, ${tileId}, 'pending', ${proofUrl}, ${user.id})
+    ON CONFLICT (team_id, tile_id) DO UPDATE SET
+      status = 'pending',
+      proof_url = EXCLUDED.proof_url,
+      submitted_by = EXCLUDED.submitted_by,
+      reviewed_by = NULL,
+      reviewed_at = NULL`;
+
+  res.status(200).json({ ok: true });
+}
+
+async function uploadToken(req: VercelRequest, res: VercelResponse) {
+  const user = await requireUser(req, res);
+  if (!user) return;
+
+  const body = req.body as HandleUploadBody;
+  try {
+    const jsonResponse = await handleUpload({
+      body,
+      request: req,
+      onBeforeGenerateToken: async () => ({
+        allowedContentTypes: ["image/png", "image/jpeg", "image/webp"],
+        maximumSizeInBytes: 8 * 1024 * 1024,
+        addRandomSuffix: true,
+      }),
+      onUploadCompleted: async () => {},
+    });
+    res.status(200).json(jsonResponse);
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });
+  }
+}
+
+// Reading the board, submitting a tile, and the Blob upload-token handshake
+// are combined into one function to stay under the Vercel Hobby plan's
+// 12-function-per-deployment cap. Vercel Blob's client SDK always posts a
+// `type` field (e.g. "blob.generate-client-token"); our own submit body
+// never has one, so that's what distinguishes the two POST actions.
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === "GET") {
+    await getBoard(req, res);
+    return;
+  }
+
+  if (req.method === "POST") {
+    if (typeof req.body?.type === "string") {
+      await uploadToken(req, res);
+    } else {
+      await submitTile(req, res);
+    }
+    return;
+  }
+
+  res.status(405).json({ error: "Method not allowed" });
 }

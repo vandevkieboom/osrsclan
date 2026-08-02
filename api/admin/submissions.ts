@@ -2,13 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "GET") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-  if (!(await requireAdmin(req, res))) return;
-
+async function listSubmissions(req: VercelRequest, res: VercelResponse) {
   const status = typeof req.query.status === "string" ? req.query.status : "pending";
 
   const rows = await sql`
@@ -34,4 +28,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       createdAt: r.created_at,
     })),
   });
+}
+
+async function reviewSubmission(req: VercelRequest, res: VercelResponse, adminId: number) {
+  const id = Number(req.body?.id);
+  const decision = req.body?.decision;
+  if (!Number.isInteger(id) || (decision !== "approved" && decision !== "rejected")) {
+    res.status(400).json({ error: "id and decision ('approved' | 'rejected') are required" });
+    return;
+  }
+
+  const rows = await sql`
+    UPDATE submissions
+    SET status = ${decision}, reviewed_by = ${adminId}, reviewed_at = now()
+    WHERE id = ${id} AND status = 'pending'
+    RETURNING id`;
+
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Pending submission not found" });
+    return;
+  }
+  res.status(200).json({ ok: true });
+}
+
+// Listing pending submissions and reviewing them are combined into one
+// function to stay under the Vercel Hobby plan's 12-function-per-deployment
+// cap, dispatched by HTTP method.
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  if (req.method === "GET") {
+    await listSubmissions(req, res);
+    return;
+  }
+
+  if (req.method === "POST") {
+    await reviewSubmission(req, res, admin.id);
+    return;
+  }
+
+  res.status(405).json({ error: "Method not allowed" });
 }

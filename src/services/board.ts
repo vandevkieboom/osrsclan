@@ -34,10 +34,10 @@ export async function fetchBoard(): Promise<BoardData> {
 export async function submitTileProof(tileId: number, file: File): Promise<void> {
   const blob = await upload(`proofs/${tileId}-${Date.now()}-${file.name}`, file, {
     access: "public",
-    handleUploadUrl: "/api/board/upload",
+    handleUploadUrl: "/api/board",
   });
 
-  const res = await fetch("/api/board/submit", {
+  const res = await fetch("/api/board", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ tileId, proofUrl: blob.url }),
