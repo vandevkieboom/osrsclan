@@ -154,7 +154,10 @@ function ActivityRow({
         reached{" "}
         {data.level !== undefined && (
           <>
-            <span className="activity-highlight" style={{ color: highlightColor }}>
+            <span
+              className="activity-highlight"
+              style={{ color: highlightColor }}
+            >
               level {data.level}
             </span>{" "}
             in{" "}
@@ -248,7 +251,10 @@ function ActivityRow({
         reached{" "}
         {xpStr && (
           <>
-            <span className="activity-highlight" style={{ color: highlightColor }}>
+            <span
+              className="activity-highlight"
+              style={{ color: highlightColor }}
+            >
               {xpStr} XP
             </span>{" "}
             in{" "}
@@ -488,14 +494,11 @@ export function ActivityPage() {
 
       <div className="page">
         <div className="page-head">
-          <div className="page-eyebrow">
-            <span className="page-eyebrow-line" />
-            Live feed
-          </div>
+          <div className="page-eyebrow">Live feed</div>
           <h1 className="page-title">Activity</h1>
           <p className="page-sub">
-            Rare drops, level-ups, quests and combat achievements from the clan,
-            newest first.
+            A live feed of our clan members' most recent collection logs,
+            valueable drops, combat achievements, level-ups, quests, and more.
           </p>
         </div>
 

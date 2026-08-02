@@ -375,7 +375,8 @@ export function HiscoresPage() {
   const currentOption = getMetricOption(metric);
   const dataType = currentOption?.dataType ?? "skill";
   const entries = useMemo<WomHiscoresEntry[]>(
-    () => (bulkHiscores ? getMetricEntries(bulkHiscores, metric, dataType) : []),
+    () =>
+      bulkHiscores ? getMetricEntries(bulkHiscores, metric, dataType) : [],
     [bulkHiscores, metric, dataType],
   );
   const q = playerSearch.trim().toLowerCase();
@@ -433,8 +434,9 @@ export function HiscoresPage() {
           <div className="page-eyebrow">Wise Old Man</div>
           <h1 className="page-title">Hiscores</h1>
           <p className="page-sub">
-            Clan leaderboards for every skill, boss and activity — plus gains
-            over the last week or month and the current event.
+            Clan hiscores across every skill, boss and activity. When an event
+            is running, check the hiscores to see how you stack up against the
+            rest of the clan.
           </p>
         </div>
 

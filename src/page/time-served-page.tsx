@@ -219,9 +219,9 @@ export const ClanRankings = () => {
             <div className="page-eyebrow">Rank requirements</div>
             <h1 className="page-title">Clan Ranks</h1>
             <p className="page-sub">
-              Every tier and what it takes to get there. Import your RuneProfile
-              collection log to check your progress automatically, or tick items
-              off by hand.
+              Rankings are based on your collection log. Install the RuneProfile
+              plugin to auto-verify yourself. Not everything can be tracked
+              through the collection log.
             </p>
           </div>
           <div className="badge-legend">
@@ -287,15 +287,16 @@ export const ClanRankings = () => {
                   Clan Req:{" "}
                   {(() => {
                     const enhancedSeedCount =
-                      profile.itemMap.get("enhanced crystal weapon seed") ??
-                      0;
+                      profile.itemMap.get("enhanced crystal weapon seed") ?? 0;
                     const armourSeeds = Math.max(
                       profile.itemMap.get("crystal armour seed") ?? 0,
                       profile.itemMap.get("crystal armor seed") ?? 0,
                     );
                     if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
                       return (
-                        <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                        <span
+                          style={{ color: "var(--green)", fontWeight: 600 }}
+                        >
                           ✓ {enhancedSeedCount} Enhanced Crystal Weapon Seed
                           {enhancedSeedCount > 1 ? "s" : ""} + {armourSeeds}{" "}
                           Crystal Armour Seed
@@ -309,14 +310,18 @@ export const ClanRankings = () => {
                     ]);
                     if (cgKc >= 800) {
                       return (
-                        <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                        <span
+                          style={{ color: "var(--green)", fontWeight: 600 }}
+                        >
                           ✓ Corrupted Gauntlet ({cgKc} kc)
                         </span>
                       );
                     }
                     if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
                       return (
-                        <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                        <span
+                          style={{ color: "var(--green)", fontWeight: 600 }}
+                        >
                           ✓ Twisted Bow
                         </span>
                       );

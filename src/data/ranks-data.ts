@@ -86,6 +86,12 @@ const ranks: Rank[] = [
           ],
         },
       },
+      {
+        name: "Barrows gloves",
+        img: "https://oldschool.runescape.wiki/images/Barrows_gloves_detail.png",
+        alt: "Barrows gloves",
+        apiCheck: { type: "quest", name: "Recipe for disaster" },
+      },
     ],
   },
   {
@@ -258,6 +264,49 @@ const ranks: Rank[] = [
           ],
         },
       },
+      {
+        name: "Blue moon armour",
+        img: "https://oldschool.runescape.wiki/images/Blue_moon_helm_detail.png",
+        alt: "Blue moon armour",
+        apiCheck: {
+          type: "collection-all-checks",
+          checks: [
+            {
+              type: "collection-any-of",
+              primary: { type: "collection-item", names: ["Blue moon helm"] },
+              alternatives: [
+                { type: "collection-item", names: ["Ahrim's hood"] },
+                { type: "collection-item", names: ["Virtus mask"] },
+                { type: "collection-item", names: ["Ancestral hat"] },
+              ],
+            },
+            {
+              type: "collection-any-of",
+              primary: {
+                type: "collection-item",
+                names: ["Blue moon chestplate"],
+              },
+              alternatives: [
+                { type: "collection-item", names: ["Ahrim's robetop"] },
+                { type: "collection-item", names: ["Virtus robe top"] },
+                { type: "collection-item", names: ["Ancestral robe top"] },
+              ],
+            },
+            {
+              type: "collection-any-of",
+              primary: {
+                type: "collection-item",
+                names: ["Blue moon tassets"],
+              },
+              alternatives: [
+                { type: "collection-item", names: ["Ahrim's robeskirt"] },
+                { type: "collection-item", names: ["Virtus robe bottom"] },
+                { type: "collection-item", names: ["Ancestral robe bottom"] },
+              ],
+            },
+          ],
+        },
+      },
     ],
   },
   {
@@ -338,6 +387,15 @@ const ranks: Rank[] = [
           displayTotal: 2,
         },
       },
+      {
+        name: "Thread of elidinis",
+        img: "https://oldschool.runescape.wiki/images/Thread_of_elidinis_detail.png",
+        alt: "Thread of elidinis",
+        apiCheck: {
+          type: "collection-item",
+          names: ["Thread of elidinis"],
+        },
+      },
     ],
   },
   {
@@ -351,16 +409,6 @@ const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Occult_necklace_detail.png",
         alt: "Occult necklace",
         apiCheck: { type: "collection-item", names: ["Occult necklace"] },
-      },
-      {
-        name: "Voidwaker",
-        img: "https://oldschool.runescape.wiki/images/Voidwaker_detail.png",
-        alt: "Voidwaker",
-        apiCheck: {
-          type: "collection-count",
-          names: ["Voidwaker blade", "Voidwaker gem", "Voidwaker hilt"],
-          required: 3,
-        },
       },
       {
         name: "Osmumten's fang or Lightbearer",
@@ -407,6 +455,21 @@ const ranks: Rank[] = [
           ],
         },
       },
+      {
+        name: "Masori crafting kit",
+        img: "https://oldschool.runescape.wiki/images/Masori_crafting_kit_detail.png",
+        alt: "Masori crafting kit",
+        apiCheck: {
+          type: "collection-item",
+          names: ["Masori crafting kit"],
+        },
+      },
+      {
+        name: "Toxic blowpipe",
+        img: "https://oldschool.runescape.wiki/images/Toxic_blowpipe_detail.png",
+        alt: "Toxic blowpipe",
+        apiCheck: { type: "collection-item", names: ["Tanzanite fang"] },
+      },
     ],
   },
   {
@@ -435,12 +498,6 @@ const ranks: Rank[] = [
           type: "collection-item",
           names: ["Arcane prayer scroll", "Dexterous prayer scroll"],
         },
-      },
-      {
-        name: "Toxic blowpipe",
-        img: "https://oldschool.runescape.wiki/images/Toxic_blowpipe_detail.png",
-        alt: "Toxic blowpipe",
-        apiCheck: { type: "collection-item", names: ["Tanzanite fang"] },
       },
       {
         name: "Amulet of rancour",
@@ -491,6 +548,25 @@ const ranks: Rank[] = [
             "Mokhaiotl cloth",
           ],
           required: 2,
+        },
+      },
+      {
+        name: "Voidwaker",
+        img: "https://oldschool.runescape.wiki/images/Voidwaker_detail.png",
+        alt: "Voidwaker",
+        apiCheck: {
+          type: "collection-count",
+          names: ["Voidwaker blade", "Voidwaker gem", "Voidwaker hilt"],
+          required: 3,
+        },
+      },
+      {
+        name: "Necklace of rupture",
+        img: "https://oldschool.runescape.wiki/images/Necklace_of_rupture_detail.png",
+        alt: "Necklace of rupture",
+        apiCheck: {
+          type: "collection-item",
+          names: ["Elder venator fang"],
         },
       },
     ],
@@ -588,6 +664,21 @@ const ranks: Rank[] = [
           required: 3,
         },
       },
+      {
+        name: "2/3 Virtus robes",
+        img: "https://oldschool.runescape.wiki/images/Virtus_mask_detail.png",
+        alt: "2/3 Virtus robes",
+        multiItem: true,
+        apiCheck: {
+          type: "collection-piece-types",
+          pieceGroups: [
+            ["Virtus mask", "Ancestral hat"],
+            ["Virtus robe top", "Ancestral robe top"],
+            ["Virtus robe bottom", "Ancestral robe bottom"],
+          ],
+          required: 2,
+        },
+      },
     ],
   },
   {
@@ -652,17 +743,13 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Ancient blood ornament kit",
-        img: "https://oldschool.runescape.wiki/images/Ancient_blood_ornament_kit_detail.png",
-        alt: "Ancient blood ornament kit",
+        name: "1/2 Blorva or Radiant",
+        img: "/clan-emblem.png",
+        alt: "1/2 Blorva or Radiant",
+        multiItem: true,
         apiCheck: {
-          type: "combat-achievement-task",
-          names: [
-            "Vardorvis Sleeper",
-            "Duke Sucellus Sleeper",
-            "Leviathan Sleeper",
-            "Whispered",
-          ],
+          type: "collection-item",
+          names: ["Ancient blood ornament kit", "Radiant oathplate armour"],
         },
       },
       {
@@ -682,9 +769,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/3 Virtus robes",
+        name: "3/3 Virtus robes",
         img: "https://oldschool.runescape.wiki/images/Virtus_mask_detail.png",
-        alt: "2/3 Virtus robes",
+        alt: "3/3 Virtus robes",
         multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
@@ -693,8 +780,15 @@ const ranks: Rank[] = [
             ["Virtus robe top", "Ancestral robe top"],
             ["Virtus robe bottom", "Ancestral robe bottom"],
           ],
-          required: 2,
+          required: 3,
         },
+      },
+      {
+        name: "3/3 Masori armour (f)",
+        img: "https://oldschool.runescape.wiki/images/Masori_mask_%28f%29_detail.png",
+        alt: "3/3 Masori armour (f)",
+        multiItem: true,
+        apiCheck: { type: "collection-masori-f" },
       },
       {
         name: "1/3 Megarares",
@@ -746,13 +840,6 @@ const ranks: Rank[] = [
         alt: "Saturated heart",
       },
       {
-        name: "3/3 Masori armour (f)",
-        img: "https://oldschool.runescape.wiki/images/Masori_mask_%28f%29_detail.png",
-        alt: "3/3 Masori armour (f)",
-        multiItem: true,
-        apiCheck: { type: "collection-masori-f" },
-      },
-      {
         name: "3/3 Ancestral robes",
         img: "https://oldschool.runescape.wiki/images/Ancestral_hat_detail.png",
         alt: "3/3 Ancestral robes",
@@ -783,9 +870,15 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "Radiant oathplate armour",
-        img: "https://oldschool.runescape.wiki/images/Purifying_sigil_detail.png",
-        alt: "Radiant oathplate armour",
+        name: "2/2 Blorva or Radiant",
+        img: "/clan-emblem.png",
+        alt: "2/2 Blorva or Radiant",
+        multiItem: true,
+        apiCheck: {
+          type: "collection-count",
+          names: ["Ancient blood ornament kit", "Radiant oathplate armour"],
+          required: 2,
+        },
       },
       {
         name: "Completed spirit shield",
