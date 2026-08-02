@@ -86,3 +86,22 @@ export async function destroySession(req: VercelRequest, res: VercelResponse): P
   if (token) await sql`DELETE FROM sessions WHERE token_hash = ${hashToken(token)}`;
   appendSetCookie(res, serializeCookie(SESSION_COOKIE, "", { maxAgeSeconds: 0 }));
 }
+
+export async function requireUser(req: VercelRequest, res: VercelResponse): Promise<SessionUser | null> {
+  const user = await getSessionUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return null;
+  }
+  return user;
+}
+
+export async function requireAdmin(req: VercelRequest, res: VercelResponse): Promise<SessionUser | null> {
+  const user = await requireUser(req, res);
+  if (!user) return null;
+  if (!user.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
+    return null;
+  }
+  return user;
+}
