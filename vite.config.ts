@@ -45,7 +45,6 @@ function runeprofileProxyPlugin(apiKey: string): Plugin {
 }
 
 function womProxyPlugin(apiKey: string): Plugin {
-  const METRIC_RE = /^[a-z_]{1,40}$/
   const PERIOD_RE = /^(week|month)$/
   const womHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -70,24 +69,23 @@ function womProxyPlugin(apiKey: string): Plugin {
             res.end(await upstreamRes.text())
           }
 
-          if (type === 'hiscores') {
-            const metric = params.get('metric') ?? ''
-            if (!METRIC_RE.test(metric)) {
-              res.statusCode = 400
-              res.end(JSON.stringify({ error: 'Invalid metric' }))
-              return
-            }
-            await send(await fetch(`${WOM_BASE}/groups/${WOM_GROUP_ID}/hiscores?metric=${metric}&limit=500`, { headers: womHeaders }))
-          } else if (type === 'gained') {
-            const metric = params.get('metric') ?? ''
+          if (type === 'bulk-gained') {
             const period = params.get('period') ?? ''
-            const limit = Number(params.get('limit') ?? '500')
-            if (!METRIC_RE.test(metric) || !PERIOD_RE.test(period) || !Number.isInteger(limit) || limit < 1 || limit > 500) {
+            if (!PERIOD_RE.test(period)) {
               res.statusCode = 400
-              res.end(JSON.stringify({ error: 'Invalid params' }))
+              res.end(JSON.stringify({ error: 'Invalid period' }))
               return
             }
-            await send(await fetch(`${WOM_BASE}/groups/${WOM_GROUP_ID}/gained?metric=${metric}&period=${period}&limit=${limit}`, { headers: womHeaders }))
+            await send(await fetch(`${WOM_BASE}/groups/${WOM_GROUP_ID}/bulk-gained?period=${period}`, { headers: womHeaders }))
+          } else if (type === 'bulk-hiscores') {
+            await send(await fetch(`${WOM_BASE}/groups/${WOM_GROUP_ID}/bulk-hiscores`, { headers: womHeaders }))
+          } else if (type === 'roles') {
+            const upstream = await fetch(`${WOM_BASE}/groups/${WOM_GROUP_ID}`, { headers: womHeaders })
+            if (!upstream.ok) { await send(upstream); return }
+            const group = (await upstream.json()) as { memberships?: Array<{ player: { username: string }; role: string }> }
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ memberships: group.memberships ?? [] }))
           } else if (type === 'event') {
             const compsRes = await fetch(`${WOM_BASE}/groups/${WOM_GROUP_ID}/competitions?limit=20`, { headers: womHeaders })
             if (!compsRes.ok) { await send(compsRes); return }

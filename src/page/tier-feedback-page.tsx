@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
+import { SiteHeader } from "../components/site-header";
+import { SiteFooter } from "../components/site-footer";
 import ranks from "../data/ranks-data";
 import type { Item } from "../components/item-card";
 
@@ -290,9 +292,6 @@ export function TierFeedbackPage() {
     return map;
   }, [placements]);
 
-  const placedCount =
-    ALL_ITEMS.length - (itemsByZone.get(POOL_ZONE)?.length ?? 0);
-
   const resetAll = () => {
     if (!window.confirm("Clear your entire tier list and start over?")) return;
     setPlacements({});
@@ -389,24 +388,27 @@ export function TierFeedbackPage() {
   };
 
   return (
-    <div
-      ref={pageRef}
-      className={`page tier-feedback-page${isPlacing ? " is-placing" : ""}`}
-    >
-      <div className="header">
-        <div className="header-deco">
-          <h1 className="title">Time Served</h1>
-        </div>
-        <div className="subtitle">Clan Ranks Feedback</div>
-        <div className="divider" />
-        <div className="tier-feedback-intro">
-          <p>
+    <>
+      <SiteHeader />
+
+      <div
+        ref={pageRef}
+        className={`page tier-feedback-page${isPlacing ? " is-placing" : ""}`}
+      >
+        <div className="page-head">
+          <div className="page-eyebrow">
+            <span className="page-eyebrow-line" />
+            Your opinion
+          </div>
+          <h1 className="page-title">Rank Feedback</h1>
+          <p className="page-sub">
             Drag each item into the tier you think it belongs in (or tap it,
             then tap a tier). There's no right answer, just your honest opinion.
             Items that shouldn't count toward any rank go in the "Shouldn't Be
             Included" box below.
           </p>
         </div>
+
         <div className="tier-feedback-toolbar">
           <button type="button" className="tracker-btn" onClick={resetAll}>
             Reset
@@ -420,29 +422,10 @@ export function TierFeedbackPage() {
             {capturing ? "Capturing..." : "Screenshot"}
           </button>
         </div>
-      </div>
 
-      <div
-        className={`tier-pool${hoverZone === POOL_ZONE ? " drag-over" : ""}`}
-        data-dropzone={POOL_ZONE}
-        onPointerDown={handleZonePointerDown}
-      >
-        <div className="tier-pool-header">
-          {(itemsByZone.get(POOL_ZONE) ?? []).length} items ({placedCount}{" "}
-          placed)
-        </div>
-        <div className="tier-items">
-          {(itemsByZone.get(POOL_ZONE) ?? []).map(renderItem)}
-          {(itemsByZone.get(POOL_ZONE) ?? []).length === 0 && (
-            <div className="tier-empty-hint">All items placed!</div>
-          )}
-        </div>
-      </div>
-
-      <div className="tier-box-list">
         <div
-          className={`tier-box tier-box-exclude${hoverZone === EXCLUDE_ZONE ? " drag-over" : ""}`}
-          data-dropzone={EXCLUDE_ZONE}
+          className={`tier-pool${hoverZone === POOL_ZONE ? " drag-over" : ""}`}
+          data-dropzone={POOL_ZONE}
           onPointerDown={handleZonePointerDown}
         >
           <div className="tier-box-header">
@@ -454,63 +437,88 @@ export function TierFeedbackPage() {
             </span>
           </div>
           <div className="tier-items">
-            {(itemsByZone.get(EXCLUDE_ZONE) ?? []).map(renderItem)}
-            {(itemsByZone.get(EXCLUDE_ZONE) ?? []).length === 0 && (
-              <div className="tier-empty-hint">
-                Items that shouldn't count toward any rank
-              </div>
+            {(itemsByZone.get(POOL_ZONE) ?? []).map(renderItem)}
+            {(itemsByZone.get(POOL_ZONE) ?? []).length === 0 && (
+              <div className="tier-empty-hint">All items placed!</div>
             )}
           </div>
         </div>
 
-        {ranks.map((rank) => (
+        <div className="tier-box-list">
           <div
-            key={rank.name}
-            className={`tier-box${hoverZone === rank.name ? " drag-over" : ""}`}
-            style={{ ["--rank-color" as any]: rank.color }}
-            data-dropzone={rank.name}
+            className={`tier-box tier-box-exclude${hoverZone === EXCLUDE_ZONE ? " drag-over" : ""}`}
+            data-dropzone={EXCLUDE_ZONE}
             onPointerDown={handleZonePointerDown}
           >
             <div className="tier-box-header">
-              <img
-                className="rank-gem"
-                src={rank.icon}
-                alt={`${rank.name} Clan Icon`}
-                referrerPolicy="no-referrer"
-              />
-              <span className="rank-name">{rank.name}</span>
+              <span className="rank-name rank-name-exclude">
+                Where to include these items
+              </span>
               <span className="tier-box-count">
-                {(itemsByZone.get(rank.name) ?? []).length}
+                {(itemsByZone.get(EXCLUDE_ZONE) ?? []).length}
               </span>
             </div>
             <div className="tier-items">
-              {(itemsByZone.get(rank.name) ?? []).map(renderItem)}
-              {(itemsByZone.get(rank.name) ?? []).length === 0 && (
-                <div className="tier-empty-hint">Drop items here</div>
+              {(itemsByZone.get(EXCLUDE_ZONE) ?? []).map(renderItem)}
+              {(itemsByZone.get(EXCLUDE_ZONE) ?? []).length === 0 && (
+                <div className="tier-empty-hint">
+                  Items that shouldn't count toward any rank
+                </div>
               )}
             </div>
           </div>
-        ))}
+
+          {ranks.map((rank) => (
+            <div
+              key={rank.name}
+              className={`tier-box${hoverZone === rank.name ? " drag-over" : ""}`}
+              style={{ ["--rank-color" as any]: rank.color }}
+              data-dropzone={rank.name}
+              onPointerDown={handleZonePointerDown}
+            >
+              <div className="tier-box-header">
+                <img
+                  className="rank-gem"
+                  src={rank.icon}
+                  alt={`${rank.name} Clan Icon`}
+                  referrerPolicy="no-referrer"
+                />
+                <span className="rank-name">{rank.name}</span>
+                <span className="tier-box-count">
+                  {(itemsByZone.get(rank.name) ?? []).length}
+                </span>
+              </div>
+              <div className="tier-items">
+                {(itemsByZone.get(rank.name) ?? []).map(renderItem)}
+                {(itemsByZone.get(rank.name) ?? []).length === 0 && (
+                  <div className="tier-empty-hint">Drop items here</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {dragGhost &&
+          (() => {
+            const item = ITEM_LOOKUP.get(dragGhost.id);
+            if (!item) return null;
+            return (
+              <div
+                className="tier-ghost"
+                style={{ left: dragGhost.x, top: dragGhost.y }}
+              >
+                <img
+                  className="item-sprite"
+                  referrerPolicy="no-referrer"
+                  src={item.img}
+                  alt=""
+                />
+              </div>
+            );
+          })()}
       </div>
 
-      {dragGhost &&
-        (() => {
-          const item = ITEM_LOOKUP.get(dragGhost.id);
-          if (!item) return null;
-          return (
-            <div
-              className="tier-ghost"
-              style={{ left: dragGhost.x, top: dragGhost.y }}
-            >
-              <img
-                className="item-sprite"
-                referrerPolicy="no-referrer"
-                src={item.img}
-                alt=""
-              />
-            </div>
-          );
-        })()}
-    </div>
+      <SiteFooter />
+    </>
   );
 }

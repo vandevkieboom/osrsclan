@@ -10,7 +10,6 @@ const WOM_HEADERS: Record<string, string> = {
   ...(API_KEY ? { "x-api-key": API_KEY } : {}),
 };
 
-const METRIC_RE = /^[a-z_]{1,40}$/;
 const PERIOD_RE = /^(week|month)$/;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -21,41 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { type } = req.query;
 
-  if (type === "hiscores") {
-    const { metric } = req.query;
-    if (typeof metric !== "string" || !METRIC_RE.test(metric)) {
-      res.status(400).json({ error: "Invalid metric" });
-      return;
-    }
-    const upstream = await fetch(
-      `${BASE_URL}/groups/${GROUP_ID}/hiscores?metric=${metric}&limit=500`,
-      { headers: WOM_HEADERS },
-    );
-    if (upstream.status === 429) {
-      res
-        .status(429)
-        .json({ error: "Rate limit hit — wait a moment and try again." });
-      return;
-    }
-    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
-    res.status(upstream.status).json(await upstream.json());
-  } else if (type === "gained") {
-    const { metric, period, limit } = req.query;
-    if (typeof metric !== "string" || !METRIC_RE.test(metric)) {
-      res.status(400).json({ error: "Invalid metric" });
-      return;
-    }
+  if (type === "bulk-gained") {
+    const { period } = req.query;
     if (typeof period !== "string" || !PERIOD_RE.test(period)) {
       res.status(400).json({ error: "Invalid period" });
       return;
     }
-    const limitNum = Number(limit ?? "500");
-    if (!Number.isInteger(limitNum) || limitNum < 1 || limitNum > 500) {
-      res.status(400).json({ error: "Invalid limit" });
-      return;
-    }
     const upstream = await fetch(
-      `${BASE_URL}/groups/${GROUP_ID}/gained?metric=${metric}&period=${period}&limit=${limitNum}`,
+      `${BASE_URL}/groups/${GROUP_ID}/bulk-gained?period=${period}`,
       { headers: WOM_HEADERS },
     );
     if (upstream.status === 429) {
@@ -66,6 +38,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=3600");
     res.status(upstream.status).json(await upstream.json());
+  } else if (type === "bulk-hiscores") {
+    const upstream = await fetch(
+      `${BASE_URL}/groups/${GROUP_ID}/bulk-hiscores`,
+      { headers: WOM_HEADERS },
+    );
+    if (upstream.status === 429) {
+      res
+        .status(429)
+        .json({ error: "Rate limit hit — wait a moment and try again." });
+      return;
+    }
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+    res.status(upstream.status).json(await upstream.json());
+  } else if (type === "roles") {
+    const upstream = await fetch(`${BASE_URL}/groups/${GROUP_ID}`, {
+      headers: WOM_HEADERS,
+    });
+    if (upstream.status === 429) {
+      res
+        .status(429)
+        .json({ error: "Rate limit hit — wait a moment and try again." });
+      return;
+    }
+    if (!upstream.ok) {
+      res.status(upstream.status).json(await upstream.json());
+      return;
+    }
+    const group = (await upstream.json()) as {
+      memberships?: Array<{
+        player: { username: string };
+        role: string;
+      }>;
+    };
+    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=3600");
+    res.status(200).json({ memberships: group.memberships ?? [] });
   } else if (type === "event") {
     const compsRes = await fetch(
       `${BASE_URL}/groups/${GROUP_ID}/competitions?limit=20`,

@@ -34,21 +34,14 @@ const rules = [
 const Ruleset: React.FC = () => (
   <div className="rank-card faq">
     <div className="ruleset-title">Frequently Asked Questions</div>
-    {rules.map((rule, i) => (
-      <React.Fragment key={i}>
-        {rule.q && (
-          <div className="rule-block">
-            <div className="rule-q">{rule.q}</div>
-            <div className="rule-a">{rule.a}</div>
-          </div>
-        )}
-        {!rule.q && (
-          <div className="rule-block">
-            <div className="rule-a">{rule.a}</div>
-          </div>
-        )}
-      </React.Fragment>
-    ))}
+    <div className="rule-grid">
+      {rules.map((rule, i) => (
+        <div className="rule-block" key={i}>
+          <div className="rule-q">{rule.q}</div>
+          <div className="rule-a">{rule.a}</div>
+        </div>
+      ))}
+    </div>
   </div>
 );
 
