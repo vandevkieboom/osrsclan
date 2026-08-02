@@ -223,7 +223,10 @@ export function BingoPage() {
       });
   }
 
-  useEffect(reloadBoard, []);
+  // Re-fetch whenever the active tab changes, not just on first load — the
+  // Admin Panel tab mutates teams/members/tiles in its own local state, so
+  // switching back to Leaderboard/My Team Board needs a fresh fetch to see it.
+  useEffect(reloadBoard, [view]);
 
   function reloadSubmissions() {
     if (!isAdmin) {
@@ -237,7 +240,7 @@ export function BingoPage() {
       );
   }
 
-  useEffect(reloadSubmissions, [isAdmin]);
+  useEffect(reloadSubmissions, [isAdmin, view]);
 
   function handleTileClick(tileId: number) {
     pendingTileId.current = tileId;
