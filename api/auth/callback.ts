@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sql } from "../_lib/db.ts";
-import { appendSetCookie, createSession, serializeCookie } from "../_lib/auth.ts";
+import { sql } from "../_lib/db";
+import { appendSetCookie, createSession, serializeCookie } from "../_lib/auth";
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET ?? "";

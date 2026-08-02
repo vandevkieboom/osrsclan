@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sql } from "./db.ts";
+import { sql } from "./db";
 
 export const SESSION_COOKIE = "session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
