@@ -411,6 +411,11 @@ export const METRIC_GROUPS: MetricGroup[] = [
         dataType: "boss",
       },
       {
+        value: "mad_angel",
+        label: "Mad Angel",
+        dataType: "boss",
+      },
+      {
         value: "maggot_king",
         label: "Maggot King",
         dataType: "boss",

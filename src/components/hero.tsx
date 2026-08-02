@@ -9,7 +9,6 @@ interface HeroProps {
     avgTotalLevel: number;
     maxedTotal: number;
   } | null;
-  liveCount: number;
 }
 
 function formatXp(xp: number): string {
@@ -18,7 +17,7 @@ function formatXp(xp: number): string {
   return `${(xp / 1e6).toFixed(0)}M`;
 }
 
-export function Hero({ stats, liveCount }: HeroProps) {
+export function Hero({ stats }: HeroProps) {
   return (
     <div className="hero">
       <div className="hero-media" aria-hidden="true">

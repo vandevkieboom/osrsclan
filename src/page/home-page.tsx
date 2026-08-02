@@ -87,7 +87,6 @@ export function HomePage() {
   const [streamsLoading, setStreamsLoading] = useState(true);
 
   const [clanStats, setClanStats] = useState<ClanStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,9 +108,6 @@ export function HomePage() {
       })
       .catch(() => {
         /* silently fail */
-      })
-      .finally(() => {
-        if (!cancelled) setStatsLoading(false);
       });
 
     return () => {
@@ -123,7 +119,7 @@ export function HomePage() {
     <>
       <SiteHeader />
 
-      <Hero stats={clanStats} liveCount={streams.length} />
+      <Hero stats={clanStats} />
 
       <div className="page">
         <h2 className="home-section-title">Explore the clan</h2>

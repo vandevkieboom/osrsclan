@@ -292,9 +292,6 @@ export function TierFeedbackPage() {
     return map;
   }, [placements]);
 
-  const placedCount =
-    ALL_ITEMS.length - (itemsByZone.get(POOL_ZONE)?.length ?? 0);
-
   const resetAll = () => {
     if (!window.confirm("Clear your entire tier list and start over?")) return;
     setPlacements({});
