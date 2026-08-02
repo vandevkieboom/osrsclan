@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomBytes } from "node:crypto";
-import { appendSetCookie, serializeCookie } from "../_lib/auth";
+import { appendSetCookie, serializeCookie } from "../_lib/auth.js";
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? "";
 const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI ?? "";
