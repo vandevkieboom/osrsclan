@@ -172,13 +172,7 @@ function BoardTile({
     ? `${tile.status === "approved" ? "Completed" : "Submitted"} by ${tile.completedBy}`
     : undefined;
   return (
-    <button
-      type="button"
-      className={`bingo-tile bingo-tile--${tile.status}`}
-      onClick={onClick}
-      disabled={!clickable || isUploading}
-      title={title}
-    >
+    <div className={`bingo-tile bingo-tile--${tile.status}`}>
       {tile.status === "approved" && (
         <span className="bingo-tile-status bingo-tile-status--approved">✓</span>
       )}
@@ -188,14 +182,34 @@ function BoardTile({
       {tile.status === "rejected" && (
         <span className="bingo-tile-status bingo-tile-status--rejected">✕</span>
       )}
-      <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
-      <div className="bingo-tile-name">
-        {isUploading ? "Uploading…" : tile.name}
-      </div>
-      {tile.completedBy && (
-        <div className="bingo-tile-completed-by">{tile.completedBy}</div>
+      {tile.proofUrl && (
+        <a
+          href={tile.proofUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="bingo-tile-proof-link"
+          title="View submitted proof"
+          onClick={(e) => e.stopPropagation()}
+        >
+          🔍
+        </a>
       )}
-    </button>
+      <button
+        type="button"
+        className="bingo-tile-body"
+        onClick={onClick}
+        disabled={!clickable || isUploading}
+        title={title}
+      >
+        <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
+        <div className="bingo-tile-name">
+          {isUploading ? "Uploading…" : tile.name}
+        </div>
+        {tile.completedBy && (
+          <div className="bingo-tile-completed-by">{tile.completedBy}</div>
+        )}
+      </button>
+    </div>
   );
 }
 

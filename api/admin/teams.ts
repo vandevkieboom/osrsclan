@@ -118,7 +118,7 @@ async function deleteTeam(req: VercelRequest, res: VercelResponse) {
 async function listUsers(res: VercelResponse) {
   const rows = await sql`
     SELECT u.id, u.discord_id, u.discord_username, u.discord_global_name, u.discord_avatar_hash,
-           u.is_admin, u.team_id, t.name AS team_name
+           u.is_admin, u.team_id, u.runescape_name, t.name AS team_name
     FROM users u
     LEFT JOIN teams t ON t.id = u.team_id
     ORDER BY u.discord_username`;
@@ -128,6 +128,7 @@ async function listUsers(res: VercelResponse) {
       id: r.id,
       username: r.discord_username,
       globalName: r.discord_global_name,
+      runescapeName: r.runescape_name,
       avatarUrl: r.discord_avatar_hash
         ? `https://cdn.discordapp.com/avatars/${r.discord_id}/${r.discord_avatar_hash}.png?size=32`
         : null,

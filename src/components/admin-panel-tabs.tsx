@@ -32,9 +32,9 @@ const PLACEHOLDER_TEAMS: AdminTeam[] = [
   { id: 2, name: "Onyx Talon", slug: "onyx-talon", accentColor: "#5b9bd5", memberCount: 5 },
 ];
 const PLACEHOLDER_USERS: AdminUser[] = [
-  { id: 1, username: "izjordy", globalName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" } },
-  { id: 2, username: "test_user_two", globalName: "Test User Two", avatarUrl: null, isAdmin: false, team: null },
-  { id: 3, username: "test_user_three", globalName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" } },
+  { id: 1, username: "izjordy", globalName: "izJordy", runescapeName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" } },
+  { id: 2, username: "test_user_two", globalName: "Test User Two", runescapeName: null, avatarUrl: null, isAdmin: false, team: null },
+  { id: 3, username: "test_user_three", globalName: null, runescapeName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" } },
 ];
 const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
@@ -216,7 +216,7 @@ function MembersPanel() {
       <div className="admin-row-list">
         {users?.map((u) => (
           <div key={u.id} className="admin-row">
-            <span className="admin-row-name">{u.globalName ?? u.username}</span>
+            <span className="admin-row-name">{u.runescapeName ?? u.globalName ?? u.username}</span>
             <select
               className="admin-select"
               value={u.team?.id ?? ""}

@@ -27,12 +27,12 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     ORDER BY tm.name`;
 
   const memberRows = await sql`
-    SELECT team_id, discord_username, discord_global_name
+    SELECT team_id, discord_username, discord_global_name, runescape_name
     FROM users WHERE team_id IS NOT NULL ORDER BY discord_username`;
   const membersByTeam = new Map<number, string[]>();
   for (const r of memberRows) {
     const list = membersByTeam.get(r.team_id) ?? [];
-    list.push(r.discord_global_name ?? r.discord_username);
+    list.push(r.runescape_name ?? r.discord_global_name ?? r.discord_username);
     membersByTeam.set(r.team_id, list);
   }
 
@@ -62,7 +62,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   let myTeam = null;
   if (user?.teamId) {
     const subRows = await sql`
-      SELECT s.tile_id, s.status, s.proof_url, u.discord_global_name, u.discord_username
+      SELECT s.tile_id, s.status, s.proof_url, u.discord_global_name, u.discord_username, u.runescape_name
       FROM submissions s
       LEFT JOIN users u ON u.id = s.submitted_by
       WHERE s.team_id = ${user.teamId}`;
@@ -72,7 +72,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
         {
           status: r.status,
           proofUrl: r.proof_url,
-          completedBy: r.discord_global_name ?? r.discord_username ?? null,
+          completedBy: r.runescape_name ?? r.discord_global_name ?? r.discord_username ?? null,
         },
       ]),
     );

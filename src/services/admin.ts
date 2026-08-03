@@ -10,6 +10,7 @@ export interface AdminUser {
   id: number;
   username: string;
   globalName: string | null;
+  runescapeName: string | null;
   avatarUrl: string | null;
   isAdmin: boolean;
   team: { id: number; name: string } | null;

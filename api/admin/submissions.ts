@@ -8,7 +8,7 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
   const rows = await sql`
     SELECT s.id, s.status, s.proof_url, s.created_at,
            t.name AS team_name, ti.name AS tile_name, ti.icon_url,
-           u.discord_username AS submitted_by
+           u.discord_username, u.discord_global_name, u.runescape_name
     FROM submissions s
     JOIN teams t ON t.id = s.team_id
     JOIN tiles ti ON ti.id = s.tile_id
@@ -24,7 +24,7 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
       teamName: r.team_name,
       tileName: r.tile_name,
       iconUrl: r.icon_url,
-      submittedBy: r.submitted_by ?? "Unknown",
+      submittedBy: r.runescape_name ?? r.discord_global_name ?? r.discord_username ?? "Unknown",
       createdAt: r.created_at,
     })),
   });

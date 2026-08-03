@@ -870,9 +870,9 @@ const ranks: Rank[] = [
         },
       },
       {
-        name: "2/2 Blorva or Radiant",
+        name: "2/2 Blorva and Radiant",
         img: "/clan-emblem.png",
-        alt: "2/2 Blorva or Radiant",
+        alt: "2/2 Blorva and Radiant",
         multiItem: true,
         apiCheck: {
           type: "collection-count",

@@ -996,40 +996,162 @@ body {
 }
 
 .site-header-account {
+  position: relative;
   display: inline-flex;
+}
+
+.site-header-account-trigger {
+  display: flex;
   align-items: center;
-  gap: 0.55em;
-  white-space: nowrap;
+  gap: 8px;
+  background: none;
+  border: 1px solid #3a2224;
+  border-radius: 20px;
+  padding: 6px 12px 6px 6px;
+  color: #f0e8e6;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.site-header-account-trigger:hover {
+  border-color: #7a3034;
 }
 
 .site-header-avatar {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.site-header-avatar--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #3a2224;
+  color: #c9a2a2;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .site-header-username {
   font-family: "Manrope", Arial, Helvetica, sans-serif;
-  font-size: 0.75rem;
+  font-size: 12px;
+  font-weight: 600;
   color: #f0e8e6;
 }
 
-.site-header-logout {
+.site-header-account-chevron {
+  font-size: 9px;
+  color: #7a655f;
+  transition: transform 0.15s ease;
+}
+
+.site-header-account-chevron--open {
+  transform: rotate(180deg);
+}
+
+.site-header-account-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 240px;
+  background: #120809;
+  border: 1px solid #2a1315;
+  border-radius: 8px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+  padding: 16px;
+}
+
+.site-header-rsn-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.site-header-rsn-label {
   font-family: "Manrope", Arial, Helvetica, sans-serif;
-  font-size: 0.72rem;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #c9a2a2;
+  color: #a08c89;
+  margin-bottom: 8px;
+}
+
+.site-header-rsn-input {
+  width: 100%;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  color: #f0e8e6;
+  background: #0c0607;
+  border: 1px solid #2a1315;
+  border-radius: 4px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+}
+
+.site-header-rsn-input:focus {
+  outline: none;
+  border-color: #7a3034;
+}
+
+.site-header-rsn-error {
+  font-size: 11px;
+  color: #e8574a;
+  margin: -6px 0 8px;
+}
+
+.site-header-rsn-save {
+  width: 100%;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  border: 1px solid #a3241a;
+  border-radius: 4px;
+  padding: 9px;
+  background: #a3241a;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.site-header-rsn-save:hover {
+  background: #c92e22;
+  border-color: #c92e22;
+}
+
+.site-header-rsn-save:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.site-header-logout {
+  display: block;
+  width: 100%;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8574a;
   background: none;
   border: none;
-  padding: 0;
+  border-top: 1px solid #2a1315;
+  padding: 12px 0 0;
   cursor: pointer;
-  text-decoration: underline;
-  transition: color 0.18s;
+  text-align: left;
+  transition: color 0.15s ease;
 }
 
 .site-header-logout:hover {
-  color: #f0d2d2;
+  color: #f0837a;
 }
 
 .site-mark:focus-visible,
@@ -2903,7 +3025,6 @@ body {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
-  margin-bottom: 3.5rem;
   max-width: 1312px;
 }
 
@@ -2991,7 +3112,6 @@ body {
 .bingo-tiles-grid {
   display: grid;
   gap: 10px;
-  margin-bottom: 3.5rem;
   max-width: 780px;
 }
 
@@ -3001,15 +3121,8 @@ body {
   border: 1px solid #2a1315;
   background: #120809;
   border-radius: 6px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
   transition: transform 0.15s ease;
-  font-family: inherit;
+  container-type: inline-size;
 }
 
 .bingo-tile:hover {
@@ -3029,7 +3142,22 @@ body {
   border-color: #a3241a;
 }
 
-.bingo-tile:disabled {
+.bingo-tile-body {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.bingo-tile-body:disabled {
   cursor: default;
 }
 
@@ -3037,14 +3165,15 @@ body {
   position: absolute;
   top: 4px;
   right: 4px;
-  width: 16px;
-  height: 16px;
+  width: clamp(16px, 16cqw, 26px);
+  height: clamp(16px, 16cqw, 26px);
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: clamp(9px, 9cqw, 14px);
   color: #fff;
+  z-index: 1;
 }
 
 .bingo-tile-status--approved {
@@ -3060,8 +3189,8 @@ body {
 }
 
 .bingo-tile-icon {
-  width: 32px;
-  height: 32px;
+  width: clamp(32px, 44cqw, 96px);
+  height: clamp(32px, 44cqw, 96px);
   object-fit: contain;
 }
 
@@ -3078,14 +3207,14 @@ body {
 }
 
 .bingo-tile-name {
-  font-size: 9.5px;
+  font-size: clamp(9.5px, 12cqw, 17px);
   color: #a08c89;
   text-align: center;
   line-height: 1.2;
 }
 
 .bingo-tile-completed-by {
-  font-size: 8px;
+  font-size: clamp(8px, 9cqw, 13px);
   color: #7a655f;
   text-align: center;
   line-height: 1.1;
@@ -3095,11 +3224,32 @@ body {
   white-space: nowrap;
 }
 
+.bingo-tile-proof-link {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: clamp(16px, 16cqw, 26px);
+  height: clamp(16px, 16cqw, 26px);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(9px, 9cqw, 13px);
+  background: #241012cc;
+  color: #f0e8e6;
+  text-decoration: none;
+  z-index: 1;
+  transition: background 0.15s;
+}
+
+.bingo-tile-proof-link:hover {
+  background: #3a1a1dcc;
+}
+
 .bingo-admin-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 3.5rem;
 }
 
 .bingo-admin-row {

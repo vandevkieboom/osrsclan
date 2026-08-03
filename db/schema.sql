@@ -15,9 +15,11 @@ CREATE TABLE IF NOT EXISTS users (
   discord_avatar_hash TEXT,
   is_admin BOOLEAN NOT NULL DEFAULT FALSE,
   team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL,
+  runescape_name TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS runescape_name TEXT;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
 
 CREATE TABLE IF NOT EXISTS sessions (
