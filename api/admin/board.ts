@@ -73,10 +73,43 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const iconUrl = typeof req.body?.iconUrl === "string" ? req.body.iconUrl.trim() : "";
   const requiredCount = Number(req.body?.requiredCount ?? 1);
-  if (!Number.isInteger(id) || !name || !iconUrl || !Number.isInteger(requiredCount) || requiredCount < 1) {
-    res.status(400).json({ error: "id, name, iconUrl and requiredCount are required" });
+  const position = req.body && Object.prototype.hasOwnProperty.call(req.body, "position") ? Number(req.body.position) : null;
+
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid tile id" });
     return;
   }
+
+  const existingRows = await sql`SELECT id, position FROM tiles WHERE id = ${id}`;
+  if (existingRows.length === 0) {
+    res.status(404).json({ error: "Tile not found" });
+    return;
+  }
+
+  if (position !== null) {
+    if (!Number.isInteger(position) || position < 0) {
+      res.status(400).json({ error: "Position must be a non-negative integer" });
+      return;
+    }
+
+    const otherRows = await sql`SELECT id FROM tiles WHERE position = ${position} AND id != ${id}`;
+    if (otherRows.length > 0) {
+      await sql`UPDATE tiles SET position = ${existingRows[0].position} WHERE id = ${otherRows[0].id}`;
+    }
+
+    const rows = await sql`
+      UPDATE tiles SET position = ${position} WHERE id = ${id}
+      RETURNING id, position, name, icon_url, required_count`;
+    const t = rows[0];
+    res.status(200).json({ tile: { id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url, requiredCount: t.required_count } });
+    return;
+  }
+
+  if (!name || !iconUrl || !Number.isInteger(requiredCount) || requiredCount < 1) {
+    res.status(400).json({ error: "name, iconUrl and requiredCount are required" });
+    return;
+  }
+
   const rows = await sql`
     UPDATE tiles SET name = ${name}, icon_url = ${iconUrl}, required_count = ${requiredCount} WHERE id = ${id}
     RETURNING id, position, name, icon_url, required_count`;

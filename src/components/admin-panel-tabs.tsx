@@ -9,6 +9,7 @@ import {
   fetchAdminTiles,
   fetchAdminUsers,
   fetchBoardConfig,
+  moveTile,
   recolorTeam,
   renameTeam,
   updateBoardConfig,
@@ -290,10 +291,22 @@ function TileRow({
   tile,
   onSave,
   onDelete,
+  isDragging,
+  isDropTarget,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }: {
   tile: AdminTile;
   onSave: (name: string, iconUrl: string, requiredCount: number) => void;
   onDelete: () => void;
+  isDragging?: boolean;
+  isDropTarget?: boolean;
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
 }) {
   const [name, setName] = useState(tile.name);
   const [iconUrl, setIconUrl] = useState(tile.iconUrl);
@@ -319,7 +332,14 @@ function TileRow({
   }
 
   return (
-    <div className="admin-row">
+    <div
+      className={`admin-row${isDragging ? " admin-row--dragging" : ""}${isDropTarget ? " admin-row--drop-target" : ""}`}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
       <input
         type="text"
@@ -354,6 +374,8 @@ function BoardConfigPanel() {
   const [config, setConfig] = useState<BoardConfig | null>(null);
   const [tiles, setTiles] = useState<AdminTile[] | null>(null);
   const [addingPosition, setAddingPosition] = useState<number | null>(null);
+  const [draggedTileId, setDraggedTileId] = useState<number | null>(null);
+  const [dropPosition, setDropPosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -409,6 +431,18 @@ function BoardConfigPanel() {
       reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update tile");
+    }
+  }
+
+  async function handleMoveTile(id: number, position: number) {
+    try {
+      setError(null);
+      await moveTile(id, position);
+      setDraggedTileId(null);
+      setDropPosition(null);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to move tile");
     }
   }
 
@@ -480,12 +514,36 @@ function BoardConfigPanel() {
 
           if (tile) {
             return (
-              <TileRow
-                key={position}
-                tile={tile}
-                onSave={(name, iconUrl, requiredCount) => handleSaveTile(tile.id, name, iconUrl, requiredCount)}
-                onDelete={() => handleDeleteTile(tile.id)}
-              />
+              <div key={position} className="admin-row-slot">
+                <TileRow
+                  tile={tile}
+                  onSave={(name, iconUrl, requiredCount) => handleSaveTile(tile.id, name, iconUrl, requiredCount)}
+                  onDelete={() => handleDeleteTile(tile.id)}
+                  isDragging={draggedTileId === tile.id}
+                  isDropTarget={dropPosition === position}
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggedTileId(tile.id);
+                    setDropPosition(position);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedTileId(null);
+                    setDropPosition(null);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (draggedTileId !== tile.id) setDropPosition(position);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedTileId && draggedTileId !== tile.id) {
+                      handleMoveTile(draggedTileId, position);
+                    }
+                    setDraggedTileId(null);
+                    setDropPosition(null);
+                  }}
+                />
+              </div>
             );
           }
 
@@ -503,8 +561,20 @@ function BoardConfigPanel() {
             <button
               key={position}
               type="button"
-              className="admin-row admin-row--empty"
+              className={`admin-row admin-row--empty${dropPosition === position ? " admin-row--drop-target" : ""}`}
               onClick={() => setAddingPosition(position)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDropPosition(position);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedTileId) {
+                  handleMoveTile(draggedTileId, position);
+                }
+                setDraggedTileId(null);
+                setDropPosition(null);
+              }}
             >
               + Add tile
             </button>
