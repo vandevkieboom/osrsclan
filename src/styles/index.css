@@ -3145,12 +3145,12 @@ body {
 .bingo-tile-body {
   width: 100%;
   height: 100%;
-  padding: 8px;
+  padding: 7px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   background: none;
   border: none;
@@ -3189,32 +3189,20 @@ body {
 }
 
 .bingo-tile-icon {
-  width: clamp(32px, 44cqw, 96px);
-  height: clamp(32px, 44cqw, 96px);
+  width: clamp(28px, 36cqw, 80px);
+  height: clamp(28px, 36cqw, 80px);
   object-fit: contain;
 }
 
-.bingo-tile--none .bingo-tile-icon {
-  opacity: 0.4;
-}
-
-.bingo-tile--pending .bingo-tile-icon {
-  opacity: 0.85;
-}
-
-.bingo-tile--rejected .bingo-tile-icon {
-  opacity: 0.6;
-}
-
 .bingo-tile-name {
-  font-size: clamp(9.5px, 12cqw, 17px);
+  font-size: clamp(8.5px, 10.5cqw, 15px);
   color: #a08c89;
   text-align: center;
   line-height: 1.2;
 }
 
 .bingo-tile-completed-by {
-  font-size: clamp(8px, 9cqw, 13px);
+  font-size: clamp(7.5px, 8.25cqw, 12px);
   color: #7a655f;
   text-align: center;
   line-height: 1.1;
@@ -3244,6 +3232,16 @@ body {
   border: none;
   cursor: pointer;
   padding: 0;
+}
+
+.bingo-tile-proof-icon {
+  width: 57%;
+  height: 57%;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .bingo-tile-proof-link:hover,
