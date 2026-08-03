@@ -23,6 +23,13 @@ export interface MyTeamTile {
   status: "none" | "pending" | "approved" | "rejected";
   latestProofUrl: string | null;
   latestSubmittedBy: string | null;
+  proofs: {
+    id: number;
+    status: "pending" | "approved" | "rejected";
+    proofUrl: string;
+    submittedBy: string | null;
+    createdAt: string;
+  }[];
 }
 
 export interface BoardData {

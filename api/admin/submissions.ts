@@ -14,7 +14,7 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
     JOIN tiles ti ON ti.id = s.tile_id
     LEFT JOIN users u ON u.id = s.submitted_by
     WHERE s.status = ${status}
-    ORDER BY s.created_at ASC`;
+    ORDER BY s.created_at ASC, s.id ASC`;
 
   res.status(200).json({
     submissions: rows.map((r) => ({
@@ -36,6 +36,26 @@ async function reviewSubmission(req: VercelRequest, res: VercelResponse, adminId
   if (!Number.isInteger(id) || (decision !== "approved" && decision !== "rejected")) {
     res.status(400).json({ error: "id and decision ('approved' | 'rejected') are required" });
     return;
+  }
+
+  if (decision === "approved") {
+    const capRows = await sql`
+      SELECT
+        s.team_id,
+        s.tile_id,
+        COUNT(*) FILTER (WHERE s2.status = 'approved')::int AS approved_count,
+        t.required_count
+      FROM submissions s
+      JOIN submissions s2 ON s2.team_id = s.team_id AND s2.tile_id = s.tile_id
+      JOIN tiles t ON t.id = s.tile_id
+      WHERE s.id = ${id}
+      GROUP BY s.team_id, s.tile_id, t.required_count`;
+
+    const capRow = capRows[0];
+    if (capRow && capRow.approved_count >= capRow.required_count) {
+      res.status(409).json({ error: "That tile is already complete" });
+      return;
+    }
   }
 
   const rows = await sql`

@@ -108,6 +108,7 @@ const PLACEHOLDER_BOARD: BoardData = {
         PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "none"
           ? null
           : "izJordy",
+      proofs: [],
     })),
   },
 };
@@ -165,10 +166,12 @@ function TeamCard({ team }: { team: BoardData["teams"][number] }) {
 function BoardTile({
   tile,
   isUploading,
+  onViewProofs,
   onClick,
 }: {
   tile: MyTeamTile;
   isUploading: boolean;
+  onViewProofs: (() => void) | null;
   onClick: () => void;
 }) {
   const clickable = tile.approvedCount < tile.requiredCount;
@@ -189,17 +192,18 @@ function BoardTile({
       {tile.status === "rejected" && (
         <span className="bingo-tile-status bingo-tile-status--rejected">✕</span>
       )}
-      {tile.latestProofUrl && (
-        <a
-          href={tile.latestProofUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="bingo-tile-proof-link"
-          title="View latest proof"
-          onClick={(e) => e.stopPropagation()}
+      {onViewProofs && tile.proofs.length > 0 && (
+        <button
+          type="button"
+          className="bingo-tile-proof-link bingo-tile-proofs-button"
+          title="View proofs"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewProofs();
+          }}
         >
-          🔍
-        </a>
+          {tile.proofs.length}
+        </button>
       )}
       <button
         type="button"
@@ -224,12 +228,62 @@ function BoardTile({
   );
 }
 
+function ProofGalleryModal({
+  tile,
+  onClose,
+}: {
+  tile: MyTeamTile;
+  onClose: () => void;
+}) {
+  return (
+    <div className="bingo-proof-modal-backdrop" onClick={onClose}>
+      <div className="bingo-proof-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="bingo-proof-modal-head">
+          <div>
+            <div className="bingo-proof-modal-title">{tile.name}</div>
+            <div className="bingo-proof-modal-subtitle">
+              {tile.approvedCount} / {tile.requiredCount} approved
+            </div>
+          </div>
+          <button type="button" className="admin-btn-ghost" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <div className="bingo-proof-list">
+          {tile.proofs.map((proof) => (
+            <a
+              key={proof.id}
+              href={proof.proofUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="bingo-proof-item"
+            >
+              <div className="bingo-proof-item-meta">
+                <span className={`bingo-proof-pill bingo-proof-pill--${proof.status}`}>
+                  {proof.status}
+                </span>
+                <span>{proof.submittedBy ?? "Unknown"}</span>
+                <span>{new Date(proof.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="bingo-proof-item-url">Open proof</div>
+            </a>
+          ))}
+          {tile.proofs.length === 0 && (
+            <div className="admin-empty">No proofs uploaded yet.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BingoPage() {
   const { user, isAdmin, login } = useAuth();
   const [view, setView] = useState<View>("leaderboard");
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadingTileId, setUploadingTileId] = useState<number | null>(null);
+  const [selectedProofTile, setSelectedProofTile] = useState<MyTeamTile | null>(null);
   const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(
     null,
   );
@@ -461,6 +515,7 @@ export function BingoPage() {
                       key={tile.tileId}
                       tile={tile}
                       isUploading={uploadingTileId === tile.tileId}
+                      onViewProofs={tile.proofs.length > 0 ? () => setSelectedProofTile(tile) : null}
                       onClick={() => handleTileClick(tile.tileId)}
                     />
                   ))}
@@ -482,6 +537,9 @@ export function BingoPage() {
                   <div className="bingo-admin-tile-name">{sub.tileName}</div>
                   <div className="bingo-admin-meta">
                     {sub.teamName} · submitted by {sub.submittedBy}
+                  </div>
+                  <div className="bingo-admin-meta bingo-admin-meta--timestamp">
+                    {new Date(sub.createdAt).toLocaleString()}
                   </div>
                 </div>
                 {sub.proofUrl && (
@@ -515,6 +573,13 @@ export function BingoPage() {
 
         {view === "panel" && isAdmin && <AdminPanelTabs />}
       </div>
+
+      {selectedProofTile && (
+        <ProofGalleryModal
+          tile={selectedProofTile}
+          onClose={() => setSelectedProofTile(null)}
+        />
+      )}
 
       <SiteFooter />
     </>

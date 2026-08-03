@@ -44,7 +44,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   }
 
   const submissionRows = await sql`
-    SELECT s.team_id, s.tile_id, s.status, s.proof_url, s.created_at,
+    SELECT s.id, s.team_id, s.tile_id, s.status, s.proof_url, s.created_at,
            u.discord_global_name, u.discord_username, u.runescape_name
     FROM submissions s
     LEFT JOIN users u ON u.id = s.submitted_by
@@ -58,6 +58,13 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     latestProofUrl: string | null;
     latestSubmittedBy: string | null;
     latestCreatedAt: number;
+    proofs: {
+      id: number;
+      status: "pending" | "approved" | "rejected";
+      proofUrl: string;
+      submittedBy: string | null;
+      createdAt: string;
+    }[];
   };
 
   const submissionsByTeam = new Map<number, Map<number, TileSubmissionAggregate>>();
@@ -70,6 +77,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       latestProofUrl: null,
       latestSubmittedBy: null,
       latestCreatedAt: 0,
+      proofs: [],
     };
 
     if (row.status === "approved") current.approvedCount += 1;
@@ -79,6 +87,13 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     current.latestProofUrl = row.proof_url;
     current.latestSubmittedBy = row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? null;
     current.latestCreatedAt = new Date(row.created_at).getTime();
+    current.proofs.push({
+      id: row.id,
+      status: row.status,
+      proofUrl: row.proof_url,
+      submittedBy: row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? null,
+      createdAt: row.created_at,
+    });
 
     teamSubmissions.set(row.tile_id, current);
     submissionsByTeam.set(row.team_id, teamSubmissions);
@@ -137,6 +152,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
                 : "none",
         latestProofUrl: subByTile.get(t.id)?.latestProofUrl ?? null,
         latestSubmittedBy: subByTile.get(t.id)?.latestSubmittedBy ?? null,
+        proofs: subByTile.get(t.id)?.proofs ?? [],
       })),
     };
   }
@@ -171,12 +187,14 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
   }
 
   const currentCompleteRows = await sql`
-    SELECT COUNT(*)::int AS approved_count
+    SELECT
+      COUNT(*) FILTER (WHERE status = 'approved')::int AS approved_count,
+      COUNT(*) FILTER (WHERE status IN ('approved', 'pending'))::int AS active_count
     FROM submissions
-    WHERE team_id = ${user.teamId} AND tile_id = ${tileId} AND status = 'approved'`;
-  const approvedCount = currentCompleteRows[0]?.approved_count ?? 0;
+    WHERE team_id = ${user.teamId} AND tile_id = ${tileId}`;
+  const activeCount = currentCompleteRows[0]?.active_count ?? 0;
   const requiredCount = tileRows[0].required_count;
-  if (approvedCount >= requiredCount) {
+  if (activeCount >= requiredCount) {
     res.status(409).json({ error: "That tile is already complete" });
     return;
   }
