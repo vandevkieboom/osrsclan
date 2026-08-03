@@ -46,8 +46,10 @@ CREATE TABLE IF NOT EXISTS tiles (
   position INT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   icon_url TEXT NOT NULL,
+  required_count INT NOT NULL DEFAULT 1 CHECK (required_count >= 1),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS required_count INT NOT NULL DEFAULT 1 CHECK (required_count >= 1);
 
 CREATE TABLE IF NOT EXISTS submissions (
   id BIGSERIAL PRIMARY KEY,
@@ -61,5 +63,6 @@ CREATE TABLE IF NOT EXISTS submissions (
   reviewed_at TIMESTAMPTZ,
   UNIQUE (team_id, tile_id)
 );
+ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_team_id_tile_id_key;
 CREATE INDEX IF NOT EXISTS idx_submissions_team_id ON submissions(team_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);

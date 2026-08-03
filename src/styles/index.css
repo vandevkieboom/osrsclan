@@ -3611,6 +3611,11 @@ body {
   font-size: 11px;
 }
 
+.admin-tile-count-input {
+  width: 92px;
+  flex-shrink: 0;
+}
+
 .admin-tile-row--adding {
   flex-wrap: wrap;
 }

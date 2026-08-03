@@ -98,9 +98,13 @@ const PLACEHOLDER_BOARD: BoardData = {
       tileId: i,
       name: `Tile ${i + 1}`,
       iconUrl: PLACEHOLDER_ICON,
+      requiredCount: 1,
+      approvedCount: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "approved" ? 1 : 0,
+      pendingCount: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "pending" ? 1 : 0,
+      rejectedCount: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "rejected" ? 1 : 0,
       status: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length],
-      proofUrl: null,
-      completedBy:
+      latestProofUrl: null,
+      latestSubmittedBy:
         PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "none"
           ? null
           : "izJordy",
@@ -167,10 +171,13 @@ function BoardTile({
   isUploading: boolean;
   onClick: () => void;
 }) {
-  const clickable = tile.status === "none" || tile.status === "rejected";
-  const title = tile.completedBy
-    ? `${tile.status === "approved" ? "Completed" : "Submitted"} by ${tile.completedBy}`
-    : undefined;
+  const clickable = tile.approvedCount < tile.requiredCount;
+  const title =
+    tile.requiredCount > 1
+      ? `${tile.approvedCount} / ${tile.requiredCount} proofs approved${tile.pendingCount > 0 ? `, ${tile.pendingCount} pending` : ""}`
+      : tile.latestSubmittedBy
+        ? `${tile.status === "approved" ? "Completed" : "Submitted"} by ${tile.latestSubmittedBy}`
+        : undefined;
   return (
     <div className={`bingo-tile bingo-tile--${tile.status}`}>
       {tile.status === "approved" && (
@@ -182,13 +189,13 @@ function BoardTile({
       {tile.status === "rejected" && (
         <span className="bingo-tile-status bingo-tile-status--rejected">✕</span>
       )}
-      {tile.proofUrl && (
+      {tile.latestProofUrl && (
         <a
-          href={tile.proofUrl}
+          href={tile.latestProofUrl}
           target="_blank"
           rel="noreferrer"
           className="bingo-tile-proof-link"
-          title="View submitted proof"
+          title="View latest proof"
           onClick={(e) => e.stopPropagation()}
         >
           🔍
@@ -205,9 +212,13 @@ function BoardTile({
         <div className="bingo-tile-name">
           {isUploading ? "Uploading…" : tile.name}
         </div>
-        {tile.completedBy && (
-          <div className="bingo-tile-completed-by">{tile.completedBy}</div>
-        )}
+        {tile.requiredCount > 1 ? (
+          <div className="bingo-tile-completed-by">
+            {tile.approvedCount} / {tile.requiredCount} proofs
+          </div>
+        ) : tile.latestSubmittedBy ? (
+          <div className="bingo-tile-completed-by">{tile.latestSubmittedBy}</div>
+        ) : null}
       </button>
     </div>
   );
@@ -335,7 +346,8 @@ export function BingoPage() {
               <h1 className="page-title">{board.config.name}</h1>
               <p className="page-sub">
                 First team to complete every tile on their board wins. Submit a
-                screenshot for a tile once you've gotten the drop
+                screenshot for each required proof. Some tiles need multiple
+                screenshots, and they can come from different team members.
               </p>
             </div>
             {board.config.dateRange && (

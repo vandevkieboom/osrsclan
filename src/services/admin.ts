@@ -27,6 +27,7 @@ export interface AdminTile {
   position: number;
   name: string;
   iconUrl: string;
+  requiredCount: number;
 }
 
 export interface AdminSubmission {
@@ -126,21 +127,21 @@ export async function fetchAdminTiles(): Promise<AdminTile[]> {
   return data.tiles;
 }
 
-export async function createTile(position: number, name: string, iconUrl: string): Promise<AdminTile> {
+export async function createTile(position: number, name: string, iconUrl: string, requiredCount = 1): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ position, name, iconUrl }),
+    body: JSON.stringify({ position, name, iconUrl, requiredCount }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;
 }
 
-export async function updateTile(id: number, name: string, iconUrl: string): Promise<AdminTile> {
+export async function updateTile(id: number, name: string, iconUrl: string, requiredCount = 1): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, name, iconUrl }),
+    body: JSON.stringify({ id, name, iconUrl, requiredCount }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;

@@ -42,8 +42,8 @@ const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   size: 5,
 };
 const PLACEHOLDER_TILES: AdminTile[] = [
-  { id: 1, position: 0, name: "Twisted Bow", iconUrl: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png" },
-  { id: 2, position: 1, name: "Scythe of Vitur", iconUrl: "https://oldschool.runescape.wiki/images/Scythe_of_vitur_detail.png" },
+  { id: 1, position: 0, name: "Twisted Bow", iconUrl: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png", requiredCount: 1 },
+  { id: 2, position: 1, name: "Scythe of Vitur", iconUrl: "https://oldschool.runescape.wiki/images/Scythe_of_vitur_detail.png", requiredCount: 1 },
 ];
 
 function TeamRow({
@@ -241,11 +241,12 @@ function TileAddRow({
   onSave,
   onCancel,
 }: {
-  onSave: (name: string, iconUrl: string) => void;
+  onSave: (name: string, iconUrl: string, requiredCount: number) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
   const [iconUrl, setIconUrl] = useState("");
+  const [requiredCount, setRequiredCount] = useState(1);
   return (
     <div className="admin-row admin-tile-row--adding">
       <input
@@ -263,10 +264,18 @@ function TileAddRow({
         value={iconUrl}
         onChange={(e) => setIconUrl(e.target.value)}
       />
+      <input
+        type="number"
+        min={1}
+        className="admin-input admin-tile-count-input"
+        placeholder="Proofs"
+        value={requiredCount}
+        onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
+      />
       <button
         type="button"
         className="admin-btn-primary"
-        onClick={() => name.trim() && iconUrl.trim() && onSave(name.trim(), iconUrl.trim())}
+        onClick={() => name.trim() && iconUrl.trim() && onSave(name.trim(), iconUrl.trim(), requiredCount)}
       >
         Save
       </button>
@@ -283,25 +292,29 @@ function TileRow({
   onDelete,
 }: {
   tile: AdminTile;
-  onSave: (name: string, iconUrl: string) => void;
+  onSave: (name: string, iconUrl: string, requiredCount: number) => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(tile.name);
   const [iconUrl, setIconUrl] = useState(tile.iconUrl);
+  const [requiredCount, setRequiredCount] = useState(tile.requiredCount);
   const [prevTile, setPrevTile] = useState(tile);
-  if (tile.name !== prevTile.name || tile.iconUrl !== prevTile.iconUrl) {
+  if (tile.name !== prevTile.name || tile.iconUrl !== prevTile.iconUrl || tile.requiredCount !== prevTile.requiredCount) {
     setPrevTile(tile);
     setName(tile.name);
     setIconUrl(tile.iconUrl);
+    setRequiredCount(tile.requiredCount);
   }
 
   function commit() {
     const n = name.trim();
     const u = iconUrl.trim();
-    if (n && u && (n !== tile.name || u !== tile.iconUrl)) onSave(n, u);
+    const c = Math.max(1, Math.floor(requiredCount) || 1);
+    if (n && u && (n !== tile.name || u !== tile.iconUrl || c !== tile.requiredCount)) onSave(n, u, c);
     else {
       setName(tile.name);
       setIconUrl(tile.iconUrl);
+      setRequiredCount(tile.requiredCount);
     }
   }
 
@@ -320,6 +333,14 @@ function TileRow({
         className="admin-input admin-tile-icon-input"
         value={iconUrl}
         onChange={(e) => setIconUrl(e.target.value)}
+        onBlur={commit}
+      />
+      <input
+        type="number"
+        min={1}
+        className="admin-input admin-tile-count-input"
+        value={requiredCount}
+        onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
         onBlur={commit}
       />
       <button type="button" className="admin-btn-danger" onClick={onDelete}>
@@ -372,9 +393,9 @@ function BoardConfigPanel() {
     }
   }
 
-  async function handleAddTile(position: number, name: string, iconUrl: string) {
+  async function handleAddTile(position: number, name: string, iconUrl: string, requiredCount: number) {
     try {
-      await createTile(position, name, iconUrl);
+      await createTile(position, name, iconUrl, requiredCount);
       setAddingPosition(null);
       reload();
     } catch (err) {
@@ -382,9 +403,9 @@ function BoardConfigPanel() {
     }
   }
 
-  async function handleSaveTile(id: number, name: string, iconUrl: string) {
+  async function handleSaveTile(id: number, name: string, iconUrl: string, requiredCount: number) {
     try {
-      await updateTile(id, name, iconUrl);
+      await updateTile(id, name, iconUrl, requiredCount);
       reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update tile");
@@ -462,7 +483,7 @@ function BoardConfigPanel() {
               <TileRow
                 key={position}
                 tile={tile}
-                onSave={(name, iconUrl) => handleSaveTile(tile.id, name, iconUrl)}
+                onSave={(name, iconUrl, requiredCount) => handleSaveTile(tile.id, name, iconUrl, requiredCount)}
                 onDelete={() => handleDeleteTile(tile.id)}
               />
             );
@@ -472,7 +493,7 @@ function BoardConfigPanel() {
             return (
               <TileAddRow
                 key={position}
-                onSave={(name, iconUrl) => handleAddTile(position, name, iconUrl)}
+                onSave={(name, iconUrl, requiredCount) => handleAddTile(position, name, iconUrl, requiredCount)}
                 onCancel={() => setAddingPosition(null)}
               />
             );

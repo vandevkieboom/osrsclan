@@ -16,8 +16,15 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   // a larger board that got shrunk) stay in the database but drop off the
   // board until size grows back to cover them again.
   const tileRows = await sql`
-    SELECT id, position, name, icon_url FROM tiles WHERE position < ${slotCount} ORDER BY position`;
-  const tiles = tileRows.map((t) => ({ id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url }));
+    SELECT id, position, name, icon_url, required_count FROM tiles WHERE position < ${slotCount} ORDER BY position`;
+  const tiles = tileRows.map((t) => ({
+    id: t.id,
+    position: t.position,
+    name: t.name,
+    iconUrl: t.icon_url,
+    requiredCount: t.required_count,
+  }));
+  const requiredCountByTile = new Map<number, number>(tiles.map((t) => [t.id, t.requiredCount]));
 
   const teamRows = await sql`
     SELECT tm.id, tm.name, tm.accent_color, COUNT(u.id)::int AS member_count
@@ -36,10 +43,57 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     membersByTeam.set(r.team_id, list);
   }
 
-  const completeRows = await sql`
-    SELECT team_id, COUNT(*) FILTER (WHERE status = 'approved')::int AS complete
-    FROM submissions GROUP BY team_id`;
-  const completeByTeam = new Map<number, number>(completeRows.map((r) => [r.team_id, r.complete]));
+  const submissionRows = await sql`
+    SELECT s.team_id, s.tile_id, s.status, s.proof_url, s.created_at,
+           u.discord_global_name, u.discord_username, u.runescape_name
+    FROM submissions s
+    LEFT JOIN users u ON u.id = s.submitted_by
+    WHERE s.team_id IN (SELECT id FROM teams)
+    ORDER BY s.created_at ASC, s.id ASC`;
+
+  type TileSubmissionAggregate = {
+    approvedCount: number;
+    pendingCount: number;
+    rejectedCount: number;
+    latestProofUrl: string | null;
+    latestSubmittedBy: string | null;
+    latestCreatedAt: number;
+  };
+
+  const submissionsByTeam = new Map<number, Map<number, TileSubmissionAggregate>>();
+  for (const row of submissionRows) {
+    const teamSubmissions = submissionsByTeam.get(row.team_id) ?? new Map<number, TileSubmissionAggregate>();
+    const current = teamSubmissions.get(row.tile_id) ?? {
+      approvedCount: 0,
+      pendingCount: 0,
+      rejectedCount: 0,
+      latestProofUrl: null,
+      latestSubmittedBy: null,
+      latestCreatedAt: 0,
+    };
+
+    if (row.status === "approved") current.approvedCount += 1;
+    else if (row.status === "pending") current.pendingCount += 1;
+    else current.rejectedCount += 1;
+
+    current.latestProofUrl = row.proof_url;
+    current.latestSubmittedBy = row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? null;
+    current.latestCreatedAt = new Date(row.created_at).getTime();
+
+    teamSubmissions.set(row.tile_id, current);
+    submissionsByTeam.set(row.team_id, teamSubmissions);
+  }
+
+  const completeByTeam = new Map<number, number>();
+  for (const team of teamRows) {
+    const teamSubmissions = submissionsByTeam.get(team.id) ?? new Map<number, TileSubmissionAggregate>();
+    let complete = 0;
+    for (const tile of tiles) {
+      const aggregate = teamSubmissions.get(tile.id);
+      if (aggregate && aggregate.approvedCount >= requiredCountByTile.get(tile.id)!) complete += 1;
+    }
+    completeByTeam.set(team.id, complete);
+  }
 
   const totalTiles = tiles.length;
   const teamsWithPct = teamRows.map((t) => {
@@ -61,21 +115,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
 
   let myTeam = null;
   if (user?.teamId) {
-    const subRows = await sql`
-      SELECT s.tile_id, s.status, s.proof_url, u.discord_global_name, u.discord_username, u.runescape_name
-      FROM submissions s
-      LEFT JOIN users u ON u.id = s.submitted_by
-      WHERE s.team_id = ${user.teamId}`;
-    const subByTile = new Map(
-      subRows.map((r) => [
-        r.tile_id,
-        {
-          status: r.status,
-          proofUrl: r.proof_url,
-          completedBy: r.runescape_name ?? r.discord_global_name ?? r.discord_username ?? null,
-        },
-      ]),
-    );
+    const subByTile = submissionsByTeam.get(user.teamId) ?? new Map<number, TileSubmissionAggregate>();
     myTeam = {
       id: user.teamId,
       name: user.teamName,
@@ -83,9 +123,20 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
         tileId: t.id,
         name: t.name,
         iconUrl: t.iconUrl,
-        status: subByTile.get(t.id)?.status ?? "none",
-        proofUrl: subByTile.get(t.id)?.proofUrl ?? null,
-        completedBy: subByTile.get(t.id)?.completedBy ?? null,
+        requiredCount: t.requiredCount,
+        approvedCount: subByTile.get(t.id)?.approvedCount ?? 0,
+        pendingCount: subByTile.get(t.id)?.pendingCount ?? 0,
+        rejectedCount: subByTile.get(t.id)?.rejectedCount ?? 0,
+        status:
+          (subByTile.get(t.id)?.approvedCount ?? 0) >= t.requiredCount
+            ? "approved"
+            : (subByTile.get(t.id)?.pendingCount ?? 0) > 0
+              ? "pending"
+              : (subByTile.get(t.id)?.rejectedCount ?? 0) > 0
+                ? "rejected"
+                : "none",
+        latestProofUrl: subByTile.get(t.id)?.latestProofUrl ?? null,
+        latestSubmittedBy: subByTile.get(t.id)?.latestSubmittedBy ?? null,
       })),
     };
   }
@@ -113,21 +164,26 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const tileRows = await sql`SELECT id FROM tiles WHERE id = ${tileId}`;
+  const tileRows = await sql`SELECT id, required_count FROM tiles WHERE id = ${tileId}`;
   if (tileRows.length === 0) {
     res.status(404).json({ error: "Tile not found" });
     return;
   }
 
+  const currentCompleteRows = await sql`
+    SELECT COUNT(*)::int AS approved_count
+    FROM submissions
+    WHERE team_id = ${user.teamId} AND tile_id = ${tileId} AND status = 'approved'`;
+  const approvedCount = currentCompleteRows[0]?.approved_count ?? 0;
+  const requiredCount = tileRows[0].required_count;
+  if (approvedCount >= requiredCount) {
+    res.status(409).json({ error: "That tile is already complete" });
+    return;
+  }
+
   await sql`
     INSERT INTO submissions (team_id, tile_id, status, proof_url, submitted_by)
-    VALUES (${user.teamId}, ${tileId}, 'pending', ${proofUrl}, ${user.id})
-    ON CONFLICT (team_id, tile_id) DO UPDATE SET
-      status = 'pending',
-      proof_url = EXCLUDED.proof_url,
-      submitted_by = EXCLUDED.submitted_by,
-      reviewed_by = NULL,
-      reviewed_at = NULL`;
+    VALUES (${user.teamId}, ${tileId}, 'pending', ${proofUrl}, ${user.id})`;
 
   res.status(200).json({ ok: true });
 }

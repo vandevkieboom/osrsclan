@@ -16,9 +16,13 @@ export interface MyTeamTile {
   tileId: number;
   name: string;
   iconUrl: string;
+  requiredCount: number;
+  approvedCount: number;
+  pendingCount: number;
+  rejectedCount: number;
   status: "none" | "pending" | "approved" | "rejected";
-  proofUrl: string | null;
-  completedBy: string | null;
+  latestProofUrl: string | null;
+  latestSubmittedBy: string | null;
 }
 
 export interface BoardData {
