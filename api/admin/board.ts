@@ -46,7 +46,7 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
   const position = Number(req.body?.position);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const iconUrl = typeof req.body?.iconUrl === "string" ? req.body.iconUrl.trim() : "";
-  const requiredCount = Number(req.body?.requiredCount ?? 1);
+  const requiredCount = Number(req.body?.requiredCount ?? req.body?.required_count ?? 1);
   if (!Number.isInteger(position) || position < 0 || !name || !iconUrl || !Number.isInteger(requiredCount) || requiredCount < 1) {
     res.status(400).json({ error: "position, name, iconUrl and requiredCount are required" });
     return;
@@ -72,7 +72,7 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
   const id = Number(req.body?.id);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const iconUrl = typeof req.body?.iconUrl === "string" ? req.body.iconUrl.trim() : "";
-  const requiredCount = Number(req.body?.requiredCount ?? 1);
+  const requiredCount = Number(req.body?.requiredCount ?? req.body?.required_count ?? 1);
 
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: "Invalid tile id" });

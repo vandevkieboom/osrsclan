@@ -131,7 +131,7 @@ export async function createTile(position: number, name: string, iconUrl: string
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ position, name, iconUrl, requiredCount }),
+    body: JSON.stringify({ position, name, iconUrl, requiredCount, required_count: requiredCount }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;
@@ -141,7 +141,7 @@ export async function updateTile(id: number, name: string, iconUrl: string, requ
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, name, iconUrl, requiredCount }),
+    body: JSON.stringify({ id, name, iconUrl, requiredCount, required_count: requiredCount }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;

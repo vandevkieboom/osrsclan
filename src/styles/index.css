@@ -3645,7 +3645,6 @@ body {
   padding: 0.6rem 0.9rem;
   width: 100%;
   text-align: left;
-  cursor: grab;
 }
 
 .admin-row--dragging {
