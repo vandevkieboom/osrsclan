@@ -177,7 +177,7 @@ function BoardTile({
   const clickable = tile.approvedCount < tile.requiredCount;
   const title =
     tile.requiredCount > 1
-      ? `${tile.approvedCount} of ${tile.requiredCount} proofs approved${tile.pendingCount > 0 ? `, ${tile.pendingCount} pending` : ""}`
+      ? `${tile.approvedCount} / ${tile.requiredCount} proofs approved${tile.pendingCount > 0 ? `, ${tile.pendingCount} pending` : ""}`
       : tile.latestSubmittedBy
         ? `${tile.status === "approved" ? "Completed" : "Submitted"} by ${tile.latestSubmittedBy}`
         : undefined;
@@ -197,20 +197,12 @@ function BoardTile({
           type="button"
           className="bingo-tile-proof-link bingo-tile-proofs-button"
           title="View proofs"
-          aria-label="View proofs"
           onClick={(e) => {
             e.stopPropagation();
             onViewProofs();
           }}
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="bingo-tile-proof-icon"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="5.5" />
-            <path d="M15.5 15.5 20 20" />
-          </svg>
+          {tile.proofs.length}
         </button>
       )}
       <button
@@ -226,7 +218,7 @@ function BoardTile({
         </div>
         {tile.requiredCount > 1 ? (
           <div className="bingo-tile-completed-by">
-            {tile.approvedCount} of {tile.requiredCount} proofs
+            {tile.approvedCount} / {tile.requiredCount} proofs
           </div>
         ) : tile.latestSubmittedBy ? (
           <div className="bingo-tile-completed-by">{tile.latestSubmittedBy}</div>

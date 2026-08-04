@@ -75,7 +75,10 @@ export async function renameTeam(id: number, name: string): Promise<AdminTeam> {
   return data.team;
 }
 
-export async function recolorTeam(id: number, accentColor: string): Promise<AdminTeam> {
+export async function recolorTeam(
+  id: number,
+  accentColor: string,
+): Promise<AdminTeam> {
   const res = await fetch("/api/admin/teams", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -96,7 +99,10 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
   return data.users;
 }
 
-export async function assignTeam(userId: number, teamId: number | null): Promise<void> {
+export async function assignTeam(
+  userId: number,
+  teamId: number | null,
+): Promise<void> {
   const res = await fetch("/api/admin/teams?resource=assign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -111,7 +117,9 @@ export async function fetchBoardConfig(): Promise<BoardConfig> {
   return data.config;
 }
 
-export async function updateBoardConfig(config: BoardConfig): Promise<BoardConfig> {
+export async function updateBoardConfig(
+  config: BoardConfig,
+): Promise<BoardConfig> {
   const res = await fetch("/api/admin/board", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -127,27 +135,54 @@ export async function fetchAdminTiles(): Promise<AdminTile[]> {
   return data.tiles;
 }
 
-export async function createTile(position: number, name: string, iconUrl: string, requiredCount = 1): Promise<AdminTile> {
+export async function createTile(
+  position: number,
+  name: string,
+  iconUrl: string,
+  requiredCount = 1,
+): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ position, name, iconUrl, requiredCount, required_count: requiredCount }),
+    body: JSON.stringify({
+      position,
+      name,
+      iconUrl,
+      requiredCount,
+      icon_url: iconUrl,
+      required_count: requiredCount,
+    }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;
 }
 
-export async function updateTile(id: number, name: string, iconUrl: string, requiredCount = 1): Promise<AdminTile> {
+export async function updateTile(
+  id: number,
+  name: string,
+  iconUrl: string,
+  requiredCount = 1,
+): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, name, iconUrl, requiredCount, required_count: requiredCount }),
+    body: JSON.stringify({
+      id,
+      name,
+      iconUrl,
+      requiredCount,
+      icon_url: iconUrl,
+      required_count: requiredCount,
+    }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;
 }
 
-export async function moveTile(id: number, position: number): Promise<AdminTile> {
+export async function moveTile(
+  id: number,
+  position: number,
+): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -158,17 +193,24 @@ export async function moveTile(id: number, position: number): Promise<AdminTile>
 }
 
 export async function deleteTile(id: number): Promise<void> {
-  const res = await fetch(`/api/admin/board?resource=tiles&id=${id}`, { method: "DELETE" });
+  const res = await fetch(`/api/admin/board?resource=tiles&id=${id}`, {
+    method: "DELETE",
+  });
   await json(res);
 }
 
-export async function fetchAdminSubmissions(status: string): Promise<AdminSubmission[]> {
+export async function fetchAdminSubmissions(
+  status: string,
+): Promise<AdminSubmission[]> {
   const res = await fetch(`/api/admin/submissions?status=${status}`);
   const data = await json<{ submissions: AdminSubmission[] }>(res);
   return data.submissions;
 }
 
-export async function reviewSubmission(id: number, decision: "approved" | "rejected"): Promise<void> {
+export async function reviewSubmission(
+  id: number,
+  decision: "approved" | "rejected",
+): Promise<void> {
   const res = await fetch("/api/admin/submissions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

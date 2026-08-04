@@ -5,12 +5,15 @@ import { getOrCreateBoardConfig } from "../_lib/board.js";
 
 async function getConfig(res: VercelResponse) {
   const c = await getOrCreateBoardConfig();
-  res.status(200).json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });
+  res
+    .status(200)
+    .json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });
 }
 
 async function updateConfig(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const dateRange = typeof req.body?.dateRange === "string" ? req.body.dateRange.trim() : "";
+  const dateRange =
+    typeof req.body?.dateRange === "string" ? req.body.dateRange.trim() : "";
   const size = Number(req.body?.size);
 
   if (!name) {
@@ -32,23 +35,50 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
       name = EXCLUDED.name, date_range = EXCLUDED.date_range, size = EXCLUDED.size, updated_at = now()
     RETURNING name, date_range, size`;
   const c = rows[0];
-  res.status(200).json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });
+  res
+    .status(200)
+    .json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });
 }
 
 async function listTiles(res: VercelResponse) {
-  const rows = await sql`SELECT id, position, name, icon_url, required_count FROM tiles ORDER BY position`;
+  const rows =
+    await sql`SELECT id, position, name, icon_url, required_count FROM tiles ORDER BY position`;
   res.status(200).json({
-    tiles: rows.map((r) => ({ id: r.id, position: r.position, name: r.name, iconUrl: r.icon_url, requiredCount: r.required_count })),
+    tiles: rows.map((r) => ({
+      id: r.id,
+      position: r.position,
+      name: r.name,
+      iconUrl: r.icon_url,
+      requiredCount: r.required_count,
+    })),
   });
 }
 
 async function createTile(req: VercelRequest, res: VercelResponse) {
   const position = Number(req.body?.position);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const iconUrl = typeof req.body?.iconUrl === "string" ? req.body.iconUrl.trim() : "";
-  const requiredCount = Number(req.body?.requiredCount ?? req.body?.required_count ?? 1);
-  if (!Number.isInteger(position) || position < 0 || !name || !iconUrl || !Number.isInteger(requiredCount) || requiredCount < 1) {
-    res.status(400).json({ error: "position, name, iconUrl and requiredCount are required" });
+  const iconUrl =
+    typeof req.body?.iconUrl === "string"
+      ? req.body.iconUrl.trim()
+      : typeof req.body?.icon_url === "string"
+        ? req.body.icon_url.trim()
+        : "";
+  const requiredCount = Number(
+    req.body?.requiredCount ?? req.body?.required_count ?? 1,
+  );
+  if (
+    !Number.isInteger(position) ||
+    position < 0 ||
+    !name ||
+    !iconUrl ||
+    !Number.isInteger(requiredCount) ||
+    requiredCount < 1
+  ) {
+    res
+      .status(400)
+      .json({
+        error: "position, name, iconUrl and requiredCount are required",
+      });
     return;
   }
   try {
@@ -57,7 +87,17 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
       VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount})
       RETURNING id, position, name, icon_url, required_count`;
     const t = rows[0];
-    res.status(201).json({ tile: { id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url, requiredCount: t.required_count } });
+    res
+      .status(201)
+      .json({
+        tile: {
+          id: t.id,
+          position: t.position,
+          name: t.name,
+          iconUrl: t.icon_url,
+          requiredCount: t.required_count,
+        },
+      });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message.includes("duplicate key")) {
@@ -71,33 +111,46 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
 async function updateTile(req: VercelRequest, res: VercelResponse) {
   const id = Number(req.body?.id);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const iconUrl = typeof req.body?.iconUrl === "string" ? req.body.iconUrl.trim() : "";
-  const requiredCount = Number(req.body?.requiredCount ?? req.body?.required_count ?? 1);
-
-  if (!Number.isInteger(id)) {
-    res.status(400).json({ error: "Invalid tile id" });
+  const iconUrl =
+    typeof req.body?.iconUrl === "string"
+      ? req.body.iconUrl.trim()
+      : typeof req.body?.icon_url === "string"
+        ? req.body.icon_url.trim()
+        : "";
+  const requiredCount = Number(
+    req.body?.requiredCount ?? req.body?.required_count ?? 1,
+  );
+  if (
+    !Number.isInteger(id) ||
+    !name ||
+    !iconUrl ||
+    !Number.isInteger(requiredCount) ||
+    requiredCount < 1
+  ) {
+    res
+      .status(400)
+      .json({ error: "id, name, iconUrl and requiredCount are required" });
     return;
   }
-
-  if (!name || !iconUrl || !Number.isInteger(requiredCount) || requiredCount < 1) {
-    res.status(400).json({ error: "name, iconUrl and requiredCount are required" });
+  const rows = await sql`
+    UPDATE tiles SET name = ${name}, icon_url = ${iconUrl}, required_count = ${requiredCount} WHERE id = ${id}
+    RETURNING id, position, name, icon_url, required_count`;
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Tile not found" });
     return;
   }
-
-  try {
-    const rows = await sql`
-      UPDATE tiles SET name = ${name}, icon_url = ${iconUrl}, required_count = ${requiredCount} WHERE id = ${id}
-      RETURNING id, position, name, icon_url, required_count`;
-    if (rows.length === 0) {
-      res.status(404).json({ error: "Tile not found" });
-      return;
-    }
-    const t = rows[0];
-    res.status(200).json({ tile: { id: t.id, position: t.position, name: t.name, iconUrl: t.icon_url, requiredCount: t.required_count } });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown database error";
-    res.status(500).json({ error: `Failed to update tile: ${message}` });
-  }
+  const t = rows[0];
+  res
+    .status(200)
+    .json({
+      tile: {
+        id: t.id,
+        position: t.position,
+        name: t.name,
+        iconUrl: t.icon_url,
+        requiredCount: t.required_count,
+      },
+    });
 }
 
 async function deleteTile(req: VercelRequest, res: VercelResponse) {
