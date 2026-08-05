@@ -10,7 +10,7 @@ import {
   fetchCurrentUser,
   getLoginUrl,
   logout as logoutRequest,
-  updateRunescapeName as updateRunescapeNameRequest,
+  updateSettings as updateSettingsRequest,
   type AuthUser,
 } from "../services/auth";
 
@@ -20,7 +20,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   login: (next?: string) => void;
   logout: () => Promise<void>;
-  updateRunescapeName: (runescapeName: string) => Promise<void>;
+  updateSettings: (patch: { runescapeName?: string; rememberRankings?: boolean }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -37,6 +37,7 @@ const DEV_PREVIEW_USER: AuthUser = {
   avatarUrl: null,
   isAdmin: true,
   team: { id: 0, name: "Dev Team" },
+  rememberRankings: false,
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -59,10 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const updateRunescapeName = useCallback(async (runescapeName: string) => {
-    const updated = await updateRunescapeNameRequest(runescapeName);
-    setUser(updated);
-  }, []);
+  const updateSettings = useCallback(
+    async (patch: { runescapeName?: string; rememberRankings?: boolean }) => {
+      const updated = await updateSettingsRequest(patch);
+      setUser(updated);
+    },
+    [],
+  );
 
   return (
     <AuthContext.Provider
@@ -72,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: user?.isAdmin ?? false,
         login,
         logout,
-        updateRunescapeName,
+        updateSettings,
       }}
     >
       {children}

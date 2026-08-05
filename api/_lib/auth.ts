@@ -15,6 +15,7 @@ export interface SessionUser {
   isAdmin: boolean;
   teamId: number | null;
   teamName: string | null;
+  rememberRankings: boolean;
 }
 
 export function generateToken(): string {
@@ -60,7 +61,8 @@ export async function getSessionUser(req: VercelRequest): Promise<SessionUser | 
 
   const rows = await sql`
     SELECT u.id, u.discord_id, u.discord_username, u.discord_global_name,
-           u.discord_avatar_hash, u.is_admin, u.team_id, u.runescape_name, t.name AS team_name
+           u.discord_avatar_hash, u.is_admin, u.team_id, u.runescape_name,
+           u.remember_rankings, t.name AS team_name
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     LEFT JOIN teams t ON t.id = u.team_id
@@ -80,6 +82,7 @@ export async function getSessionUser(req: VercelRequest): Promise<SessionUser | 
     isAdmin: r.is_admin,
     teamId: r.team_id,
     teamName: r.team_name,
+    rememberRankings: r.remember_rankings,
   };
 }
 

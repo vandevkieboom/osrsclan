@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { DISCORD_URL } from "../data/links";
 import { useAuth } from "../context/auth-context";
@@ -71,22 +65,12 @@ export function SiteHeader({ variant = "hero", children }: SiteHeaderProps) {
 }
 
 function SiteHeaderAccount() {
-  const { user, isLoading, login, logout, updateRunescapeName } = useAuth();
+  const { user, isLoading, login, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [nameInput, setNameInput] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   function toggleMenu() {
-    setIsOpen((prev) => {
-      const next = !prev;
-      if (next) {
-        setNameInput(user?.runescapeName ?? "");
-        setSaveError(null);
-      }
-      return next;
-    });
+    setIsOpen((prev) => !prev);
   }
 
   useEffect(() => {
@@ -117,20 +101,11 @@ function SiteHeaderAccount() {
     );
   }
 
-  const displayName = user.runescapeName ?? user.globalName ?? user.username;
+  const displayName = user.globalName ?? user.username;
 
-  async function handleSaveName(e: FormEvent) {
-    e.preventDefault();
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      await updateRunescapeName(nameInput.trim());
-      setIsOpen(false);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save name");
-    } finally {
-      setIsSaving(false);
-    }
+  async function handleLogout() {
+    setIsOpen(false);
+    await logout();
   }
 
   return (
@@ -162,39 +137,52 @@ function SiteHeaderAccount() {
 
       {isOpen && (
         <div className="site-header-account-menu">
-          <form className="site-header-rsn-form" onSubmit={handleSaveName}>
-            <label
-              className="site-header-rsn-label"
-              htmlFor="site-header-rsn-input"
-            >
-              RuneScape name
-            </label>
-            <input
-              id="site-header-rsn-input"
-              type="text"
-              className="site-header-rsn-input"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder={user.globalName ?? user.username}
-              maxLength={30}
-            />
-            {saveError && (
-              <div className="site-header-rsn-error">{saveError}</div>
+          <div className="site-header-account-menu-header">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt=""
+                className="site-header-avatar site-header-avatar--lg"
+              />
+            ) : (
+              <span
+                className="site-header-avatar site-header-avatar--lg site-header-avatar--placeholder"
+                aria-hidden="true"
+              >
+                {displayName.charAt(0).toUpperCase()}
+              </span>
             )}
-            <button
-              type="submit"
-              className="site-header-rsn-save"
-              disabled={isSaving}
-            >
-              {isSaving ? "Saving…" : "Save"}
-            </button>
-          </form>
+            <div>
+              <div className="site-header-account-menu-name">
+                {displayName}
+              </div>
+              <div className="site-header-account-menu-sub">
+                Signed in via Discord
+              </div>
+            </div>
+          </div>
+          <div className="site-header-account-menu-divider" />
+          <Link
+            to="/profile"
+            className="site-header-account-menu-item"
+            onClick={() => setIsOpen(false)}
+          >
+            My dashboard
+          </Link>
+          <Link
+            to="/settings"
+            className="site-header-account-menu-item"
+            onClick={() => setIsOpen(false)}
+          >
+            Settings
+          </Link>
+          <div className="site-header-account-menu-divider" />
           <button
             type="button"
-            className="site-header-logout"
-            onClick={() => logout()}
+            className="site-header-account-menu-item site-header-account-menu-item--danger"
+            onClick={handleLogout}
           >
-            LOG OUT
+            Sign out
           </button>
         </div>
       )}
