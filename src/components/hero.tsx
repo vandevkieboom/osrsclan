@@ -37,8 +37,11 @@ export function Hero({ stats }: HeroProps) {
         <div className="hero-inner">
           <div className="hero-copy">
             <div className="hero-eyebrow">if you read this you are bald</div>
-            <h1 className="hero-title">Testing</h1>
-            <p className="hero-lede">Testing Testing</p>
+            <h1 className="hero-title">Time Served</h1>
+            <p className="hero-lede">
+              Ironman clan for those who have served their sentence in the
+              Corrupted Gauntlet.
+            </p>
             <a
               href={DISCORD_URL}
               className="hero-discord-btn"
