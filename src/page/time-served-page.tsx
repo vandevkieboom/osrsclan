@@ -4,6 +4,7 @@ import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
+import { useAuth } from "../context/auth-context";
 import {
   fetchRuneProfile,
   getBossKc,
@@ -21,6 +22,7 @@ const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [hideCompleted, setHideCompleted] = useState(false);
 
@@ -110,6 +112,18 @@ export const ClanRankings = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "Remember me on the Rankings page" (Settings) — once the signed-in
+  // user's preference loads, auto-fill and auto-verify their saved RSN,
+  // unless a `?u=` link already drove the lookup above.
+  useEffect(() => {
+    if (searchParams.get("u")) return;
+    if (user?.rememberRankings && user.runescapeName) {
+      setUsername(user.runescapeName);
+      loadProfile(user.runescapeName);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const isMultiItemHardFail = (
     item: Item,

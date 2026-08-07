@@ -16,11 +16,17 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin BOOLEAN NOT NULL DEFAULT FALSE,
   team_id BIGINT REFERENCES teams(id) ON DELETE SET NULL,
   runescape_name TEXT,
+  remember_rankings BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS runescape_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_rankings BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
+-- RSN is now a permission boundary (Settings page + Profile trophy-case
+-- ownership), so it must be unique per account (case-insensitive).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_runescape_name_unique
+  ON users (lower(runescape_name)) WHERE runescape_name IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id BIGSERIAL PRIMARY KEY,

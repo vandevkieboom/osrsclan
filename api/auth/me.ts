@@ -10,6 +10,7 @@ function serializeUser(user: NonNullable<Awaited<ReturnType<typeof getSessionUse
     username: user.username,
     globalName: user.globalName,
     runescapeName: user.runescapeName,
+    rememberRankings: user.rememberRankings,
     avatarUrl: user.avatarUrl,
     isAdmin: user.isAdmin,
     team: user.teamId ? { id: user.teamId, name: user.teamName } : null,
@@ -29,14 +30,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await requireUser(req, res);
     if (!user) return;
 
-    const raw = typeof req.body?.runescapeName === "string" ? req.body.runescapeName.trim() : "";
-    if (raw.length > MAX_RUNESCAPE_NAME_LENGTH) {
-      res.status(400).json({ error: `RuneScape name must be ${MAX_RUNESCAPE_NAME_LENGTH} characters or fewer` });
-      return;
+    const body: { runescapeName?: unknown; rememberRankings?: unknown } = req.body ?? {};
+    const hasRunescapeName = typeof body.runescapeName === "string";
+    const hasRememberRankings = typeof body.rememberRankings === "boolean";
+
+    let runescapeName = user.runescapeName;
+    if (hasRunescapeName) {
+      const raw = (body.runescapeName as string).trim();
+      if (raw.length > MAX_RUNESCAPE_NAME_LENGTH) {
+        res.status(400).json({ error: `RuneScape name must be ${MAX_RUNESCAPE_NAME_LENGTH} characters or fewer` });
+        return;
+      }
+      runescapeName = raw || null;
     }
 
-    await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${user.id}`;
-    res.status(200).json({ user: serializeUser({ ...user, runescapeName: raw || null }) });
+    try {
+      if (hasRunescapeName) {
+        await sql`UPDATE users SET runescape_name = ${runescapeName} WHERE id = ${user.id}`;
+      }
+      if (hasRememberRankings) {
+        await sql`UPDATE users SET remember_rankings = ${body.rememberRankings} WHERE id = ${user.id}`;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("duplicate key")) {
+        res.status(409).json({ error: "That RuneScape name is already linked to another account" });
+        return;
+      }
+      throw err;
+    }
+
+    res.status(200).json({
+      user: serializeUser({
+        ...user,
+        runescapeName,
+        rememberRankings: hasRememberRankings ? (body.rememberRankings as boolean) : user.rememberRankings,
+      }),
+    });
     return;
   }
 
