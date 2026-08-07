@@ -20,7 +20,13 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS runescape_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_rankings BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS donated_gp BIGINT NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
+
+-- Added after users so the FK target already exists when this file is
+-- re-run in full from a fresh database.
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS captain_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id BIGSERIAL PRIMARY KEY,
@@ -40,6 +46,11 @@ CREATE TABLE IF NOT EXISTS board_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO board_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_active BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_order JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_pick_index INT NOT NULL DEFAULT 0;
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_log JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":"","buyIn":"","donated":"","entries":[]}';
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,
@@ -50,6 +61,8 @@ CREATE TABLE IF NOT EXISTS tiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS required_count INT NOT NULL DEFAULT 1 CHECK (required_count >= 1);
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS submissions (
   id BIGSERIAL PRIMARY KEY,
@@ -66,3 +79,16 @@ CREATE TABLE IF NOT EXISTS submissions (
 ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_team_id_tile_id_key;
 CREATE INDEX IF NOT EXISTS idx_submissions_team_id ON submissions(team_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+
+-- One row per clan-event trophy, keyed by the lowercased RSN it belongs to
+-- rather than a user id — a profile can be looked up (and thus hold
+-- trophies) for any RSN in the WOM group, not just ones with a linked
+-- Discord/site account.
+CREATE TABLE IF NOT EXISTS trophies (
+  id BIGSERIAL PRIMARY KEY,
+  rsn_key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  date_label TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_trophies_rsn_key ON trophies(rsn_key);

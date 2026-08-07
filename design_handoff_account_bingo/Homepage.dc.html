@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=MedievalSharp&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#171213;}
+  a{color:#f0e8e6;text-decoration:none;}
+  a:hover{color:#e8574a;}
+</style>
+</helmet>
+
+<div style="width:1440px;background:#171213;font-family:Manrope,sans-serif;color:#f0e8e6;">
+  <nav style="display:flex;align-items:center;justify-content:space-between;padding:22px 48px;border-bottom:1px solid #2a1315;">
+    <div style="font-family:MedievalSharp,serif;font-size:20px;">Time Served</div>
+    <div style="display:flex;gap:36px;font-size:12px;font-weight:700;letter-spacing:.12em;color:#c9b8b6;">
+      <a href="#" style="color:#f0e8e6;border-bottom:1px solid #e8574a;padding-bottom:4px;">HOME</a>
+      <a href="Rankings.dc.html">RANKINGS</a><a href="Hiscores.dc.html">HISCORES</a><a href="Activity.dc.html">ACTIVITY</a>
+      <a href="Bingo.dc.html">BINGO</a>
+    </div>
+    <sc-if value="{{ auth.loggedIn }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;">
+        <button onclick="{{ auth.toggleMenu }}" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid #3a2224;color:#f0e8e6;padding:6px 12px 6px 6px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;">
+          <img src="{{ auth.avatarUrl }}" style="width:24px;height:24px;border-radius:50%;">
+          {{ auth.discordName }}
+          <span style="font-size:9px;color:#7a655f;transform:{{ auth.chevronRotate }};transition:transform .15s ease;">▾</span>
+        </button>
+        <sc-if value="{{ auth.menuOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:calc(100% + 8px);right:0;width:220px;background:#1e1617;border:1px solid #2a1315;border-radius:8px;box-shadow:0 16px 32px rgba(0,0,0,.5);padding:8px;z-index:20;">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 8px 12px;">
+              <img src="{{ auth.avatarUrl }}" style="width:36px;height:36px;border-radius:50%;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#f0e8e6;">{{ auth.discordName }}</div>
+                <div style="font-size:11px;color:#8f7a78;margin-top:2px;">Signed in via Discord</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid #2a1315;margin:0 -8px 6px;"></div>
+            <a href="{{ auth.profileHref }}" style="display:block;padding:9px 10px;font-size:13px;color:#f0e8e6;border-radius:5px;" style-hover="background:#241d1d;">My dashboard</a>
+            <a href="Settings.dc.html" style="display:block;padding:9px 10px;font-size:13px;color:#f0e8e6;border-radius:5px;" style-hover="background:#241d1d;">Settings</a>
+            <div style="border-top:1px solid #2a1315;margin:6px -8px;"></div>
+            <a href="#" onclick="{{ auth.logout }}" style="display:block;padding:9px 10px;font-size:13px;color:#e8574a;font-weight:600;border-radius:5px;" style-hover="background:#241d1d;">Sign out</a>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ !auth.loggedIn }}" hint-placeholder-val="{{ true }}">
+      <button onclick="{{ auth.login }}" style="display:flex;align-items:center;gap:8px;background:none;border:1px solid #3a2224;color:#f0e8e6;padding:9px 16px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.06em;">LOG IN WITH DISCORD</button>
+    </sc-if>
+  </nav>
+
+  <div style="position:relative;height:620px;overflow:hidden;">
+    <img src="uploads/hunllef-hero-1800.jpg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:75% 40%;opacity:.55;" alt="">
+    <div style="position:absolute;inset:0;background:linear-gradient(90deg,#171213 20%,rgba(23,18,19,.3) 55%,rgba(23,18,19,.75) 100%);"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:160px;background:linear-gradient(180deg,transparent 0%,rgba(23,18,19,.6) 60%,#171213 100%);"></div>
+    <div style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;padding:0 0 80px 64px;max-width:640px;">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.22em;color:#e2938a;margin-bottom:18px;">OLD SCHOOL RUNESCAPE CLAN</div>
+      <div style="font-family:MedievalSharp,serif;font-size:66px;line-height:1;color:#fdf3f1;margin-bottom:22px;">Time Served</div>
+      <div style="font-size:16px;color:#d8c4c1;line-height:1.6;margin-bottom:34px;">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;padding:0 64px 30px;">
+      <div style="display:flex;gap:64px;">
+        <div><div style="font-family:MedievalSharp,serif;font-size:26px;color:#f0e8e6;">499</div><div style="font-size:11px;letter-spacing:.1em;color:#c9b8b6;margin-top:6px;">MEMBERS</div></div>
+        <div><div style="font-family:MedievalSharp,serif;font-size:26px;color:#f0e8e6;">133.4B</div><div style="font-size:11px;letter-spacing:.1em;color:#c9b8b6;margin-top:6px;">TOTAL CLAN XP</div></div>
+        <div><div style="font-family:MedievalSharp,serif;font-size:26px;color:#f0e8e6;">2,239</div><div style="font-size:11px;letter-spacing:.1em;color:#c9b8b6;margin-top:6px;">AVG. TOTAL LEVEL</div></div>
+        <div><div style="font-family:MedievalSharp,serif;font-size:26px;color:#f0e8e6;">35</div><div style="font-size:11px;letter-spacing:.1em;color:#c9b8b6;margin-top:6px;">MAXED MEMBERS</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;color:#9fc98f;"><div style="width:7px;height:7px;border-radius:50%;background:#7fd66a;"></div>1 CLAN SPOTS OPEN</div>
+    </div>
+  </div>
+
+  <div style="padding:56px 64px 0;">
+    <div style="font-family:MedievalSharp,serif;font-size:20px;color:#f0e8e6;margin-bottom:22px;">Explore the clan</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+      <div style="border:1px solid #2a1315;padding:26px;background:#1e1617;">
+        <div style="font-size:26px;margin-bottom:16px;">⚔️</div>
+        <div style="font-family:MedievalSharp,serif;font-size:17px;margin-bottom:8px;">Rankings</div>
+        <div style="font-size:13px;color:#a08c89;line-height:1.5;">Verify your rank eligibility by importing your RuneProfile collection log and checking your progress through every tier.</div>
+      </div>
+      <div style="border:1px solid #2a1315;padding:26px;background:#1e1617;">
+        <div style="font-size:26px;margin-bottom:16px;">📊</div>
+        <div style="font-family:MedievalSharp,serif;font-size:17px;margin-bottom:8px;">Hiscores</div>
+        <div style="font-size:13px;color:#a08c89;line-height:1.5;">Browse clan member leaderboards across every skill, boss, and activity. Filter by active players or view the latest event.</div>
+      </div>
+      <div style="border:1px solid #2a1315;padding:26px;background:#1e1617;">
+        <div style="font-size:26px;margin-bottom:16px;">🃏</div>
+        <div style="font-family:MedievalSharp,serif;font-size:17px;margin-bottom:8px;">Activity</div>
+        <div style="font-size:13px;color:#a08c89;line-height:1.5;">Live clan feed showing rare drops, level-ups, quests, and combat achievements as they happen.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:44px 64px 0;">
+    <div style="font-family:MedievalSharp,serif;font-size:20px;color:#f0e8e6;margin-bottom:22px;">Right now</div>
+    <div style="border:1px solid #2a1315;background:#1e1617;padding:24px 26px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-family:MedievalSharp,serif;font-size:16px;">Live Now</div><div style="color:#9c85e8;">◈</div>
+      </div>
+      <div style="font-size:13px;color:#8a7674;">No clan members are live right now.</div>
+    </div>
+  </div>
+
+  <div style="padding:44px 64px 0;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:22px;">
+      <div style="font-family:MedievalSharp,serif;font-size:20px;color:#f0e8e6;">Top donators</div>
+      <div style="font-size:12px;color:#a08c89;">All-time contributions to the clan coffer</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;">
+      <div style="border:1px solid #443318;border-top:3px solid #d4a017;background:#211a10;border-radius:8px;padding:18px;text-align:center;">
+        <div style="font-size:18px;margin-bottom:8px;">🥇</div>
+        <div style="font-family:MedievalSharp,serif;font-size:15px;color:#f0e8e6;margin-bottom:4px;">ABearCat</div>
+        <div style="font-size:13px;color:#d4b158;font-weight:700;">42.0M GP</div>
+      </div>
+      <div style="border:1px solid #2a1315;border-top:3px solid #c9c9c9;background:#1e1617;border-radius:8px;padding:18px;text-align:center;">
+        <div style="font-size:18px;margin-bottom:8px;">🥈</div>
+        <div style="font-family:MedievalSharp,serif;font-size:15px;color:#f0e8e6;margin-bottom:4px;">Solo Nostalg</div>
+        <div style="font-size:13px;color:#d4b158;font-weight:700;">31.5M GP</div>
+      </div>
+      <div style="border:1px solid #2a1315;border-top:3px solid #cd7f32;background:#1e1617;border-radius:8px;padding:18px;text-align:center;">
+        <div style="font-size:18px;margin-bottom:8px;">🥉</div>
+        <div style="font-family:MedievalSharp,serif;font-size:15px;color:#f0e8e6;margin-bottom:4px;">Helesta</div>
+        <div style="font-size:13px;color:#d4b158;font-weight:700;">18.2M GP</div>
+      </div>
+      <div style="border:1px solid #2a1315;background:#1e1617;border-radius:8px;padding:18px;text-align:center;">
+        <div style="font-size:13px;color:#8f7a78;margin-bottom:8px;">4th</div>
+        <div style="font-family:MedievalSharp,serif;font-size:15px;color:#f0e8e6;margin-bottom:4px;">Wafas</div>
+        <div style="font-size:13px;color:#d4b158;font-weight:700;">9.8M GP</div>
+      </div>
+      <div style="border:1px solid #2a1315;background:#1e1617;border-radius:8px;padding:18px;text-align:center;">
+        <div style="font-size:13px;color:#8f7a78;margin-bottom:8px;">5th</div>
+        <div style="font-family:MedievalSharp,serif;font-size:15px;color:#f0e8e6;margin-bottom:4px;">Eskett</div>
+        <div style="font-size:13px;color:#d4b158;font-weight:700;">7.1M GP</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:44px 64px 56px;">
+    <a href="#" style="display:flex;justify-content:space-between;align-items:center;background:#151020;border:1px solid #33294a;padding:22px 26px;">
+      <div style="display:flex;align-items:center;gap:14px;"><div style="font-size:20px;">🎮</div><div><div style="font-family:MedievalSharp,serif;font-size:16px;color:#f0e8e6;">Join our Discord</div><div style="font-size:12px;color:#9089ad;margin-top:3px;">Chat, events, drops & more</div></div></div>
+      <div style="color:#9089ad;">→</div>
+    </a>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:30px 64px;border-top:1px solid #2a1315;">
+    <div><div style="font-family:MedievalSharp,serif;font-size:16px;">Time Served</div><div style="font-size:12px;color:#8a7674;margin-top:4px;">Old School RuneScape clan</div></div>
+    <div style="display:flex;align-items:center;gap:24px;font-size:12px;color:#b09b98;"><a href="#">Wise Old Man</a><a href="#">RuneProfile</a><span style="color:#5c4d4a;">© 2026 Time Served · Website by Solo Nostalg</span></div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { loggedIn: true, menuOpen: false, discordName: 'izJordy', avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png', rsName: 'Solo Nostalg' };
+  componentDidMount() {
+    const saved = localStorage.getItem('ts_rsn');
+    if (saved) this.setState({ rsName: saved });
+  }
+  buildAuth() {
+    return {
+      loggedIn: this.state.loggedIn, menuOpen: this.state.menuOpen,
+      discordName: this.state.discordName, avatarUrl: this.state.avatarUrl,
+      chevronRotate: this.state.menuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+      profileHref: 'Profile.dc.html?rsn=' + encodeURIComponent(this.state.rsName || ''),
+      toggleMenu: () => this.setState(s => ({ menuOpen: !s.menuOpen })),
+      login: () => this.setState({ loggedIn: true }),
+      logout: () => this.setState({ loggedIn: false, menuOpen: false })
+    };
+  }
+  renderVals() { return { auth: this.buildAuth() }; }
+}
+</script>
+</body>
+</html>
