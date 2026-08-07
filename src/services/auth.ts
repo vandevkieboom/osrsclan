@@ -11,7 +11,6 @@ export interface AuthUser {
   avatarUrl: string | null;
   isAdmin: boolean;
   team: AuthTeam | null;
-  rememberRankings: boolean;
 }
 
 export async function fetchCurrentUser(): Promise<AuthUser | null> {
@@ -34,18 +33,15 @@ export async function logout(): Promise<void> {
   await fetch("/api/auth/me", { method: "DELETE" });
 }
 
-export async function updateSettings(patch: {
-  runescapeName?: string;
-  rememberRankings?: boolean;
-}): Promise<AuthUser> {
+export async function updateRunescapeName(runescapeName: string): Promise<AuthUser> {
   const res = await fetch("/api/auth/me", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch),
+    body: JSON.stringify({ runescapeName }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    throw new Error(body?.error ?? `Failed to update settings (${res.status})`);
+    throw new Error(body?.error ?? `Failed to update RuneScape name (${res.status})`);
   }
   const data = (await res.json()) as { user: AuthUser };
   return data.user;

@@ -8,8 +8,6 @@ import { HiscoresPage } from "./page/hiscores-page.tsx";
 import { ActivityPage } from "./page/activity-page.tsx";
 import { TierFeedbackPage } from "./page/tier-feedback-page.tsx";
 import { BingoPage } from "./page/bingo-page.tsx";
-import { ProfilePage } from "./page/profile-page.tsx";
-import { SettingsPage } from "./page/settings-page.tsx";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "./context/auth-context.tsx";
 
@@ -27,8 +25,6 @@ createRoot(document.getElementById("root")!).render(
               "Admin Review", and "Admin Panel" gate themselves inside BingoPage
               based on login state — all four are tabs on this one page. */}
           <Route path="/bingo" element={<BingoPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

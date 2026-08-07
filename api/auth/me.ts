@@ -13,13 +13,11 @@ function serializeUser(user: NonNullable<Awaited<ReturnType<typeof getSessionUse
     avatarUrl: user.avatarUrl,
     isAdmin: user.isAdmin,
     team: user.teamId ? { id: user.teamId, name: user.teamName } : null,
-    rememberRankings: user.rememberRankings,
   };
 }
 
-// "Who am I", "log out", and "update my settings" (RSN + rankings
-// remember-me preference) are combined into one function to stay under the
-// Vercel Hobby plan's 12-function-per-deployment cap.
+// "Who am I", "log out", and "set my RuneScape name" are combined into one
+// function to stay under the Vercel Hobby plan's 12-function-per-deployment cap.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "DELETE") {
     await destroySession(req, res);
@@ -31,24 +29,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await requireUser(req, res);
     if (!user) return;
 
-    let next = user;
-
-    if (typeof req.body?.runescapeName === "string") {
-      const raw = req.body.runescapeName.trim();
-      if (raw.length > MAX_RUNESCAPE_NAME_LENGTH) {
-        res.status(400).json({ error: `RuneScape name must be ${MAX_RUNESCAPE_NAME_LENGTH} characters or fewer` });
-        return;
-      }
-      await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${user.id}`;
-      next = { ...next, runescapeName: raw || null };
+    const raw = typeof req.body?.runescapeName === "string" ? req.body.runescapeName.trim() : "";
+    if (raw.length > MAX_RUNESCAPE_NAME_LENGTH) {
+      res.status(400).json({ error: `RuneScape name must be ${MAX_RUNESCAPE_NAME_LENGTH} characters or fewer` });
+      return;
     }
 
-    if (typeof req.body?.rememberRankings === "boolean") {
-      await sql`UPDATE users SET remember_rankings = ${req.body.rememberRankings} WHERE id = ${user.id}`;
-      next = { ...next, rememberRankings: req.body.rememberRankings };
-    }
-
-    res.status(200).json({ user: serializeUser(next) });
+    await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${user.id}`;
+    res.status(200).json({ user: serializeUser({ ...user, runescapeName: raw || null }) });
     return;
   }
 

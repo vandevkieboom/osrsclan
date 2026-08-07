@@ -4,7 +4,6 @@ import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import RankCard from "../components/rank-card";
 import ranks from "../data/ranks-data";
-import { useAuth } from "../context/auth-context";
 import {
   fetchRuneProfile,
   getBossKc,
@@ -22,7 +21,6 @@ const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
-  const { user, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [hideCompleted, setHideCompleted] = useState(false);
 
@@ -109,17 +107,9 @@ export const ClanRankings = () => {
     if (u) {
       setUsername(u);
       loadProfile(u);
-      return;
-    }
-    // Auth resolves asynchronously — wait for it before applying the
-    // "remember me on Rankings" auto-verify fallback.
-    if (authLoading) return;
-    if (user?.rememberRankings && user.runescapeName) {
-      setUsername(user.runescapeName);
-      loadProfile(user.runescapeName);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading]);
+  }, []);
 
   const isMultiItemHardFail = (
     item: Item,

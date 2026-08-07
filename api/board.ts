@@ -4,9 +4,8 @@ import { sql } from "./_lib/db.js";
 import { getSessionUser, requireUser } from "./_lib/auth.js";
 import { getOrCreateBoardConfig } from "./_lib/board.js";
 
-// The leaderboard is public — anyone can see team standings (and every
-// team's board, read-only) without logging in. A session is only needed to
-// know which team is "yours" for submit-proof permission checks.
+// The leaderboard is public — anyone can see team standings without logging
+// in. Only "my team's board" (which team you're even on) needs a session.
 async function getBoard(req: VercelRequest, res: VercelResponse) {
   const user = await getSessionUser(req);
 
@@ -17,28 +16,21 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   // a larger board that got shrunk) stay in the database but drop off the
   // board until size grows back to cover them again.
   const tileRows = await sql`
-    SELECT id, position, name, icon_url, required_count, category, description
-    FROM tiles WHERE position < ${slotCount} ORDER BY position`;
+    SELECT id, position, name, icon_url, required_count FROM tiles WHERE position < ${slotCount} ORDER BY position`;
   const tiles = tileRows.map((t) => ({
     id: t.id,
     position: t.position,
     name: t.name,
     iconUrl: t.icon_url,
     requiredCount: t.required_count,
-    category: t.category,
-    description: t.description,
   }));
   const requiredCountByTile = new Map<number, number>(tiles.map((t) => [t.id, t.requiredCount]));
 
   const teamRows = await sql`
-    SELECT tm.id, tm.name, tm.accent_color, tm.captain_id,
-           cap.discord_username AS captain_username, cap.discord_global_name AS captain_global_name,
-           cap.runescape_name AS captain_rsn,
-           COUNT(u.id)::int AS member_count
+    SELECT tm.id, tm.name, tm.accent_color, COUNT(u.id)::int AS member_count
     FROM teams tm
     LEFT JOIN users u ON u.team_id = tm.id
-    LEFT JOIN users cap ON cap.id = tm.captain_id
-    GROUP BY tm.id, cap.id
+    GROUP BY tm.id
     ORDER BY tm.name`;
 
   const memberRows = await sql`
@@ -65,6 +57,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     rejectedCount: number;
     latestProofUrl: string | null;
     latestSubmittedBy: string | null;
+    latestCreatedAt: number;
     proofs: {
       id: number;
       status: "pending" | "approved" | "rejected";
@@ -83,6 +76,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       rejectedCount: 0,
       latestProofUrl: null,
       latestSubmittedBy: null,
+      latestCreatedAt: 0,
       proofs: [],
     };
 
@@ -92,6 +86,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
 
     current.latestProofUrl = row.proof_url;
     current.latestSubmittedBy = row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? null;
+    current.latestCreatedAt = new Date(row.created_at).getTime();
     current.proofs.push({
       id: row.id,
       status: row.status,
@@ -102,38 +97,6 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
 
     teamSubmissions.set(row.tile_id, current);
     submissionsByTeam.set(row.team_id, teamSubmissions);
-  }
-
-  function buildTiles(teamId: number) {
-    const subByTile = submissionsByTeam.get(teamId) ?? new Map<number, TileSubmissionAggregate>();
-    return tiles.map((t) => {
-      const agg = subByTile.get(t.id);
-      const approvedCount = agg?.approvedCount ?? 0;
-      const pendingCount = agg?.pendingCount ?? 0;
-      const rejectedCount = agg?.rejectedCount ?? 0;
-      return {
-        tileId: t.id,
-        name: t.name,
-        iconUrl: t.iconUrl,
-        requiredCount: t.requiredCount,
-        category: t.category,
-        description: t.description,
-        approvedCount,
-        pendingCount,
-        rejectedCount,
-        status:
-          approvedCount >= t.requiredCount
-            ? "approved"
-            : pendingCount > 0
-              ? "pending"
-              : rejectedCount > 0
-                ? "rejected"
-                : "none",
-        latestProofUrl: agg?.latestProofUrl ?? null,
-        latestSubmittedBy: agg?.latestSubmittedBy ?? null,
-        proofs: agg?.proofs ?? [],
-      };
-    });
   }
 
   const completeByTeam = new Map<number, number>();
@@ -156,51 +119,48 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       name: t.name,
       memberCount: t.member_count,
       members: membersByTeam.get(t.id) ?? [],
-      captainId: t.captain_id,
-      captainName: t.captain_id
-        ? (t.captain_rsn ?? t.captain_global_name ?? t.captain_username ?? null)
-        : null,
       completeCount,
       totalTiles,
       pct,
       accentColor: t.accent_color,
-      tiles: buildTiles(t.id),
     };
   });
   const leaderPct = teamsWithPct.length > 0 ? Math.max(...teamsWithPct.map((t) => t.pct)) : 0;
   const teams = teamsWithPct.map((t) => ({ ...t, isLeading: t.pct === leaderPct && leaderPct > 0 }));
 
+  let myTeam = null;
+  if (user?.teamId) {
+    const subByTile = submissionsByTeam.get(user.teamId) ?? new Map<number, TileSubmissionAggregate>();
+    myTeam = {
+      id: user.teamId,
+      name: user.teamName,
+      tiles: tiles.map((t) => ({
+        tileId: t.id,
+        name: t.name,
+        iconUrl: t.iconUrl,
+        requiredCount: t.requiredCount,
+        approvedCount: subByTile.get(t.id)?.approvedCount ?? 0,
+        pendingCount: subByTile.get(t.id)?.pendingCount ?? 0,
+        rejectedCount: subByTile.get(t.id)?.rejectedCount ?? 0,
+        status:
+          (subByTile.get(t.id)?.approvedCount ?? 0) >= t.requiredCount
+            ? "approved"
+            : (subByTile.get(t.id)?.pendingCount ?? 0) > 0
+              ? "pending"
+              : (subByTile.get(t.id)?.rejectedCount ?? 0) > 0
+                ? "rejected"
+                : "none",
+        latestProofUrl: subByTile.get(t.id)?.latestProofUrl ?? null,
+        latestSubmittedBy: subByTile.get(t.id)?.latestSubmittedBy ?? null,
+        proofs: subByTile.get(t.id)?.proofs ?? [],
+      })),
+    };
+  }
+
   res.status(200).json({
-    config: {
-      name: config.name,
-      dateRange: config.date_range,
-      size: config.size,
-      prizePot: config.prize_pot,
-    },
+    config: { name: config.name, dateRange: config.date_range, size: config.size },
     teams,
-    myTeamId: user?.teamId ?? null,
-    draft: {
-      active: config.draft_active,
-      order: config.draft_order,
-      pickIndex: config.draft_pick_index,
-      log: config.draft_log,
-    },
-  });
-}
-
-async function getDonors(res: VercelResponse) {
-  const rows = await sql`
-    SELECT discord_username, discord_global_name, runescape_name, donated_gp
-    FROM users
-    WHERE donated_gp > 0
-    ORDER BY donated_gp DESC, discord_username ASC
-    LIMIT 5`;
-
-  res.status(200).json({
-    donors: rows.map((r) => ({
-      name: r.runescape_name ?? r.discord_global_name ?? r.discord_username,
-      donatedGp: Number(r.donated_gp),
-    })),
+    myTeam,
   });
 }
 
@@ -268,19 +228,14 @@ async function uploadToken(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-// Reading the board (incl. the public donor leaderboard), submitting a
-// tile, and the Blob upload-token handshake are combined into one function
-// to stay under the Vercel Hobby plan's 12-function-per-deployment cap.
-// Vercel Blob's client SDK always posts a `type` field (e.g.
-// "blob.generate-client-token"); our own submit body never has one, so
-// that's what distinguishes the two POST actions.
+// Reading the board, submitting a tile, and the Blob upload-token handshake
+// are combined into one function to stay under the Vercel Hobby plan's
+// 12-function-per-deployment cap. Vercel Blob's client SDK always posts a
+// `type` field (e.g. "blob.generate-client-token"); our own submit body
+// never has one, so that's what distinguishes the two POST actions.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") {
-    if (req.query.resource === "donors") {
-      await getDonors(res);
-    } else {
-      await getBoard(req, res);
-    }
+    await getBoard(req, res);
     return;
   }
 

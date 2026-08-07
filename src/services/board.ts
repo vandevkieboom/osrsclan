@@ -1,92 +1,47 @@
 import { upload } from "@vercel/blob/client";
 
-export interface BoardProof {
+export interface BoardTeam {
   id: number;
-  status: "pending" | "approved" | "rejected";
-  proofUrl: string;
-  submittedBy: string | null;
-  createdAt: string;
+  name: string;
+  memberCount: number;
+  members: string[];
+  completeCount: number;
+  totalTiles: number;
+  pct: number;
+  accentColor: string;
+  isLeading: boolean;
 }
 
-export interface BoardTile {
+export interface MyTeamTile {
   tileId: number;
   name: string;
   iconUrl: string;
   requiredCount: number;
-  category: string;
-  description: string;
   approvedCount: number;
   pendingCount: number;
   rejectedCount: number;
   status: "none" | "pending" | "approved" | "rejected";
   latestProofUrl: string | null;
   latestSubmittedBy: string | null;
-  proofs: BoardProof[];
-}
-
-export interface BoardTeam {
-  id: number;
-  name: string;
-  memberCount: number;
-  members: string[];
-  captainId: number | null;
-  captainName: string | null;
-  completeCount: number;
-  totalTiles: number;
-  pct: number;
-  accentColor: string;
-  isLeading: boolean;
-  tiles: BoardTile[];
-}
-
-export interface PrizePotEntry {
-  name: string;
-  amount: string;
-}
-
-export interface PrizePot {
-  total: string;
-  buyIn: string;
-  donated: string;
-  entries: PrizePotEntry[];
-}
-
-export interface DraftPick {
-  pickNumber: number;
-  teamId: number;
-  memberName: string;
-}
-
-export interface DraftState {
-  active: boolean;
-  order: number[];
-  pickIndex: number;
-  log: DraftPick[];
+  proofs: {
+    id: number;
+    status: "pending" | "approved" | "rejected";
+    proofUrl: string;
+    submittedBy: string | null;
+    createdAt: string;
+  }[];
 }
 
 export interface BoardData {
-  config: { name: string; dateRange: string; size: number; prizePot: PrizePot };
+  config: { name: string; dateRange: string; size: number };
   teams: BoardTeam[];
-  myTeamId: number | null;
-  draft: DraftState;
-}
-
-export interface Donor {
-  name: string;
-  donatedGp: number;
+  myTeam: { id: number; name: string; tiles: MyTeamTile[] } | null;
 }
 
 export async function fetchBoard(): Promise<BoardData> {
   const res = await fetch("/api/board");
   if (!res.ok) throw new Error(`Failed to load board (${res.status})`);
   return res.json() as Promise<BoardData>;
-}
-
-export async function fetchDonors(): Promise<Donor[]> {
-  const res = await fetch("/api/board?resource=donors");
-  if (!res.ok) throw new Error(`Failed to load donors (${res.status})`);
-  const data = (await res.json()) as { donors: Donor[] };
-  return data.donors;
 }
 
 export async function submitTileProof(tileId: number, file: File): Promise<void> {
