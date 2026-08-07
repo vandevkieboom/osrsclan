@@ -13,7 +13,7 @@ The files in this bundle are **design references built as standalone HTML protot
 
 ### 1. Account dropdown (in the nav, every page)
 - **Purpose**: Replaces the previous bare login/logout with a full account menu.
-- **Layout**: Avatar (24px circle) + Discord display name + chevron button, pill-shaped, border `#3a2224`. Click toggles a dropdown panel anchored `top: calc(100% + 8px); right: 0`, width 220px, bg `#1e1617`, border `#2a1315`, radius 8px, shadow `0 16px 32px rgba(0,0,0,.5)`, padding 8px.
+- **Layout**: Avatar (24px circle) + Discord display name + chevron button, pill-shaped, border `#3a2224`. Click toggles a dropdown panel anchored `top: calc(100% + 8px); right: 0`, width 220px, bg `#120809`, border `#2a1315`, radius 8px, shadow `0 16px 32px rgba(0,0,0,.5)`, padding 8px.
 - **Dropdown contents**: header row (36px avatar + display name bold 13px `#f0e8e6` + "Signed in via Discord" 11px `#8f7a78`), divider, "My dashboard" link → own Profile page, "Settings" link → Settings page, divider, "Sign out" (13px `#e8574a` bold).
 - **States**: logged-out state shows a "LOG IN WITH DISCORD" button instead (same border-pill style, no fill).
 - **Behavior**: chevron rotates 180° when open. Menu items highlight `#241d1d` on hover.
@@ -63,7 +63,7 @@ The files in this bundle are **design references built as standalone HTML protot
 - **Profile**: fetched WOM snapshot (cache with a reasonable TTL — WOM rate-limits), clan rank + trophy list (own backend record).
 
 ## Design Tokens
-- Backgrounds: `#171213` (page), `#1e1617` (cards) — both OLED-safe darks, not pure black.
+- Backgrounds: `#0c0607` (page), `#120809` (cards).
 - Borders: `#2a1315` (default), `#3a2224` (inputs/buttons), `#241d1d` (nested/inner).
 - Text: `#f0e8e6` (primary), `#c9b8b6` (secondary), `#a08c89` / `#8f7a78` (muted), `#7a655f` (faint).
 - Accent: `#e8574a` (primary red), `#a3241a` (button fill), `#e2938a` (light accent).

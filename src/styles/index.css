@@ -1067,7 +1067,7 @@ body {
   right: 0;
   z-index: 20;
   width: 220px;
-  background: #1e1617;
+  background: #120809;
   border: 1px solid #2a1315;
   border-radius: 8px;
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
@@ -3201,7 +3201,7 @@ body {
   position: absolute;
   bottom: 4px;
   right: 4px;
-  background: #171213;
+  background: var(--bg);
   border: 1px solid #2a1315;
   color: #a08c89;
   font-size: clamp(7px, 8cqw, 10px);
@@ -3880,7 +3880,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  background: #171213;
+  background: var(--bg);
   border: 1px solid #241d1d;
   border-radius: 6px;
   padding: 0.45rem 0.6rem;
@@ -3927,7 +3927,7 @@ body {
   width: 44px;
   height: 44px;
   object-fit: contain;
-  background: #171213;
+  background: var(--bg);
   border: 1px solid #241d1d;
   border-radius: 5px;
   cursor: pointer;
@@ -3975,7 +3975,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #171213;
+  background: var(--bg);
   border: 1px solid #241d1d;
   border-radius: 6px;
   padding: 0.5rem 0.6rem;
@@ -4002,7 +4002,7 @@ body {
 .bingo-lightbox-img {
   max-width: 70vw;
   max-height: 70vh;
-  background: #1e1617;
+  background: #120809;
   border: 1px solid #2a1315;
   border-radius: 8px;
   padding: 20px;
@@ -4149,7 +4149,7 @@ body {
 }
 
 .profile-search-input {
-  background: #1e1617;
+  background: #120809;
   border: 1px solid #3a2224;
   color: var(--text-primary);
   padding: 9px 12px;
@@ -4166,7 +4166,7 @@ body {
 
 .profile-state-card {
   border: 1px solid #2a1315;
-  background: #1e1617;
+  background: #120809;
   border-radius: 8px;
   padding: 3rem;
   text-align: center;
@@ -4175,7 +4175,7 @@ body {
 
 .profile-error-card {
   border: 1px solid #a3241a;
-  background: #1e1617;
+  background: #120809;
   border-radius: 8px;
   padding: 2.2rem;
   max-width: 640px;
@@ -4203,7 +4203,7 @@ body {
   gap: 1rem;
   border: 1px solid #2a1315;
   border-top: 3px solid #3a2224;
-  background: #1e1617;
+  background: #120809;
   border-radius: 8px;
   padding: 1.6rem 1.85rem;
   margin-bottom: 1.5rem;
@@ -4287,7 +4287,7 @@ body {
 .profile-stat-chip {
   flex: 1;
   border: 1px solid #2a1315;
-  background: #1e1617;
+  background: #120809;
   border-radius: 8px;
   padding: 1rem 1.1rem;
 }
@@ -4313,7 +4313,7 @@ body {
 
 .profile-card {
   border: 1px solid #2a1315;
-  background: #1e1617;
+  background: #120809;
   border-radius: 8px;
   padding: 1.375rem 1.5rem;
   margin-bottom: 1.25rem;
@@ -4348,7 +4348,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: #171213;
+  background: var(--bg);
   border: 1px solid #241d1d;
   border-radius: 4px;
   padding: 7px 10px;
@@ -4386,7 +4386,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: #171213;
+  background: var(--bg);
   border: 1px solid #241d1d;
   border-radius: 4px;
   padding: 8px 10px;
@@ -4441,7 +4441,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: #171213;
+  background: var(--bg);
   border: 1px solid #241d1d;
   border-radius: 6px;
   padding: 0.55rem 0.75rem;
