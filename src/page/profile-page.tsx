@@ -86,7 +86,7 @@ export function ProfilePage() {
     // should still render with an empty trophy case rather than dying.
     fetchTrophies(target)
       .then(setProfileExtras)
-      .catch(() => setProfileExtras({ trophies: [], memberSince: null }));
+      .catch(() => setProfileExtras({ trophies: [], memberSince: null, avatarUrl: null }));
 
     fetchWomPlayer(target)
       .then(setPlayer)
@@ -250,15 +250,24 @@ export function ProfilePage() {
               style={{ borderTopColor: rank?.color ?? DEFAULT_RING_COLOR }}
             >
               <div className="profile-header-main">
-                <div
-                  className="profile-avatar"
-                  style={{
-                    borderColor: rank?.color ?? DEFAULT_RING_COLOR,
-                    color: rank?.color ?? "#f0e8e6",
-                  }}
-                >
-                  {player.displayName.charAt(0).toUpperCase()}
-                </div>
+                {profileExtras?.avatarUrl ? (
+                  <img
+                    src={profileExtras.avatarUrl}
+                    alt=""
+                    className="profile-avatar"
+                    style={{ borderColor: rank?.color ?? DEFAULT_RING_COLOR }}
+                  />
+                ) : (
+                  <div
+                    className="profile-avatar"
+                    style={{
+                      borderColor: rank?.color ?? DEFAULT_RING_COLOR,
+                      color: rank?.color ?? "#f0e8e6",
+                    }}
+                  >
+                    {player.displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <div className="profile-name-row">
                     <div className="profile-display-name">

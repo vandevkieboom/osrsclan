@@ -4332,6 +4332,7 @@ body {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 26px;
   flex-shrink: 0;
+  object-fit: cover;
 }
 
 .profile-name-row {

@@ -68,6 +68,7 @@ async function json<T>(res: Response): Promise<T> {
 export interface RsnProfile {
   trophies: Trophy[];
   memberSince: string | null;
+  avatarUrl: string | null;
 }
 
 export async function fetchTrophies(rsn: string): Promise<RsnProfile> {

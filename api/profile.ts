@@ -20,12 +20,17 @@ async function listTrophies(req: VercelRequest, res: VercelResponse) {
 
   const [trophyRows, memberRows] = await Promise.all([
     sql`SELECT id, label, date_label, created_at FROM trophies WHERE rsn_key = ${rsnKey} ORDER BY created_at DESC`,
-    sql`SELECT created_at FROM users WHERE lower(runescape_name) = ${rsnKey} LIMIT 1`,
+    sql`SELECT created_at, discord_id, discord_avatar_hash FROM users WHERE lower(runescape_name) = ${rsnKey} LIMIT 1`,
   ]);
+  const member = memberRows[0];
 
   res.status(200).json({
     trophies: trophyRows.map((r) => ({ id: r.id, label: r.label, date: r.date_label, createdAt: r.created_at })),
-    memberSince: memberRows[0]?.created_at ?? null,
+    memberSince: member?.created_at ?? null,
+    avatarUrl:
+      member?.discord_id && member?.discord_avatar_hash
+        ? `https://cdn.discordapp.com/avatars/${member.discord_id}/${member.discord_avatar_hash}.png?size=64`
+        : null,
   });
 }
 
