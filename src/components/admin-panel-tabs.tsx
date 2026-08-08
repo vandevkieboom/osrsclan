@@ -969,31 +969,31 @@ export function AdminPanelTabs() {
 
   return (
     <div>
-      <div className="bingo-panel-tabs">
+      <div className="bingo-tabs">
         <button
           type="button"
-          className={`bingo-panel-tab${panelTab === "teams" ? " active" : ""}`}
+          className={`bingo-tab${panelTab === "teams" ? " active" : ""}`}
           onClick={() => setPanelTab("teams")}
         >
           TEAMS
         </button>
         <button
           type="button"
-          className={`bingo-panel-tab${panelTab === "members" ? " active" : ""}`}
+          className={`bingo-tab${panelTab === "members" ? " active" : ""}`}
           onClick={() => setPanelTab("members")}
         >
           MEMBERS
         </button>
         <button
           type="button"
-          className={`bingo-panel-tab${panelTab === "board" ? " active" : ""}`}
+          className={`bingo-tab${panelTab === "board" ? " active" : ""}`}
           onClick={() => setPanelTab("board")}
         >
           BOARD CONFIG
         </button>
         <button
           type="button"
-          className={`bingo-panel-tab${panelTab === "draft" ? " active" : ""}`}
+          className={`bingo-tab${panelTab === "draft" ? " active" : ""}`}
           onClick={() => setPanelTab("draft")}
         >
           DRAFT

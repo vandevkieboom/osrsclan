@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
-import { AdminPanelTabs } from "../components/admin-panel-tabs";
 import { useAuth } from "../context/auth-context";
 import {
   fetchBoard,
@@ -16,7 +15,7 @@ import {
   type AdminSubmission,
 } from "../services/admin";
 
-type View = "leaderboard" | "board" | "draft" | "admin" | "panel";
+type View = "leaderboard" | "board" | "draft" | "admin";
 
 // Dev-only fallback so the page has something to render under plain
 // `npm run dev`, which has no backend at all. Never used in production —
@@ -443,6 +442,7 @@ export function BingoPage() {
           <div className="page-head">
             <div className="page-eyebrow">Clan Event</div>
             <h1 className="page-title">Bingo</h1>
+            <p className="page-sub">There was a problem loading the bingo board.</p>
           </div>
           <div className="admin-error">{error}</div>
         </div>
@@ -517,25 +517,16 @@ export function BingoPage() {
             DRAFT
           </button>
           {isAdmin && (
-            <>
-              <button
-                type="button"
-                className={`bingo-tab${view === "admin" ? " active" : ""}`}
-                onClick={() => setView("admin")}
-              >
-                ADMIN REVIEW
-                {submissions && submissions.length > 0 && (
-                  <span className="bingo-tab-badge">{submissions.length}</span>
-                )}
-              </button>
-              <button
-                type="button"
-                className={`bingo-tab${view === "panel" ? " active" : ""}`}
-                onClick={() => setView("panel")}
-              >
-                ADMIN PANEL
-              </button>
-            </>
+            <button
+              type="button"
+              className={`bingo-tab${view === "admin" ? " active" : ""}`}
+              onClick={() => setView("admin")}
+            >
+              ADMIN REVIEW
+              {submissions && submissions.length > 0 && (
+                <span className="bingo-tab-badge">{submissions.length}</span>
+              )}
+            </button>
           )}
         </div>
 
@@ -758,8 +749,6 @@ export function BingoPage() {
             ))}
           </div>
         )}
-
-        {view === "panel" && isAdmin && <AdminPanelTabs />}
       </div>
 
       {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}

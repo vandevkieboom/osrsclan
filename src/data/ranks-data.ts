@@ -934,4 +934,35 @@ export const rankIconByRole: Record<string, string> = {
   tzkal: ranks.find((r) => r.name === "Infernal")!.icon,
 };
 
+// Staff badges, kept separate from the `ranks` achievement ladder above —
+// these are WOM group roles assigned to clan leadership/moderation, not
+// tiers earned through collection-log progress, so they must never appear
+// in `ranks` itself (that array also drives the Rankings page's eligible-tier
+// checker, which would treat them as achievable goals).
+const CROWN_ICON_GOLD =
+  "https://support.runescape.com/hc/article_attachments/27922167083409";
+const CROWN_ICON_SILVER =
+  "https://support.runescape.com/hc/article_attachments/27922167084561";
+
+export const staffRankByRole: Record<
+  string,
+  { name: string; color: string; icon: string }
+> = {
+  owner: {
+    name: "Clan Owner",
+    color: "#826bc2",
+    icon: CROWN_ICON_GOLD,
+  },
+  deputy_owner: {
+    name: "Clan Admin",
+    color: "#d4843d",
+    icon: CROWN_ICON_GOLD,
+  },
+  moderator: {
+    name: "Clan Moderator",
+    color: "#369876",
+    icon: CROWN_ICON_SILVER,
+  },
+};
+
 export default ranks;

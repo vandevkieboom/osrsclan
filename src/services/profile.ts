@@ -1,4 +1,4 @@
-import ranks, { rankIconByRole } from "../data/ranks-data";
+import ranks, { rankIconByRole, staffRankByRole } from "../data/ranks-data";
 
 export interface WomSkillEntry {
   level: number;
@@ -43,11 +43,19 @@ export interface RankInfo {
 /** Derives a member's clan rank tier from their live Wise Old Man group role — there's no persisted rank column in our own database. */
 export function getRankForRole(role: string | undefined): RankInfo | null {
   if (!role) return null;
-  const icon = rankIconByRole[role.toLowerCase()];
+  const roleKey = role.toLowerCase();
+
+  const staff = staffRankByRole[roleKey];
+  if (staff) return { name: staff.name, color: staff.color, icon: staff.icon };
+
+  const icon = rankIconByRole[roleKey];
   if (!icon) return null;
   const rank = ranks.find((r) => r.icon === icon);
   if (!rank) return null;
-  return { name: rank.name, color: rank.color, icon: rank.icon };
+  // Use textColor, not color — the Rankings page renders rank names with
+  // textColor (`.rank-name`'s `--rank-text-color`); `color` is a darker
+  // variant meant for borders/backgrounds there, not text.
+  return { name: rank.name, color: rank.textColor, icon: rank.icon };
 }
 
 export interface Trophy {

@@ -49,6 +49,7 @@ export function SettingsPage() {
           <div className="page-head">
             <div className="page-eyebrow">Account</div>
             <h1 className="page-title">Settings</h1>
+            <p className="page-sub">Manage your account and site preferences.</p>
           </div>
           <div className="bingo-admin-empty">
             Log in with Discord to manage your settings.
@@ -78,6 +79,7 @@ export function SettingsPage() {
         <div className="page-head">
           <div className="page-eyebrow">Account</div>
           <h1 className="page-title">Settings</h1>
+          <p className="page-sub">Manage your account and site preferences.</p>
         </div>
 
         <div className="profile-card">
@@ -104,14 +106,14 @@ export function SettingsPage() {
             Old School Runescape name
           </div>
           <p className="settings-field-hint">
-            Linking your Old School Runescape name powers your shareable profile
-            and rank verification.
+            Linking your OSRS name powers your shareable profile and rank
+            verification.
           </p>
           <div className="settings-rsn-row">
             <input
               className="admin-input admin-input--wide"
               type="text"
-              placeholder="Your Old School Runescape name"
+              placeholder="Your OSRS name"
               value={rsName}
               maxLength={30}
               onChange={(e) => setRsName(e.target.value)}
@@ -142,8 +144,8 @@ export function SettingsPage() {
                 Remember me on the Rankings page
               </div>
               <div className="settings-checkbox-hint">
-                Every time you visit Rankings, your Old School Runescape name is
-                filled in and verified automatically.
+                Every time you visit Rankings, your OSRS name is filled in and
+                verified automatically.
               </div>
             </div>
           </label>

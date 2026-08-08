@@ -86,7 +86,9 @@ export function ProfilePage() {
     // should still render with an empty trophy case rather than dying.
     fetchTrophies(target)
       .then(setProfileExtras)
-      .catch(() => setProfileExtras({ trophies: [], memberSince: null, avatarUrl: null }));
+      .catch(() =>
+        setProfileExtras({ trophies: [], memberSince: null, avatarUrl: null }),
+      );
 
     fetchWomPlayer(target)
       .then(setPlayer)
@@ -167,11 +169,6 @@ export function ProfilePage() {
         .slice(0, 9)
     : [];
 
-  const accountTypeLabel =
-    player && player.type && player.type !== "regular"
-      ? player.type.replace("_", " ").toUpperCase()
-      : "";
-
   const memberSince = profileExtras
     ? formatDate(profileExtras.memberSince)
     : null;
@@ -187,12 +184,13 @@ export function ProfilePage() {
             <div className="page-head-text">
               <div className="page-eyebrow">Clan Member</div>
               <h1 className="page-title">Member Profile</h1>
+              <p className="page-sub">Look up any clan member's stats, rank, and trophy case.</p>
             </div>
             <div className="profile-search">
               <input
                 className="profile-search-input"
                 type="text"
-                placeholder="Look up a member's profile"
+                placeholder="Enter OSRS name"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && runSearch()}
@@ -212,7 +210,7 @@ export function ProfilePage() {
           <div className="profile-state-card">
             <div className="profile-state-title">No profile loaded</div>
             <div className="profile-state-sub">
-              Enter an RSN above to view a clan member's profile
+              Enter an OSRS name above to view a profile
               {!user?.runescapeName && ", or link your own in Settings"}.
             </div>
           </div>
@@ -273,11 +271,6 @@ export function ProfilePage() {
                     <div className="profile-display-name">
                       {player.displayName}
                     </div>
-                    {accountTypeLabel && (
-                      <div className="profile-type-badge">
-                        {accountTypeLabel}
-                      </div>
-                    )}
                   </div>
                   <div className="profile-rank-row">
                     {rank && (

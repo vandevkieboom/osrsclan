@@ -65,7 +65,7 @@ export function SiteHeader({ variant = "hero", children }: SiteHeaderProps) {
 }
 
 function SiteHeaderAccount() {
-  const { user, isLoading, login, logout } = useAuth();
+  const { user, isAdmin, isLoading, login, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -174,6 +174,18 @@ function SiteHeaderAccount() {
           >
             Settings
           </Link>
+          {isAdmin && (
+            <>
+              <div className="site-header-account-menu-divider" />
+              <Link
+                to="/admin"
+                className="site-header-account-menu-item"
+                onClick={() => setIsOpen(false)}
+              >
+                Admin Panel
+              </Link>
+            </>
+          )}
           <div className="site-header-account-menu-divider" />
           <button
             type="button"
