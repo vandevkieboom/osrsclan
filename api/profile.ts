@@ -1,14 +1,15 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
-import { requireUser } from "./_lib/auth.js";
+import { requireAdmin } from "./_lib/auth.js";
 
 const MAX_LABEL_LENGTH = 120;
 const MAX_DATE_LABEL_LENGTH = 40;
 
 // Trophies are keyed by lowercased RSN rather than user id — a profile (and
 // thus its trophy case) can be looked up for any RSN in the WOM group, not
-// just ones with a linked Discord/site account. Editing is restricted to
-// whoever's own linked RSN matches, checked against the session.
+// just ones with a linked Discord/site account. Trophies represent event
+// wins awarded by the clan, so only admins can add or remove them — not the
+// profile's own account.
 async function listTrophies(req: VercelRequest, res: VercelResponse) {
   const rsn = typeof req.query.rsn === "string" ? req.query.rsn.trim() : "";
   if (!rsn) {
@@ -28,17 +29,9 @@ async function listTrophies(req: VercelRequest, res: VercelResponse) {
   });
 }
 
-function assertOwnsRsn(user: { runescapeName: string | null }, rsn: string, res: VercelResponse): boolean {
-  if (!user.runescapeName || user.runescapeName.toLowerCase() !== rsn.toLowerCase()) {
-    res.status(403).json({ error: "You can only edit your own trophy case" });
-    return false;
-  }
-  return true;
-}
-
 async function addTrophy(req: VercelRequest, res: VercelResponse) {
-  const user = await requireUser(req, res);
-  if (!user) return;
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
 
   const rsn = typeof req.body?.rsn === "string" ? req.body.rsn.trim() : "";
   const label = typeof req.body?.label === "string" ? req.body.label.trim() : "";
@@ -51,7 +44,6 @@ async function addTrophy(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "label or date is too long" });
     return;
   }
-  if (!assertOwnsRsn(user, rsn, res)) return;
 
   const rows = await sql`
     INSERT INTO trophies (rsn_key, label, date_label)
@@ -62,8 +54,8 @@ async function addTrophy(req: VercelRequest, res: VercelResponse) {
 }
 
 async function removeTrophy(req: VercelRequest, res: VercelResponse) {
-  const user = await requireUser(req, res);
-  if (!user) return;
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
 
   const id = Number(req.query.id);
   if (!Number.isInteger(id)) {
@@ -76,7 +68,6 @@ async function removeTrophy(req: VercelRequest, res: VercelResponse) {
     res.status(404).json({ error: "Trophy not found" });
     return;
   }
-  if (!assertOwnsRsn(user, rows[0].rsn_key, res)) return;
 
   await sql`DELETE FROM trophies WHERE id = ${id}`;
   res.status(200).json({ ok: true });

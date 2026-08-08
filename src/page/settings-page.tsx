@@ -21,7 +21,9 @@ export function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save RuneScape name");
+      setError(
+        err instanceof Error ? err.message : "Failed to save RuneScape name",
+      );
     } finally {
       setSaving(false);
     }
@@ -31,7 +33,9 @@ export function SettingsPage() {
     try {
       await updateSettings({ rememberRankings: !user?.rememberRankings });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update preference");
+      setError(
+        err instanceof Error ? err.message : "Failed to update preference",
+      );
     }
   }
 
@@ -49,7 +53,11 @@ export function SettingsPage() {
           <div className="bingo-admin-empty">
             Log in with Discord to manage your settings.
             <div className="bingo-login-prompt">
-              <button type="button" className="site-header-login" onClick={() => login("/settings")}>
+              <button
+                type="button"
+                className="site-header-login"
+                onClick={() => login("/settings")}
+              >
                 Log in with Discord
               </button>
             </div>
@@ -70,11 +78,12 @@ export function SettingsPage() {
         <div className="page-head">
           <div className="page-eyebrow">Account</div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-sub">Manage your account and site preferences.</p>
         </div>
 
         <div className="profile-card">
-          <div className="profile-card-title profile-card-title--sm">Account</div>
+          <div className="profile-card-title profile-card-title--sm">
+            Account
+          </div>
           <div className="settings-account-row">
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt="" className="settings-avatar" />
@@ -91,20 +100,27 @@ export function SettingsPage() {
         </div>
 
         <form className="profile-card" onSubmit={handleSave}>
-          <div className="profile-card-title profile-card-title--sm">RuneScape name</div>
+          <div className="profile-card-title profile-card-title--sm">
+            Old School Runescape name
+          </div>
           <p className="settings-field-hint">
-            Linking your RSN powers your shareable profile and rank verification.
+            Linking your Old School Runescape name powers your shareable profile
+            and rank verification.
           </p>
           <div className="settings-rsn-row">
             <input
               className="admin-input admin-input--wide"
               type="text"
-              placeholder="Your RSN"
+              placeholder="Your Old School Runescape name"
               value={rsName}
               maxLength={30}
               onChange={(e) => setRsName(e.target.value)}
             />
-            <button type="submit" className="admin-btn-primary" disabled={saving}>
+            <button
+              type="submit"
+              className="admin-btn-primary"
+              disabled={saving}
+            >
               {saved ? "Saved" : saving ? "Saving…" : "Save"}
             </button>
           </div>
@@ -112,7 +128,9 @@ export function SettingsPage() {
         </form>
 
         <div className="profile-card">
-          <div className="profile-card-title profile-card-title--sm">Preferences</div>
+          <div className="profile-card-title profile-card-title--sm">
+            Preferences
+          </div>
           <label className="settings-checkbox-row">
             <input
               type="checkbox"
@@ -120,9 +138,12 @@ export function SettingsPage() {
               onChange={handleToggleRemember}
             />
             <div>
-              <div className="settings-checkbox-label">Remember me on the Rankings page</div>
+              <div className="settings-checkbox-label">
+                Remember me on the Rankings page
+              </div>
               <div className="settings-checkbox-hint">
-                Every time you visit Rankings, your RSN is filled in and verified automatically.
+                Every time you visit Rankings, your Old School Runescape name is
+                filled in and verified automatically.
               </div>
             </div>
           </label>

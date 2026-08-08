@@ -3,7 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import { useAuth } from "../context/auth-context";
-import { METRIC_GROUPS, fetchGroupRoles, getWomMetricIcon } from "../services/wom";
+import {
+  METRIC_GROUPS,
+  fetchGroupRoles,
+  getWomMetricIcon,
+} from "../services/wom";
 import {
   addTrophy,
   fetchTrophies,
@@ -14,17 +18,23 @@ import {
   type WomPlayer,
 } from "../services/profile";
 
-const SKILL_METRICS = [
-  ...METRIC_GROUPS.find((g) => g.groupLabel === "Overall")!.metrics,
-  ...METRIC_GROUPS.find((g) => g.groupLabel === "Skills")!.metrics,
-];
-const BOSS_METRICS = METRIC_GROUPS.find((g) => g.groupLabel === "Bosses")!.metrics;
+const SKILL_METRICS = METRIC_GROUPS.find(
+  (g) => g.groupLabel === "Skills",
+)!.metrics;
+const BOSS_METRICS = METRIC_GROUPS.find(
+  (g) => g.groupLabel === "Bosses",
+)!.metrics;
 
 const DEFAULT_RING_COLOR = "#3a2224";
+const COMBAT_LEVEL_ICON =
+  "https://oldschool.runescape.wiki/images/Combat_icon.png";
 
 function formatDate(iso: string | null): string | null {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function timeAgo(iso: string | null): string {
@@ -39,7 +49,7 @@ function timeAgo(iso: string | null): string {
 }
 
 export function ProfilePage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState("");
   const [rsn, setRsn] = useState<string | null>(null);
@@ -118,7 +128,9 @@ export function ProfilePage() {
   async function handleAddTrophy() {
     if (!rsn || !newLabel.trim()) return;
     const trophy = await addTrophy(rsn, newLabel.trim(), newDate.trim());
-    setProfileExtras((prev) => (prev ? { ...prev, trophies: [trophy, ...prev.trophies] } : prev));
+    setProfileExtras((prev) =>
+      prev ? { ...prev, trophies: [trophy, ...prev.trophies] } : prev,
+    );
     setNewLabel("");
     setNewDate("");
   }
@@ -126,11 +138,12 @@ export function ProfilePage() {
   async function handleRemoveTrophy(id: number) {
     await removeTrophy(id);
     setProfileExtras((prev) =>
-      prev ? { ...prev, trophies: prev.trophies.filter((t) => t.id !== id) } : prev,
+      prev
+        ? { ...prev, trophies: prev.trophies.filter((t) => t.id !== id) }
+        : prev,
     );
   }
 
-  const isOwnProfile = !!rsn && !!user?.runescapeName && rsn.toLowerCase() === user.runescapeName.toLowerCase();
   const rank = rsn ? getRankForRole(roles?.get(rsn.toLowerCase())) : null;
 
   const skills = player?.latestSnapshot
@@ -151,12 +164,17 @@ export function ProfilePage() {
       }))
         .filter((b) => b.kc > 0)
         .sort((a, b) => b.kc - a.kc)
+        .slice(0, 9)
     : [];
 
   const accountTypeLabel =
-    player && player.type && player.type !== "regular" ? player.type.replace("_", " ").toUpperCase() : "";
+    player && player.type && player.type !== "regular"
+      ? player.type.replace("_", " ").toUpperCase()
+      : "";
 
-  const memberSince = profileExtras ? formatDate(profileExtras.memberSince) : null;
+  const memberSince = profileExtras
+    ? formatDate(profileExtras.memberSince)
+    : null;
   const totalLevel = player?.latestSnapshot?.data.skills.overall?.level;
 
   return (
@@ -164,23 +182,29 @@ export function ProfilePage() {
       <SiteHeader />
 
       <div className="page">
-        <div className="page-head-row profile-search-row">
-          <div className="page-head-text">
-            <div className="page-eyebrow">Clan Member</div>
-            <h1 className="page-title">Member Profile</h1>
-          </div>
-          <div className="profile-search">
-            <input
-              className="profile-search-input"
-              type="text"
-              placeholder="Look up a member's RSN"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runSearch()}
-            />
-            <button type="button" className="admin-btn-primary" onClick={runSearch}>
-              View
-            </button>
+        <div className="page-head">
+          <div className="page-head-row profile-search-row">
+            <div className="page-head-text">
+              <div className="page-eyebrow">Clan Member</div>
+              <h1 className="page-title">Member Profile</h1>
+            </div>
+            <div className="profile-search">
+              <input
+                className="profile-search-input"
+                type="text"
+                placeholder="Look up a member's profile"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runSearch()}
+              />
+              <button
+                type="button"
+                className="admin-btn-primary"
+                onClick={runSearch}
+              >
+                View
+              </button>
+            </div>
           </div>
         </div>
 
@@ -196,15 +220,24 @@ export function ProfilePage() {
 
         {loading && (
           <div className="profile-state-card">
-            <div className="profile-state-sub">Loading stats from Wise Old Man…</div>
+            <div className="profile-state-sub">
+              Loading stats from Wise Old Man…
+            </div>
           </div>
         )}
 
         {error && !loading && (
           <div className="profile-error-card">
             <div className="profile-state-title">Couldn't load "{rsn}"</div>
-            <div className="profile-state-sub">{error}. Make sure the name is tracked on Wise Old Man, or try again.</div>
-            <button type="button" className="admin-btn-primary" onClick={() => rsn && loadProfile(rsn)}>
+            <div className="profile-state-sub">
+              {error}. Make sure the name is tracked on Wise Old Man, or try
+              again.
+            </div>
+            <button
+              type="button"
+              className="admin-btn-primary"
+              onClick={() => rsn && loadProfile(rsn)}
+            >
               Retry
             </button>
           </div>
@@ -212,55 +245,129 @@ export function ProfilePage() {
 
         {player && !loading && !error && (
           <>
-            <div className="profile-header-card" style={{ borderTopColor: rank?.color ?? DEFAULT_RING_COLOR }}>
+            <div
+              className="profile-header-card"
+              style={{ borderTopColor: rank?.color ?? DEFAULT_RING_COLOR }}
+            >
               <div className="profile-header-main">
                 <div
                   className="profile-avatar"
-                  style={{ borderColor: rank?.color ?? DEFAULT_RING_COLOR, color: rank?.color ?? "#f0e8e6" }}
+                  style={{
+                    borderColor: rank?.color ?? DEFAULT_RING_COLOR,
+                    color: rank?.color ?? "#f0e8e6",
+                  }}
                 >
                   {player.displayName.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <div className="profile-name-row">
-                    <div className="profile-display-name">{player.displayName}</div>
-                    {accountTypeLabel && <div className="profile-type-badge">{accountTypeLabel}</div>}
+                    <div className="profile-display-name">
+                      {player.displayName}
+                    </div>
+                    {accountTypeLabel && (
+                      <div className="profile-type-badge">
+                        {accountTypeLabel}
+                      </div>
+                    )}
                   </div>
                   <div className="profile-rank-row">
-                    {rank && <img src={rank.icon} alt="" className="profile-rank-icon" />}
                     {rank && (
-                      <span className="profile-rank-name" style={{ color: rank.color }}>
+                      <img
+                        src={rank.icon}
+                        alt=""
+                        className="profile-rank-icon"
+                      />
+                    )}
+                    {rank && (
+                      <span
+                        className="profile-rank-name"
+                        style={{ color: rank.color }}
+                      >
                         {rank.name}
                       </span>
                     )}
-                    {memberSince && <span className="profile-member-since">· Member since {memberSince}</span>}
+                    {memberSince && (
+                      <span className="profile-member-since">
+                        · Member since {memberSince}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-              <button type="button" className="admin-btn-ghost profile-share-btn" onClick={handleShare}>
+              <button
+                type="button"
+                className="admin-btn-ghost profile-share-btn"
+                onClick={handleShare}
+              >
                 {shareCopied ? "Link copied" : "Share profile"}
               </button>
             </div>
 
             <div className="profile-stat-chips">
               <div className="profile-stat-chip">
-                <div className="profile-stat-value">{totalLevel?.toLocaleString() ?? "—"}</div>
-                <div className="profile-stat-label">Total Level</div>
-              </div>
-              <div className="profile-stat-chip">
-                <div className="profile-stat-value">{player.exp ? `${(player.exp / 1e6).toFixed(1)}M` : "—"}</div>
-                <div className="profile-stat-label">Total XP</div>
-              </div>
-              <div className="profile-stat-chip">
-                <div className="profile-stat-value">{player.combatLevel ?? "—"}</div>
                 <div className="profile-stat-label">Combat Level</div>
+                <div className="profile-stat-value-row">
+                  <img
+                    src={COMBAT_LEVEL_ICON}
+                    alt=""
+                    className="profile-stat-icon"
+                  />
+                  <div className="profile-stat-value">
+                    {player.combatLevel ?? "—"}
+                  </div>
+                </div>
               </div>
               <div className="profile-stat-chip">
-                <div className="profile-stat-value">{player.ehp ? Math.round(player.ehp) : "—"}</div>
+                <div className="profile-stat-label">Total Level</div>
+                <div className="profile-stat-value-row">
+                  <img
+                    src={getWomMetricIcon("overall")}
+                    alt=""
+                    className="profile-stat-icon"
+                  />
+                  <div className="profile-stat-value">
+                    {totalLevel?.toLocaleString() ?? "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="profile-stat-chip">
+                <div className="profile-stat-label">Total XP</div>
+                <div className="profile-stat-value-row">
+                  <img
+                    src={getWomMetricIcon("overall")}
+                    alt=""
+                    className="profile-stat-icon"
+                  />
+                  <div className="profile-stat-value">
+                    {player.exp ? `${(player.exp / 1e6).toFixed(1)}M` : "—"}
+                  </div>
+                </div>
+              </div>
+              <div className="profile-stat-chip">
                 <div className="profile-stat-label">EHP</div>
+                <div className="profile-stat-value-row">
+                  <img
+                    src={getWomMetricIcon("ehp")}
+                    alt=""
+                    className="profile-stat-icon"
+                  />
+                  <div className="profile-stat-value">
+                    {player.ehp ? Math.round(player.ehp) : "—"}
+                  </div>
+                </div>
               </div>
               <div className="profile-stat-chip">
-                <div className="profile-stat-value">{player.ehb ? Math.round(player.ehb) : "—"}</div>
                 <div className="profile-stat-label">EHB</div>
+                <div className="profile-stat-value-row">
+                  <img
+                    src={getWomMetricIcon("ehb")}
+                    alt=""
+                    className="profile-stat-icon"
+                  />
+                  <div className="profile-stat-value">
+                    {player.ehb ? Math.round(player.ehb) : "—"}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -271,7 +378,11 @@ export function ProfilePage() {
                   <div className="profile-skills-grid">
                     {skills.map((sk) => (
                       <div key={sk.key} className="profile-skill-row">
-                        <img src={sk.icon} alt="" className="profile-skill-icon" />
+                        <img
+                          src={sk.icon}
+                          alt=""
+                          className="profile-skill-icon"
+                        />
                         <div className="profile-skill-name">{sk.name}</div>
                         <div className="profile-skill-level">{sk.level}</div>
                       </div>
@@ -285,33 +396,47 @@ export function ProfilePage() {
                     <div className="profile-bosses-grid">
                       {bosses.map((b) => (
                         <div key={b.key} className="profile-boss-row">
-                          <img src={b.icon} alt="" className="profile-boss-icon" />
+                          <img
+                            src={b.icon}
+                            alt=""
+                            className="profile-boss-icon"
+                          />
                           <div className="profile-boss-info">
                             <div className="profile-boss-name">{b.name}</div>
-                            <div className="profile-boss-kc">{b.kc.toLocaleString()} KC</div>
+                            <div className="profile-boss-kc">
+                              {b.kc.toLocaleString()} KC
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="admin-empty">No tracked boss kills yet.</div>
+                    <div className="admin-empty">
+                      No tracked boss kills yet.
+                    </div>
                   )}
                 </div>
               </div>
 
               <div>
                 <div className="profile-card">
-                  <div className="profile-card-title profile-card-title--sm">Recent activity</div>
+                  <div className="profile-card-title profile-card-title--sm">
+                    Recent activity
+                  </div>
                   <div className="profile-activity-text">
-                    Last progress synced {timeAgo(player.updatedAt)}. Last change detected{" "}
-                    {timeAgo(player.lastChangedAt)}.
+                    <div>Last progress synced {timeAgo(player.updatedAt)}.</div>
+                    <div>
+                      Last change detected {timeAgo(player.lastChangedAt)}.
+                    </div>
                   </div>
                 </div>
 
                 <div className="profile-card">
                   <div className="profile-card-header">
-                    <div className="profile-card-title profile-card-title--sm">Trophy case</div>
-                    {isOwnProfile && (
+                    <div className="profile-card-title profile-card-title--sm">
+                      Trophy case
+                    </div>
+                    {isAdmin && (
                       <button
                         type="button"
                         className="admin-btn-ghost profile-edit-toggle"
@@ -328,7 +453,9 @@ export function ProfilePage() {
                         <div key={t.id} className="profile-trophy-row">
                           <span className="profile-trophy-icon">🏆</span>
                           <div className="profile-trophy-info">
-                            <div className="profile-trophy-label">{t.label}</div>
+                            <div className="profile-trophy-label">
+                              {t.label}
+                            </div>
                             <div className="profile-trophy-date">{t.date}</div>
                           </div>
                           {editingTrophies && (
@@ -344,7 +471,9 @@ export function ProfilePage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="profile-trophy-empty">No event wins recorded yet.</div>
+                    <div className="profile-trophy-empty">
+                      No event wins recorded yet.
+                    </div>
                   )}
 
                   {editingTrophies && (
@@ -362,7 +491,11 @@ export function ProfilePage() {
                           value={newDate}
                           onChange={(e) => setNewDate(e.target.value)}
                         />
-                        <button type="button" className="admin-btn-primary" onClick={handleAddTrophy}>
+                        <button
+                          type="button"
+                          className="admin-btn-primary"
+                          onClick={handleAddTrophy}
+                        >
                           Add
                         </button>
                       </div>

@@ -347,12 +347,12 @@ export const ClanRankings = () => {
               <input
                 className="profile-lookup-input"
                 type="text"
-                placeholder="OSRS username"
+                placeholder="Solo Nostalg"
                 value={username}
                 maxLength={12}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && loadProfile()}
-                aria-label="OSRS username"
+                aria-label="Solo Nostalg"
               />
               <button
                 type="button"

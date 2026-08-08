@@ -153,9 +153,7 @@ function SiteHeaderAccount() {
               </span>
             )}
             <div>
-              <div className="site-header-account-menu-name">
-                {displayName}
-              </div>
+              <div className="site-header-account-menu-name">{displayName}</div>
               <div className="site-header-account-menu-sub">
                 Signed in via Discord
               </div>
@@ -167,7 +165,7 @@ function SiteHeaderAccount() {
             className="site-header-account-menu-item"
             onClick={() => setIsOpen(false)}
           >
-            My dashboard
+            My profile
           </Link>
           <Link
             to="/settings"

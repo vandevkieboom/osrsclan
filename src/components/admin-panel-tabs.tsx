@@ -220,6 +220,24 @@ function TeamsPanel() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg
+      className="ms-search-icon"
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
 function MembersPanel() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [teams, setTeams] = useState<AdminTeam[] | null>(null);
@@ -272,13 +290,16 @@ function MembersPanel() {
   return (
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
-      <input
-        type="text"
-        className="admin-input admin-input--wide admin-member-search"
-        placeholder="Search members…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="admin-member-search-wrap">
+        <SearchIcon />
+        <input
+          type="text"
+          className="admin-input admin-member-search"
+          placeholder="Search members…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
       <div className="admin-row-list">
         {filtered.map((u) => (
           <MemberRow
@@ -639,47 +660,56 @@ function BoardConfigPanel() {
   const slotCount = config.size * config.size;
   const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
   const overflowTiles = tiles.filter((t) => t.position >= slotCount);
+  const firstEmptyPosition = Array.from({ length: slotCount }, (_, i) => i).find(
+    (i) => !tileByPosition.has(i),
+  );
 
   return (
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
 
-      <form className="admin-board-form" onSubmit={handleSaveConfig}>
-        <label className="admin-field">
-          <span>Event name</span>
-          <input
-            type="text"
-            className="admin-input"
-            value={config.name}
-            onChange={(e) => setConfig({ ...config, name: e.target.value })}
-          />
-        </label>
-        <label className="admin-field">
-          <span>Date range</span>
-          <input
-            type="text"
-            className="admin-input"
-            placeholder="e.g. Aug 2 – Aug 16, 2026"
-            value={config.dateRange}
-            onChange={(e) => setConfig({ ...config, dateRange: e.target.value })}
-          />
-        </label>
-        <label className="admin-field">
-          <span>Grid size</span>
-          <select
-            className="admin-select"
-            value={config.size}
-            onChange={(e) => setConfig({ ...config, size: Number(e.target.value) })}
-          >
-            {SIZE_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s} × {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="admin-field">
-          <span>Prize pot</span>
+      <form onSubmit={handleSaveConfig}>
+        <div className="admin-section">
+          <div className="admin-section-label">EVENT SETTINGS</div>
+          <div className="admin-board-form">
+            <label className="admin-field">
+              <span>Event name</span>
+              <input
+                type="text"
+                className="admin-input"
+                value={config.name}
+                onChange={(e) => setConfig({ ...config, name: e.target.value })}
+              />
+            </label>
+            <label className="admin-field">
+              <span>Date range</span>
+              <input
+                type="text"
+                className="admin-input"
+                placeholder="e.g. Aug 2 – Aug 16, 2026"
+                value={config.dateRange}
+                onChange={(e) => setConfig({ ...config, dateRange: e.target.value })}
+              />
+            </label>
+            <label className="admin-field">
+              <span>Grid size</span>
+              <select
+                className="admin-select"
+                value={config.size}
+                onChange={(e) => setConfig({ ...config, size: Number(e.target.value) })}
+              >
+                {SIZE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s} × {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="admin-section admin-section--prizepot">
+          <div className="admin-section-label">PRIZE POT</div>
           <div className="admin-prizepot-row">
             <input
               type="text"
@@ -728,7 +758,8 @@ function BoardConfigPanel() {
             + Entry
           </button>
         </div>
-        <div>
+
+        <div className="admin-section-save">
           <button type="submit" className="admin-btn-primary" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
@@ -736,46 +767,42 @@ function BoardConfigPanel() {
         </div>
       </form>
 
-      <div className="admin-row-list">
-        {Array.from({ length: slotCount }, (_, position) => {
-          const tile = tileByPosition.get(position);
+      <div className="admin-section-divider" />
 
-          if (tile) {
-            return (
+      <div className="admin-section">
+        <div className="admin-section-label">TILES</div>
+        <div className="admin-row-list admin-tile-list">
+          {tiles
+            .filter((t) => t.position < slotCount)
+            .sort((a, b) => a.position - b.position)
+            .map((tile) => (
               <TileRow
-                key={position}
+                key={tile.position}
                 tile={tile}
                 onSave={(name, iconUrl, requiredCount, category, description) =>
                   handleSaveTile(tile.id, name, iconUrl, requiredCount, category, description)
                 }
                 onDelete={() => handleDeleteTile(tile.id)}
               />
-            );
-          }
-
-          if (addingPosition === position) {
-            return (
-              <TileAddRow
-                key={position}
-                onSave={(name, iconUrl, requiredCount, category, description) =>
-                  handleAddTile(position, name, iconUrl, requiredCount, category, description)
-                }
-                onCancel={() => setAddingPosition(null)}
-              />
-            );
-          }
-
-          return (
-            <button
-              key={position}
-              type="button"
-              className="admin-row admin-row--empty"
-              onClick={() => setAddingPosition(position)}
-            >
-              + Add tile
-            </button>
-          );
-        })}
+            ))}
+          {addingPosition !== null && (
+            <TileAddRow
+              onSave={(name, iconUrl, requiredCount, category, description) =>
+                handleAddTile(addingPosition, name, iconUrl, requiredCount, category, description)
+              }
+              onCancel={() => setAddingPosition(null)}
+            />
+          )}
+        </div>
+        {addingPosition === null && firstEmptyPosition !== undefined && (
+          <button
+            type="button"
+            className="admin-tile-list-add"
+            onClick={() => setAddingPosition(firstEmptyPosition)}
+          >
+            + Add Tile
+          </button>
+        )}
       </div>
 
       {overflowTiles.length > 0 && (

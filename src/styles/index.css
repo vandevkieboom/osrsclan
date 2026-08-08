@@ -3090,7 +3090,6 @@ body {
 .bingo-tiles-grid {
   display: grid;
   gap: 10px;
-  max-width: 780px;
 }
 
 .bingo-tile {
@@ -3114,6 +3113,7 @@ body {
 
 .bingo-tile:hover {
   transform: translateY(-2px);
+  border-color: #e8574a;
 }
 
 .bingo-tile--approved {
@@ -3504,7 +3504,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 420px;
+  max-width: 500px;
   margin-bottom: 1rem;
 }
 
@@ -3514,6 +3514,29 @@ body {
   gap: 0.35rem;
   font-size: 12px;
   color: #a08c89;
+}
+
+.admin-section-label {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8f7a78;
+  margin-bottom: 14px;
+}
+
+.admin-section--prizepot {
+  max-width: 700px;
+}
+
+.admin-section-save {
+  margin-top: 24px;
+}
+
+.admin-section-divider {
+  border-top: 1px solid #2a1315;
+  margin: 32px 0;
+  max-width: 900px;
 }
 
 .admin-tiles-heading {
@@ -3526,6 +3549,11 @@ body {
   gap: 0.5rem;
   max-width: 780px;
   margin-bottom: 1.5rem;
+}
+
+.admin-tile-list {
+  gap: 10px;
+  max-width: 900px;
 }
 
 .admin-row {
@@ -3554,6 +3582,26 @@ body {
 .admin-row--empty:hover {
   border-color: #7a3034;
   color: #a08c89;
+}
+
+.admin-tile-list-add {
+  align-self: flex-start;
+  background: #a3241a;
+  border: 1px solid #a3241a;
+  color: #fff;
+  padding: 10px 18px;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.admin-tile-list-add:hover {
+  background: #8c1f16;
+  border-color: #8c1f16;
 }
 
 .admin-row-color {
@@ -3601,22 +3649,28 @@ body {
 }
 
 .admin-tile-thumb {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   flex-shrink: 0;
 }
 
 .admin-tile-icon-input {
-  width: 220px;
+  width: 200px;
   flex-shrink: 0;
   color: #8f7a78;
   font-size: 11px;
+  padding: 7px 10px;
+  border-color: #2a1315;
 }
 
 .admin-tile-count-input {
-  width: 92px;
+  width: 56px;
   flex-shrink: 0;
+  color: #8f7a78;
+  font-size: 11px;
+  padding: 7px 8px;
+  border-color: #2a1315;
 }
 
 .admin-tile-row--adding {
@@ -3627,23 +3681,37 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 0.5rem;
+  border-radius: 8px;
+  padding: 12px 16px;
 }
 
 .admin-tile-card-top {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 10px;
+}
+
+.admin-tile-card .admin-row-input {
+  font-size: 12.5px;
+  padding: 7px 10px;
+  border-color: #2a1315;
 }
 
 .admin-tile-category-input {
-  width: 130px;
+  width: 110px;
   flex-shrink: 0;
   color: #8f7a78;
   font-size: 11px;
+  padding: 7px 10px;
+  border-color: #2a1315;
 }
 
 .admin-tile-description-input {
   width: 100%;
+  color: #c9b8b6;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-color: #2a1315;
 }
 
 .admin-tile-card-actions {
@@ -3651,8 +3719,18 @@ body {
   gap: 0.6rem;
 }
 
-.admin-member-search {
+.admin-member-search-wrap {
+  position: relative;
   margin-bottom: 0.9rem;
+}
+
+.admin-member-search-wrap .ms-search-icon {
+  left: 12px;
+}
+
+.admin-member-search {
+  width: 100%;
+  padding-left: 30px;
 }
 
 .admin-donation-input {
@@ -3662,7 +3740,7 @@ body {
 
 .admin-prizepot-row {
   display: flex;
-  gap: 0.6rem;
+  gap: 12px;
   margin-bottom: 0.5rem;
 }
 
@@ -3672,6 +3750,27 @@ body {
 
 .admin-draft-intro {
   max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 24px 26px;
+}
+
+.admin-draft-intro .page-sub {
+  font-size: 13px;
+  color: #c9b8b6;
+  max-width: none;
+  margin: 0;
+}
+
+.admin-draft-intro .admin-btn-primary {
+  padding: 10px 18px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
 }
 
 .admin-draft-clock {
@@ -3681,7 +3780,7 @@ body {
   border: 1px solid #2a1315;
   background: #120809;
   border-radius: 8px;
-  padding: 1.1rem 1.4rem;
+  padding: 18px 22px;
   margin-bottom: 1.5rem;
 }
 
@@ -3699,6 +3798,12 @@ body {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+}
+
+.admin-draft-available .bingo-team-pill {
+  background: #120809;
+  padding: 9px 16px;
+  font-size: 12.5px;
 }
 
 /* =====================
@@ -4298,11 +4403,24 @@ body {
   color: var(--text-primary);
 }
 
+.profile-stat-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.profile-stat-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .profile-stat-label {
   font-size: 10.5px;
   letter-spacing: 0.08em;
   color: #8f7a78;
-  margin-top: 0.25rem;
 }
 
 .profile-columns {
@@ -4335,7 +4453,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.4rem;
 }
 
 .profile-skills-grid {
@@ -4425,6 +4543,10 @@ body {
   margin-top: 0.4rem;
 }
 
+.profile-activity-text div + div {
+  margin-top: 0.2rem;
+}
+
 .profile-edit-toggle {
   font-size: 10px;
   padding: 0.35rem 0.7rem;
@@ -4506,13 +4628,22 @@ body {
    ===================== */
 
 .settings-page {
+  padding-bottom: 0;
+}
+
+.settings-page .profile-card {
   max-width: 640px;
+}
+
+.settings-page + .site-footer {
+  margin-top: 56px;
 }
 
 .settings-account-row {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 14px;
+  margin-top: 16px;
 }
 
 .settings-avatar {
@@ -4541,12 +4672,12 @@ body {
   font-size: 12.5px;
   color: #a08c89;
   line-height: 1.5;
-  margin: 0.4rem 0 0.9rem;
+  margin: 6px 0 14px;
 }
 
 .settings-rsn-row {
   display: flex;
-  gap: 0.6rem;
+  gap: 10px;
 }
 
 .settings-checkbox-row {
@@ -4554,6 +4685,7 @@ body {
   align-items: flex-start;
   gap: 0.75rem;
   cursor: pointer;
+  margin-top: 14px;
 }
 
 .settings-checkbox-row input[type="checkbox"] {
