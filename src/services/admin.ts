@@ -17,6 +17,7 @@ export interface AdminUser {
   isAdmin: boolean;
   team: { id: number; name: string } | null;
   donatedGp: number;
+  bingoEntrant: boolean;
 }
 
 export interface PrizePotEntry {
@@ -147,6 +148,15 @@ export async function setDonation(userId: number, donatedGp: number): Promise<vo
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, donatedGp }),
+  });
+  await json(res);
+}
+
+export async function setEntrant(userId: number, entrant: boolean): Promise<void> {
+  const res = await fetch("/api/admin/teams?resource=entrant", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, entrant }),
   });
   await json(res);
 }

@@ -207,7 +207,7 @@ async function getDraft(res: VercelResponse) {
   const config = await getOrCreateBoardConfig();
   const unassigned = await sql`
     SELECT id, discord_username, discord_global_name, runescape_name
-    FROM users WHERE team_id IS NULL ORDER BY discord_username`;
+    FROM users WHERE team_id IS NULL AND bingo_entrant = TRUE ORDER BY discord_username`;
   res.status(200).json({
     draft: {
       active: config.draft_active,
@@ -225,11 +225,11 @@ async function getDraft(res: VercelResponse) {
 async function startDraft(res: VercelResponse) {
   const teamRows = await sql`SELECT id FROM teams ORDER BY name`;
   const teamIds: number[] = teamRows.map((t) => t.id);
-  const unassignedRows = await sql`SELECT id FROM users WHERE team_id IS NULL`;
+  const unassignedRows = await sql`SELECT id FROM users WHERE team_id IS NULL AND bingo_entrant = TRUE`;
   const unassignedCount = unassignedRows.length;
 
   if (teamIds.length === 0 || unassignedCount === 0) {
-    res.status(400).json({ error: "No teams or no unassigned members to draft" });
+    res.status(400).json({ error: "No teams or no unassigned entrants to draft" });
     return;
   }
 
@@ -263,7 +263,7 @@ async function pickDraft(req: VercelRequest, res: VercelResponse) {
   }
 
   const memberRows = await sql`
-    SELECT id, team_id, discord_username, discord_global_name, runescape_name
+    SELECT id, team_id, bingo_entrant, discord_username, discord_global_name, runescape_name
     FROM users WHERE id = ${userId}`;
   if (memberRows.length === 0) {
     res.status(404).json({ error: "Member not found" });
@@ -271,6 +271,10 @@ async function pickDraft(req: VercelRequest, res: VercelResponse) {
   }
   if (memberRows[0].team_id !== null) {
     res.status(409).json({ error: "That member is already assigned to a team" });
+    return;
+  }
+  if (!memberRows[0].bingo_entrant) {
+    res.status(409).json({ error: "That member hasn't entered this bingo" });
     return;
   }
 

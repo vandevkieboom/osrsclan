@@ -389,6 +389,14 @@ export function BingoPage() {
   // back to Leaderboard/Board/Draft needs a fresh fetch to see it.
   useEffect(reloadBoard, [view]);
 
+  // Captains/spectators watching the Draft tab while an admin runs the draft
+  // elsewhere have no other way to see picks land — poll while it's open.
+  useEffect(() => {
+    if (view !== "draft") return;
+    const interval = setInterval(reloadBoard, 4000);
+    return () => clearInterval(interval);
+  }, [view]);
+
   function reloadSubmissions() {
     if (!isAdmin) {
       Promise.resolve(null).then(setSubmissions);
@@ -659,7 +667,7 @@ export function BingoPage() {
             )}
             {!board.draft.active && board.draft.log.length > 0 && board.draft.unassignedCount > 0 && (
               <div className="bingo-admin-empty">
-                The draft was paused — {board.draft.unassignedCount} member
+                The draft was paused — {board.draft.unassignedCount} entrant
                 {board.draft.unassignedCount === 1 ? "" : "s"} still waiting to be assigned.
               </div>
             )}

@@ -3714,6 +3714,33 @@ body {
   padding-left: 30px;
 }
 
+.admin-member-entrant-count {
+  font-size: 12px;
+  color: #8f7a78;
+  max-width: 780px;
+  margin: 0 0 0.9rem;
+}
+
+.admin-row-entrant {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #a08c89;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-row-entrant input[type="checkbox"] {
+  accent-color: #e8574a;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
 .admin-donation-input {
   width: 110px;
   flex-shrink: 0;
@@ -3747,6 +3774,10 @@ body {
   color: #c9b8b6;
   max-width: none;
   margin: 0;
+  min-height: 0;
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .admin-draft-status {

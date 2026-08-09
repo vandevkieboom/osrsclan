@@ -42,9 +42,9 @@ const PLACEHOLDER_TEAMS: AdminTeam[] = [
   { id: 2, name: "Onyx Talon", slug: "onyx-talon", accentColor: "#5b9bd5", memberCount: 5, captainId: null, captainName: null },
 ];
 const PLACEHOLDER_USERS: AdminUser[] = [
-  { id: 1, username: "izjordy", globalName: "izJordy", runescapeName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" }, donatedGp: 500000 },
-  { id: 2, username: "test_user_two", globalName: "Test User Two", runescapeName: null, avatarUrl: null, isAdmin: false, team: null, donatedGp: 0 },
-  { id: 3, username: "test_user_three", globalName: null, runescapeName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" }, donatedGp: 0 },
+  { id: 1, username: "izjordy", globalName: "izJordy", runescapeName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" }, donatedGp: 500000, bingoEntrant: true },
+  { id: 2, username: "test_user_two", globalName: "Test User Two", runescapeName: null, avatarUrl: null, isAdmin: false, team: null, donatedGp: 0, bingoEntrant: true },
+  { id: 3, username: "test_user_three", globalName: null, runescapeName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" }, donatedGp: 0, bingoEntrant: false },
 ];
 const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
@@ -282,11 +282,21 @@ function MembersPanel() {
     }
   }
 
+  async function handleEntrant(userId: number, entrant: boolean) {
+    try {
+      await setEntrant(userId, entrant);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update entrant status");
+    }
+  }
+
   const filtered = (users ?? []).filter((u) => {
     if (!search.trim()) return true;
     const name = u.runescapeName ?? u.globalName ?? u.username;
     return name.toLowerCase().includes(search.trim().toLowerCase());
   });
+  const entrantCount = (users ?? []).filter((u) => u.bingoEntrant).length;
 
   return (
     <div className="admin-panel">
@@ -301,6 +311,11 @@ function MembersPanel() {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
+      {users && (
+        <p className="admin-member-entrant-count">
+          {entrantCount} of {users.length} members entered in this bingo — only entrants can be drafted.
+        </p>
+      )}
       <div className="admin-row-list">
         {filtered.map((u) => (
           <MemberRow
@@ -309,6 +324,7 @@ function MembersPanel() {
             teams={teams ?? []}
             onAssign={(value) => handleAssign(u.id, value)}
             onDonation={(gp) => handleDonation(u.id, gp)}
+            onEntrant={(entrant) => handleEntrant(u.id, entrant)}
           />
         ))}
         {users && users.length > 0 && filtered.length === 0 && (
@@ -325,11 +341,13 @@ function MemberRow({
   teams,
   onAssign,
   onDonation,
+  onEntrant,
 }: {
   user: AdminUser;
   teams: AdminTeam[];
   onAssign: (value: string) => void;
   onDonation: (donatedGp: number) => void;
+  onEntrant: (entrant: boolean) => void;
 }) {
   const [donation, setDonation] = useState(String(user.donatedGp));
   const [prevGp, setPrevGp] = useState(user.donatedGp);
@@ -347,6 +365,17 @@ function MemberRow({
   return (
     <div className="admin-row">
       <span className="admin-row-name">{user.runescapeName ?? user.globalName ?? user.username}</span>
+      <label
+        className="admin-row-entrant"
+        title="Entered this bingo (paid entry fee) — eligible for the draft"
+      >
+        <input
+          type="checkbox"
+          checked={user.bingoEntrant}
+          onChange={(e) => onEntrant(e.target.checked)}
+        />
+        Entrant
+      </label>
       <input
         type="number"
         min={0}
@@ -858,6 +887,13 @@ function DraftPanel() {
 
   useEffect(reload, []);
 
+  // Keeps this panel in sync if another admin is running picks from a
+  // different tab/session at the same time.
+  useEffect(() => {
+    const interval = setInterval(reload, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   async function handleStart() {
     try {
       const d = await startDraft();
@@ -917,14 +953,15 @@ function DraftPanel() {
       {!draft.active && (
         <div className="admin-draft-intro">
           <p className="page-sub">
-            Runs a snake draft over the {unassignedCount} unassigned members, in order across{" "}
-            {teams.length} teams — you make each pick on behalf of the captains.
+            Runs a snake draft over the {unassignedCount} unassigned entrant{unassignedCount === 1 ? "" : "s"}, in
+            order across {teams.length} teams — you make each pick on behalf of the captains. Only members marked
+            as an entrant in the Members tab are eligible.
           </p>
           {hasPreviousDraft && (
             <p className="page-sub admin-draft-status">
               {unassignedCount === 0
-                ? "The last draft finished — every member was assigned."
-                : `The last draft ended with ${unassignedCount} member${unassignedCount === 1 ? "" : "s"} still unassigned.`}
+                ? "The last draft finished — every entrant was assigned."
+                : `The last draft ended with ${unassignedCount} entrant${unassignedCount === 1 ? "" : "s"} still unassigned.`}
             </p>
           )}
           <div className="admin-draft-actions">

@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS runescape_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_rankings BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS donated_gp BIGINT NOT NULL DEFAULT 0;
+-- Not every registered member pays into / joins a given bingo event — only
+-- entrants are eligible to be drafted onto a team.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bingo_entrant BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
 
 -- Added after users so the FK target already exists when this file is
