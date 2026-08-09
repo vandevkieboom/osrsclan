@@ -29,14 +29,6 @@ const DEFAULT_RING_COLOR = "#3a2224";
 const COMBAT_LEVEL_ICON =
   "https://oldschool.runescape.wiki/images/Combat_icon.png";
 
-function formatDate(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function timeAgo(iso: string | null): string {
   if (!iso) return "unknown";
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -86,9 +78,7 @@ export function ProfilePage() {
     // should still render with an empty trophy case rather than dying.
     fetchTrophies(target)
       .then(setProfileExtras)
-      .catch(() =>
-        setProfileExtras({ trophies: [], memberSince: null, avatarUrl: null }),
-      );
+      .catch(() => setProfileExtras({ trophies: [], avatarUrl: null }));
 
     fetchWomPlayer(target)
       .then(setPlayer)
@@ -169,9 +159,6 @@ export function ProfilePage() {
         .slice(0, 9)
     : [];
 
-  const memberSince = profileExtras
-    ? formatDate(profileExtras.memberSince)
-    : null;
   const totalLevel = player?.latestSnapshot?.data.skills.overall?.level;
 
   return (
@@ -286,11 +273,6 @@ export function ProfilePage() {
                         style={{ color: rank.color }}
                       >
                         {rank.name}
-                      </span>
-                    )}
-                    {memberSince && (
-                      <span className="profile-member-since">
-                        · Member since {memberSince}
                       </span>
                     )}
                   </div>
