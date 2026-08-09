@@ -203,142 +203,17 @@ async function deleteTile(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ ok: true });
 }
 
-async function getDraft(res: VercelResponse) {
-  const config = await getOrCreateBoardConfig();
-  const unassigned = await sql`
-    SELECT id, discord_username, discord_global_name, runescape_name
-    FROM users WHERE team_id IS NULL AND bingo_entrant = TRUE ORDER BY discord_username`;
-  res.status(200).json({
-    draft: {
-      active: config.draft_active,
-      order: config.draft_order,
-      pickIndex: config.draft_pick_index,
-      log: config.draft_log,
-    },
-    unassignedMembers: unassigned.map((u) => ({
-      id: u.id,
-      name: u.runescape_name ?? u.discord_global_name ?? u.discord_username,
-    })),
-  });
-}
-
-async function startDraft(res: VercelResponse) {
-  const teamRows = await sql`SELECT id FROM teams ORDER BY name`;
-  const teamIds: number[] = teamRows.map((t) => t.id);
-  const unassignedRows = await sql`SELECT id FROM users WHERE team_id IS NULL AND bingo_entrant = TRUE`;
-  const unassignedCount = unassignedRows.length;
-
-  if (teamIds.length === 0 || unassignedCount === 0) {
-    res.status(400).json({ error: "No teams or no unassigned entrants to draft" });
-    return;
-  }
-
-  const order: number[] = [];
-  let round = 0;
-  while (order.length < unassignedCount) {
-    const seq = round % 2 === 0 ? teamIds : [...teamIds].reverse();
-    order.push(...seq);
-    round += 1;
-  }
-
-  await sql`
-    UPDATE board_config SET
-      draft_active = TRUE, draft_order = ${JSON.stringify(order.slice(0, unassignedCount))}::jsonb,
-      draft_pick_index = 0, draft_log = '[]'::jsonb, updated_at = now()
-    WHERE id = 1`;
-  await getDraft(res);
-}
-
-async function pickDraft(req: VercelRequest, res: VercelResponse) {
-  const userId = Number(req.body?.userId);
-  if (!Number.isInteger(userId)) {
-    res.status(400).json({ error: "userId is required" });
-    return;
-  }
-
-  const config = await getOrCreateBoardConfig();
-  if (!config.draft_active) {
-    res.status(409).json({ error: "The draft is not active" });
-    return;
-  }
-
-  const memberRows = await sql`
-    SELECT id, team_id, bingo_entrant, discord_username, discord_global_name, runescape_name
-    FROM users WHERE id = ${userId}`;
-  if (memberRows.length === 0) {
-    res.status(404).json({ error: "Member not found" });
-    return;
-  }
-  if (memberRows[0].team_id !== null) {
-    res.status(409).json({ error: "That member is already assigned to a team" });
-    return;
-  }
-  if (!memberRows[0].bingo_entrant) {
-    res.status(409).json({ error: "That member hasn't entered this bingo" });
-    return;
-  }
-
-  const teamId = config.draft_order[config.draft_pick_index];
-  const memberName =
-    memberRows[0].runescape_name ?? memberRows[0].discord_global_name ?? memberRows[0].discord_username;
-  const pickNumber = config.draft_pick_index + 1;
-  const nextIndex = config.draft_pick_index + 1;
-  const stillActive = nextIndex < config.draft_order.length;
-
-  await sql`UPDATE users SET team_id = ${teamId} WHERE id = ${userId}`;
-  await sql`
-    UPDATE board_config SET
-      draft_pick_index = ${nextIndex}, draft_active = ${stillActive},
-      draft_log = draft_log || ${JSON.stringify([{ pickNumber, teamId, memberName, userId }])}::jsonb,
-      updated_at = now()
-    WHERE id = 1`;
-
-  await getDraft(res);
-}
-
-async function endDraft(res: VercelResponse) {
-  // Stops the clock without unassigning anyone already picked — the pick
-  // log is intentionally left untouched.
-  await sql`
-    UPDATE board_config SET draft_active = FALSE, draft_order = '[]'::jsonb, draft_pick_index = 0, updated_at = now()
-    WHERE id = 1`;
-  await getDraft(res);
-}
-
-async function resetDraft(res: VercelResponse) {
-  // Fully undoes the last draft run: puts everyone it picked back to
-  // unassigned and wipes the log, so "Start Draft" is meaningful again.
-  // Only entries with a stored userId (picks made after this field was
-  // added) can be safely reversed — older log entries are skipped.
-  const config = await getOrCreateBoardConfig();
-  const draftedUserIds = config.draft_log
-    .map((entry) => entry.userId)
-    .filter((id): id is number => typeof id === "number");
-
-  if (draftedUserIds.length > 0) {
-    await sql`UPDATE users SET team_id = NULL WHERE id = ANY(${draftedUserIds}::bigint[])`;
-  }
-
-  await sql`
-    UPDATE board_config SET
-      draft_active = FALSE, draft_order = '[]'::jsonb, draft_pick_index = 0, draft_log = '[]'::jsonb, updated_at = now()
-    WHERE id = 1`;
-  await getDraft(res);
-}
-
-// Board config, tiles, and the draft are combined into one function to stay
-// under the Vercel Hobby plan's 12-function-per-deployment cap — dispatched
-// by `resource`, the same pattern api/wom-proxy.ts already uses for `type`.
+// Board config and tiles are combined into one function to stay under the
+// Vercel Hobby plan's 12-function-per-deployment cap — dispatched by
+// `resource`, the same pattern api/wom-proxy.ts already uses for `type`.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!(await requireAdmin(req, res))) return;
 
   const resource = req.query.resource;
   const isTiles = resource === "tiles";
-  const isDraft = resource === "draft";
 
   if (req.method === "GET") {
     if (isTiles) await listTiles(res);
-    else if (isDraft) await getDraft(res);
     else await getConfig(res);
     return;
   }
@@ -346,16 +221,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "PUT") {
     if (isTiles) await updateTile(req, res);
     else await updateConfig(req, res);
-    return;
-  }
-
-  if (req.method === "POST" && isDraft) {
-    const action = req.body?.action;
-    if (action === "start") await startDraft(res);
-    else if (action === "pick") await pickDraft(req, res);
-    else if (action === "end") await endDraft(res);
-    else if (action === "reset") await resetDraft(res);
-    else res.status(400).json({ error: "action must be 'start', 'pick', 'end', or 'reset'" });
     return;
   }
 

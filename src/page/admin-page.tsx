@@ -16,7 +16,7 @@ export function AdminPage() {
           <div className="page-head">
             <div className="page-eyebrow">Staff</div>
             <h1 className="page-title">Admin Panel</h1>
-            <p className="page-sub">Manage teams, members, the board, and the draft.</p>
+            <p className="page-sub">Manage teams, members, and the board.</p>
           </div>
           <div className="bingo-admin-empty">
             {user ? (
@@ -49,7 +49,7 @@ export function AdminPage() {
         <div className="page-head">
           <div className="page-eyebrow">Staff</div>
           <h1 className="page-title">Admin Panel</h1>
-          <p className="page-sub">Manage teams, members, the board, and the draft.</p>
+          <p className="page-sub">Manage teams, members, and the board.</p>
         </div>
         <AdminPanelTabs />
       </div>

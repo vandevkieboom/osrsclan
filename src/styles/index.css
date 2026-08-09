@@ -3714,33 +3714,6 @@ body {
   padding-left: 30px;
 }
 
-.admin-member-entrant-count {
-  font-size: 12px;
-  color: #8f7a78;
-  max-width: 780px;
-  margin: 0 0 0.9rem;
-}
-
-.admin-row-entrant {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #a08c89;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.admin-row-entrant input[type="checkbox"] {
-  accent-color: #e8574a;
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-}
-
 .admin-donation-input {
   width: 110px;
   flex-shrink: 0;
@@ -3756,80 +3729,8 @@ body {
   flex: 1;
 }
 
-.admin-draft-intro {
-  max-width: 600px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-  border: 1px solid #2a1315;
-  background: #120809;
-  border-radius: 8px;
-  padding: 24px 26px;
-  margin-bottom: 1.5rem;
-}
-
-.admin-draft-intro .page-sub {
-  font-size: 13px;
-  color: #c9b8b6;
-  max-width: none;
-  margin: 0;
-  min-height: 0;
-  display: block;
-  -webkit-line-clamp: unset;
-  overflow: visible;
-}
-
-.admin-draft-status {
-  color: #8f7a78;
-}
-
-.admin-draft-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.admin-draft-intro .admin-btn-primary {
-  padding: 10px 18px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-}
-
-.admin-draft-clock {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 1px solid #2a1315;
-  background: #120809;
-  border-radius: 8px;
-  padding: 18px 22px;
-  margin-bottom: 1.5rem;
-}
-
-.admin-draft-available-label {
-  font-family: "Manrope", Arial, Helvetica, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #8f7a78;
-  margin-bottom: 0.6rem;
-}
-
-.admin-draft-available {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.admin-draft-available .bingo-team-pill {
-  background: #120809;
-  padding: 9px 16px;
-  font-size: 12.5px;
-}
-
 /* =====================
-   Bingo redesign — board head, team switcher, detail panel, draft
+   Bingo redesign — board head, team switcher, detail panel
    ===================== */
 
 .bingo-board-head {
@@ -4136,118 +4037,6 @@ body {
   object-fit: contain;
 }
 
-.bingo-draft {
-  max-width: 900px;
-}
-
-.bingo-draft-clock {
-  border: 1px solid #2a1315;
-  background: #120809;
-  border-radius: 8px;
-  padding: 1.1rem 1.4rem;
-  margin-bottom: 1.25rem;
-}
-
-.bingo-draft-clock-label {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: #8f7a78;
-  margin-bottom: 0.25rem;
-}
-
-.bingo-draft-clock-team {
-  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 19px;
-}
-
-.bingo-draft-clock-captain {
-  font-size: 11.5px;
-  color: #a08c89;
-  margin-top: 0.15rem;
-}
-
-.bingo-draft-complete {
-  border: 1px solid var(--green);
-  background: color-mix(in srgb, var(--green) 8%, transparent);
-  border-radius: 8px;
-  padding: 1rem 1.4rem;
-  margin-bottom: 1.25rem;
-  font-size: 13px;
-  color: #c9b8b6;
-}
-
-.bingo-draft-log {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  margin-bottom: 1.75rem;
-}
-
-.bingo-draft-log-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: #120809;
-  border: 1px solid #2a1315;
-  border-radius: 6px;
-  padding: 0.55rem 0.9rem;
-}
-
-.bingo-draft-log-num {
-  font-size: 11px;
-  color: #7a655f;
-  width: 30px;
-}
-
-.bingo-draft-log-team {
-  font-size: 12px;
-  color: #a08c89;
-  width: 140px;
-}
-
-.bingo-draft-log-member {
-  font-size: 13px;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.bingo-draft-rosters {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.bingo-draft-roster-card {
-  border: 1px solid #2a1315;
-  border-top: 3px solid #8f7a78;
-  background: #120809;
-  border-radius: 8px;
-  padding: 0.9rem 1rem;
-}
-
-.bingo-draft-roster-name {
-  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 14px;
-  margin-bottom: 0.5rem;
-}
-
-.bingo-draft-roster-captain {
-  font-size: 11px;
-  color: #8f7a78;
-  margin-bottom: 0.6rem;
-}
-
-.bingo-draft-roster-member {
-  font-size: 12px;
-  color: #c9b8b6;
-  margin-bottom: 0.3rem;
-}
-
-.bingo-draft-roster-empty {
-  font-size: 11.5px;
-  color: #7a655f;
-}
-
 @media (max-width: 900px) {
   .bingo-board-layout {
     grid-template-columns: 1fr;
@@ -4255,10 +4044,6 @@ body {
 
   .bingo-sidebar {
     position: static;
-  }
-
-  .bingo-draft-rosters {
-    grid-template-columns: 1fr;
   }
 }
 

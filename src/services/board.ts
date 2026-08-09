@@ -51,25 +51,10 @@ export interface PrizePot {
   entries: PrizePotEntry[];
 }
 
-export interface DraftPick {
-  pickNumber: number;
-  teamId: number;
-  memberName: string;
-}
-
-export interface DraftState {
-  active: boolean;
-  order: number[];
-  pickIndex: number;
-  log: DraftPick[];
-  unassignedCount: number;
-}
-
 export interface BoardData {
   config: { name: string; dateRange: string; size: number; prizePot: PrizePot };
   teams: BoardTeam[];
   myTeamId: number | null;
-  draft: DraftState;
 }
 
 export interface Donor {

@@ -179,7 +179,7 @@ async function deleteTeam(req: VercelRequest, res: VercelResponse) {
 async function listUsers(res: VercelResponse) {
   const rows = await sql`
     SELECT u.id, u.discord_id, u.discord_username, u.discord_global_name, u.discord_avatar_hash,
-           u.is_admin, u.team_id, u.runescape_name, u.donated_gp, u.bingo_entrant, t.name AS team_name
+           u.is_admin, u.team_id, u.runescape_name, u.donated_gp, t.name AS team_name
     FROM users u
     LEFT JOIN teams t ON t.id = u.team_id
     ORDER BY u.discord_username`;
@@ -196,7 +196,6 @@ async function listUsers(res: VercelResponse) {
       isAdmin: r.is_admin,
       team: r.team_id ? { id: r.team_id, name: r.team_name } : null,
       donatedGp: Number(r.donated_gp),
-      bingoEntrant: r.bingo_entrant,
     })),
   });
 }
@@ -249,24 +248,6 @@ async function setDonation(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ userId: rows[0].id, donatedGp: Number(rows[0].donated_gp) });
 }
 
-async function setEntrant(req: VercelRequest, res: VercelResponse) {
-  const userId = Number(req.body?.userId);
-  const entrant = req.body?.entrant;
-  if (!Number.isInteger(userId) || typeof entrant !== "boolean") {
-    res.status(400).json({ error: "userId and a boolean entrant are required" });
-    return;
-  }
-
-  const rows = await sql`
-    UPDATE users SET bingo_entrant = ${entrant} WHERE id = ${userId}
-    RETURNING id, bingo_entrant`;
-  if (rows.length === 0) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-  res.status(200).json({ userId: rows[0].id, bingoEntrant: rows[0].bingo_entrant });
-}
-
 // Teams, users, and team-assignment are combined into one function — the
 // Vercel Hobby plan caps a deployment at 12 serverless functions total, and
 // this project already needed all of auth + board + the legacy WOM/RuneProfile
@@ -293,10 +274,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (resource === "donation") {
       await setDonation(req, res);
-      return;
-    }
-    if (resource === "entrant") {
-      await setEntrant(req, res);
       return;
     }
     await createTeam(req, res);

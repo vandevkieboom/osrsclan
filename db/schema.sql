@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS runescape_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_rankings BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS donated_gp BIGINT NOT NULL DEFAULT 0;
--- Not every registered member pays into / joins a given bingo event — only
--- entrants are eligible to be drafted onto a team.
-ALTER TABLE users ADD COLUMN IF NOT EXISTS bingo_entrant BOOLEAN NOT NULL DEFAULT FALSE;
+-- The bingo draft feature (and the entrant flag that fed its pick pool) was
+-- removed — drop the columns it left behind.
+ALTER TABLE users DROP COLUMN IF EXISTS bingo_entrant;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
 
 -- Added after users so the FK target already exists when this file is
@@ -49,10 +49,10 @@ CREATE TABLE IF NOT EXISTS board_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO board_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_active BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_order JSONB NOT NULL DEFAULT '[]';
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_pick_index INT NOT NULL DEFAULT 0;
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS draft_log JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_active;
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_order;
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_log;
 ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":"","buyIn":"","donated":"","entries":[]}';
 
 CREATE TABLE IF NOT EXISTS tiles (

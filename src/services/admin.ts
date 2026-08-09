@@ -17,7 +17,6 @@ export interface AdminUser {
   isAdmin: boolean;
   team: { id: number; name: string } | null;
   donatedGp: number;
-  bingoEntrant: boolean;
 }
 
 export interface PrizePotEntry {
@@ -47,24 +46,6 @@ export interface AdminTile {
   requiredCount: number;
   category: string;
   description: string;
-}
-
-export interface DraftPick {
-  pickNumber: number;
-  teamId: number;
-  memberName: string;
-}
-
-export interface AdminDraftState {
-  active: boolean;
-  order: number[];
-  pickIndex: number;
-  log: DraftPick[];
-}
-
-export interface AdminDraftMember {
-  id: number;
-  name: string;
 }
 
 export interface AdminSubmission {
@@ -148,15 +129,6 @@ export async function setDonation(userId: number, donatedGp: number): Promise<vo
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, donatedGp }),
-  });
-  await json(res);
-}
-
-export async function setEntrant(userId: number, entrant: boolean): Promise<void> {
-  const res = await fetch("/api/admin/teams?resource=entrant", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, entrant }),
   });
   await json(res);
 }
@@ -293,50 +265,4 @@ export async function reviewSubmission(
     body: JSON.stringify({ id, decision }),
   });
   await json(res);
-}
-
-interface DraftResponse {
-  draft: AdminDraftState;
-  unassignedMembers: AdminDraftMember[];
-}
-
-export async function fetchDraft(): Promise<DraftResponse> {
-  const res = await fetch("/api/admin/board?resource=draft");
-  return json<DraftResponse>(res);
-}
-
-export async function startDraft(): Promise<DraftResponse> {
-  const res = await fetch("/api/admin/board?resource=draft", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "start" }),
-  });
-  return json<DraftResponse>(res);
-}
-
-export async function pickDraftMember(userId: number): Promise<DraftResponse> {
-  const res = await fetch("/api/admin/board?resource=draft", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "pick", userId }),
-  });
-  return json<DraftResponse>(res);
-}
-
-export async function endDraft(): Promise<DraftResponse> {
-  const res = await fetch("/api/admin/board?resource=draft", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "end" }),
-  });
-  return json<DraftResponse>(res);
-}
-
-export async function resetDraft(): Promise<DraftResponse> {
-  const res = await fetch("/api/admin/board?resource=draft", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "reset" }),
-  });
-  return json<DraftResponse>(res);
 }

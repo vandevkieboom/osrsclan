@@ -15,7 +15,7 @@ import {
   type AdminSubmission,
 } from "../services/admin";
 
-type View = "leaderboard" | "board" | "draft" | "admin";
+type View = "leaderboard" | "board" | "admin";
 
 // Dev-only fallback so the page has something to render under plain
 // `npm run dev`, which has no backend at all. Never used in production —
@@ -121,7 +121,6 @@ const PLACEHOLDER_BOARD: BoardData = {
     },
   ],
   myTeamId: 1,
-  draft: { active: false, order: [], pickIndex: 0, log: [], unassignedCount: 0 },
 };
 const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
   {
@@ -385,17 +384,9 @@ export function BingoPage() {
   }
 
   // Re-fetch whenever the active tab changes, not just on first load — the
-  // Admin Panel tab mutates teams/members/tiles/draft state, so switching
-  // back to Leaderboard/Board/Draft needs a fresh fetch to see it.
+  // Admin Panel tab mutates teams/members/tiles state, so switching back to
+  // Leaderboard/Board needs a fresh fetch to see it.
   useEffect(reloadBoard, [view]);
-
-  // Captains/spectators watching the Draft tab while an admin runs the draft
-  // elsewhere have no other way to see picks land — poll while it's open.
-  useEffect(() => {
-    if (view !== "draft") return;
-    const interval = setInterval(reloadBoard, 4000);
-    return () => clearInterval(interval);
-  }, [view]);
 
   function reloadSubmissions() {
     if (!isAdmin) {
@@ -479,10 +470,6 @@ export function BingoPage() {
   const selectedTile = boardTeam?.tiles.find((t) => t.tileId === selectedTileId) ?? null;
   const canSubmitToBoardTeam = !!boardTeam && boardTeam.id === board.myTeamId;
 
-  const onTheClockTeam = board.draft.active
-    ? board.teams.find((t) => t.id === board.draft.order[board.draft.pickIndex])
-    : undefined;
-
   return (
     <>
       <SiteHeader />
@@ -516,13 +503,6 @@ export function BingoPage() {
             onClick={() => setView("board")}
           >
             BOARD
-          </button>
-          <button
-            type="button"
-            className={`bingo-tab${view === "draft" ? " active" : ""}`}
-            onClick={() => setView("draft")}
-          >
-            DRAFT
           </button>
           {isAdmin && (
             <button
@@ -637,90 +617,6 @@ export function BingoPage() {
               </div>
             </div>
           </>
-        )}
-
-        {view === "draft" && (
-          <div className="bingo-draft">
-            {!board.draft.active && board.draft.log.length === 0 && (
-              <div className="bingo-admin-empty">
-                The draft hasn't started yet. Check back once the officers kick things off.
-              </div>
-            )}
-            {board.draft.active && onTheClockTeam && (
-              <div
-                className="bingo-draft-clock"
-                style={{ borderColor: onTheClockTeam.accentColor }}
-              >
-                <div className="bingo-draft-clock-label">
-                  ON THE CLOCK — PICK {board.draft.pickIndex + 1} OF {board.draft.order.length}
-                </div>
-                <div className="bingo-draft-clock-team" style={{ color: onTheClockTeam.accentColor }}>
-                  {onTheClockTeam.name}
-                </div>
-                <div className="bingo-draft-clock-captain">
-                  Captain: {onTheClockTeam.captainName ?? "—"}
-                </div>
-              </div>
-            )}
-            {!board.draft.active && board.draft.log.length > 0 && board.draft.unassignedCount === 0 && (
-              <div className="bingo-draft-complete">Draft complete — rosters are final.</div>
-            )}
-            {!board.draft.active && board.draft.log.length > 0 && board.draft.unassignedCount > 0 && (
-              <div className="bingo-admin-empty">
-                The draft was paused — {board.draft.unassignedCount} entrant
-                {board.draft.unassignedCount === 1 ? "" : "s"} still waiting to be assigned.
-              </div>
-            )}
-
-            {board.draft.log.length > 0 && (
-              <>
-                <div className="bingo-detail-section-label">Pick log</div>
-                <div className="bingo-draft-log">
-                  {[...board.draft.log]
-                    .reverse()
-                    .map((entry) => {
-                      const team = board.teams.find((t) => t.id === entry.teamId);
-                      return (
-                        <div key={entry.pickNumber} className="bingo-draft-log-row">
-                          <span className="bingo-draft-log-num">#{entry.pickNumber}</span>
-                          <span
-                            className="bingo-team-pill-dot"
-                            style={{ background: team?.accentColor ?? "#8f7a78" }}
-                          />
-                          <span className="bingo-draft-log-team">{team?.name ?? "—"}</span>
-                          <span className="bingo-draft-log-member">{entry.memberName}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-              </>
-            )}
-
-            <div className="bingo-detail-section-label">Rosters</div>
-            <div className="bingo-draft-rosters">
-              {board.teams.map((team) => (
-                <div
-                  key={team.id}
-                  className="bingo-draft-roster-card"
-                  style={{ borderTopColor: team.accentColor }}
-                >
-                  <div className="bingo-draft-roster-name" style={{ color: team.accentColor }}>
-                    {team.name}
-                  </div>
-                  <div className="bingo-draft-roster-captain">Captain: {team.captainName ?? "—"}</div>
-                  {team.members.length > 0 ? (
-                    team.members.map((m, i) => (
-                      <div key={i} className="bingo-draft-roster-member">
-                        {m}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="bingo-draft-roster-empty">No players yet.</div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
         )}
 
         {view === "admin" && isAdmin && (

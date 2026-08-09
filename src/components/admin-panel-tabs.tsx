@@ -5,23 +5,16 @@ import {
   createTile,
   deleteTeam,
   deleteTile,
-  endDraft,
   fetchAdminTeams,
   fetchAdminTiles,
   fetchAdminUsers,
   fetchBoardConfig,
-  fetchDraft,
-  pickDraftMember,
   recolorTeam,
   renameTeam,
-  resetDraft,
   setCaptain,
   setDonation,
-  startDraft,
   updateBoardConfig,
   updateTile,
-  type AdminDraftMember,
-  type AdminDraftState,
   type AdminTeam,
   type AdminTile,
   type AdminUser,
@@ -29,7 +22,7 @@ import {
   type PrizePotEntry,
 } from "../services/admin";
 
-type PanelTab = "teams" | "members" | "board" | "draft";
+type PanelTab = "teams" | "members" | "board";
 
 const SIZE_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -42,9 +35,9 @@ const PLACEHOLDER_TEAMS: AdminTeam[] = [
   { id: 2, name: "Onyx Talon", slug: "onyx-talon", accentColor: "#5b9bd5", memberCount: 5, captainId: null, captainName: null },
 ];
 const PLACEHOLDER_USERS: AdminUser[] = [
-  { id: 1, username: "izjordy", globalName: "izJordy", runescapeName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" }, donatedGp: 500000, bingoEntrant: true },
-  { id: 2, username: "test_user_two", globalName: "Test User Two", runescapeName: null, avatarUrl: null, isAdmin: false, team: null, donatedGp: 0, bingoEntrant: true },
-  { id: 3, username: "test_user_three", globalName: null, runescapeName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" }, donatedGp: 0, bingoEntrant: false },
+  { id: 1, username: "izjordy", globalName: "izJordy", runescapeName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" }, donatedGp: 500000 },
+  { id: 2, username: "test_user_two", globalName: "Test User Two", runescapeName: null, avatarUrl: null, isAdmin: false, team: null, donatedGp: 0 },
+  { id: 3, username: "test_user_three", globalName: null, runescapeName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" }, donatedGp: 0 },
 ];
 const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
@@ -56,7 +49,6 @@ const PLACEHOLDER_TILES: AdminTile[] = [
   { id: 1, position: 0, name: "Twisted Bow", iconUrl: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png", requiredCount: 1, category: "ITEM DROP", description: "" },
   { id: 2, position: 1, name: "Scythe of Vitur", iconUrl: "https://oldschool.runescape.wiki/images/Scythe_of_vitur_detail.png", requiredCount: 1, category: "ITEM DROP", description: "" },
 ];
-const PLACEHOLDER_DRAFT: AdminDraftState = { active: false, order: [], pickIndex: 0, log: [] };
 
 function TeamRow({
   team,
@@ -282,21 +274,11 @@ function MembersPanel() {
     }
   }
 
-  async function handleEntrant(userId: number, entrant: boolean) {
-    try {
-      await setEntrant(userId, entrant);
-      reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update entrant status");
-    }
-  }
-
   const filtered = (users ?? []).filter((u) => {
     if (!search.trim()) return true;
     const name = u.runescapeName ?? u.globalName ?? u.username;
     return name.toLowerCase().includes(search.trim().toLowerCase());
   });
-  const entrantCount = (users ?? []).filter((u) => u.bingoEntrant).length;
 
   return (
     <div className="admin-panel">
@@ -311,11 +293,6 @@ function MembersPanel() {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
-      {users && (
-        <p className="admin-member-entrant-count">
-          {entrantCount} of {users.length} members entered in this bingo — only entrants can be drafted.
-        </p>
-      )}
       <div className="admin-row-list">
         {filtered.map((u) => (
           <MemberRow
@@ -324,7 +301,6 @@ function MembersPanel() {
             teams={teams ?? []}
             onAssign={(value) => handleAssign(u.id, value)}
             onDonation={(gp) => handleDonation(u.id, gp)}
-            onEntrant={(entrant) => handleEntrant(u.id, entrant)}
           />
         ))}
         {users && users.length > 0 && filtered.length === 0 && (
@@ -341,13 +317,11 @@ function MemberRow({
   teams,
   onAssign,
   onDonation,
-  onEntrant,
 }: {
   user: AdminUser;
   teams: AdminTeam[];
   onAssign: (value: string) => void;
   onDonation: (donatedGp: number) => void;
-  onEntrant: (entrant: boolean) => void;
 }) {
   const [donation, setDonation] = useState(String(user.donatedGp));
   const [prevGp, setPrevGp] = useState(user.donatedGp);
@@ -365,17 +339,6 @@ function MemberRow({
   return (
     <div className="admin-row">
       <span className="admin-row-name">{user.runescapeName ?? user.globalName ?? user.username}</span>
-      <label
-        className="admin-row-entrant"
-        title="Entered this bingo (paid entry fee) — eligible for the draft"
-      >
-        <input
-          type="checkbox"
-          checked={user.bingoEntrant}
-          onChange={(e) => onEntrant(e.target.checked)}
-        />
-        Entrant
-      </label>
       <input
         type="number"
         min={0}
@@ -858,182 +821,6 @@ function BoardConfigPanel() {
   );
 }
 
-function DraftPanel() {
-  const [draft, setDraft] = useState<AdminDraftState | null>(null);
-  const [members, setMembers] = useState<AdminDraftMember[] | null>(null);
-  const [teams, setTeams] = useState<AdminTeam[] | null>(null);
-  const [users, setUsers] = useState<AdminUser[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  function reload() {
-    Promise.all([fetchDraft(), fetchAdminTeams(), fetchAdminUsers()])
-      .then(([d, t, u]) => {
-        setDraft(d.draft);
-        setMembers(d.unassignedMembers);
-        setTeams(t);
-        setUsers(u);
-      })
-      .catch((err: unknown) => {
-        if (import.meta.env.DEV) {
-          setDraft(PLACEHOLDER_DRAFT);
-          setMembers([]);
-          setTeams(PLACEHOLDER_TEAMS);
-          setUsers(PLACEHOLDER_USERS);
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Failed to load draft");
-      });
-  }
-
-  useEffect(reload, []);
-
-  // Keeps this panel in sync if another admin is running picks from a
-  // different tab/session at the same time.
-  useEffect(() => {
-    const interval = setInterval(reload, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function handleStart() {
-    try {
-      const d = await startDraft();
-      setDraft(d.draft);
-      setMembers(d.unassignedMembers);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start draft");
-    }
-  }
-
-  async function handlePick(userId: number) {
-    try {
-      const d = await pickDraftMember(userId);
-      setDraft(d.draft);
-      setMembers(d.unassignedMembers);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to make pick");
-    }
-  }
-
-  async function handleEnd() {
-    try {
-      const d = await endDraft();
-      setDraft(d.draft);
-      setMembers(d.unassignedMembers);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to end draft");
-    }
-  }
-
-  async function handleReset() {
-    if (
-      !window.confirm(
-        "Reset the draft? Everyone picked in the last draft will be unassigned from their team, and the pick history will be cleared.",
-      )
-    )
-      return;
-    try {
-      const d = await resetDraft();
-      setDraft(d.draft);
-      setMembers(d.unassignedMembers);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reset draft");
-    }
-  }
-
-  if (!draft || !teams) return <div className="admin-panel">{error ?? "Loading..."}</div>;
-
-  const onTheClockTeam = draft.active ? teams.find((t) => t.id === draft.order[draft.pickIndex]) : undefined;
-  const hasPreviousDraft = draft.log.length > 0;
-  const unassignedCount = members?.length ?? 0;
-
-  return (
-    <div className="admin-panel">
-      {error && <div className="admin-error">{error}</div>}
-
-      {!draft.active && (
-        <div className="admin-draft-intro">
-          <p className="page-sub">
-            Runs a snake draft over the {unassignedCount} unassigned entrant{unassignedCount === 1 ? "" : "s"}, in
-            order across {teams.length} teams — you make each pick on behalf of the captains. Only members marked
-            as an entrant in the Members tab are eligible.
-          </p>
-          {hasPreviousDraft && (
-            <p className="page-sub admin-draft-status">
-              {unassignedCount === 0
-                ? "The last draft finished — every entrant was assigned."
-                : `The last draft ended with ${unassignedCount} entrant${unassignedCount === 1 ? "" : "s"} still unassigned.`}
-            </p>
-          )}
-          <div className="admin-draft-actions">
-            <button type="button" className="admin-btn-primary" onClick={handleStart}>
-              Start Draft
-            </button>
-            {hasPreviousDraft && (
-              <button type="button" className="admin-btn-danger" onClick={handleReset}>
-                Reset Draft
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {draft.active && onTheClockTeam && (
-        <div className="admin-draft-clock" style={{ borderColor: onTheClockTeam.accentColor }}>
-          <div>
-            <div className="bingo-draft-clock-label">
-              ON THE CLOCK — PICK {draft.pickIndex + 1} OF {draft.order.length}
-            </div>
-            <div className="bingo-draft-clock-team" style={{ color: onTheClockTeam.accentColor }}>
-              {onTheClockTeam.name}
-            </div>
-            <div className="bingo-draft-clock-captain">Captain: {onTheClockTeam.captainName ?? "—"}</div>
-          </div>
-          <button type="button" className="admin-btn-ghost" onClick={handleEnd}>
-            End Draft
-          </button>
-        </div>
-      )}
-
-      {draft.active && (
-        <>
-          <div className="admin-draft-available-label">AVAILABLE PLAYERS — CLICK TO ASSIGN</div>
-          <div className="admin-draft-available">
-            {members?.map((m) => (
-              <button key={m.id} type="button" className="bingo-team-pill" onClick={() => handlePick(m.id)}>
-                {m.name}
-              </button>
-            ))}
-            {members?.length === 0 && <div className="admin-empty">All players drafted.</div>}
-          </div>
-        </>
-      )}
-
-      <div className="admin-draft-available-label">DRAFT BOARD</div>
-      <div className="bingo-draft-rosters">
-        {teams.map((team) => {
-          const roster = (users ?? []).filter((u) => u.team?.id === team.id);
-          return (
-            <div key={team.id} className="bingo-draft-roster-card" style={{ borderTopColor: team.accentColor }}>
-              <div className="bingo-draft-roster-name" style={{ color: team.accentColor }}>
-                {team.name}
-              </div>
-              {roster.length > 0 ? (
-                roster.map((u) => (
-                  <div key={u.id} className="bingo-draft-roster-member">
-                    {u.runescapeName ?? u.globalName ?? u.username}
-                  </div>
-                ))
-              ) : (
-                <div className="bingo-draft-roster-empty">No players yet.</div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function AdminPanelTabs() {
   const [panelTab, setPanelTab] = useState<PanelTab>("teams");
 
@@ -1061,19 +848,11 @@ export function AdminPanelTabs() {
         >
           BOARD CONFIG
         </button>
-        <button
-          type="button"
-          className={`bingo-tab${panelTab === "draft" ? " active" : ""}`}
-          onClick={() => setPanelTab("draft")}
-        >
-          DRAFT
-        </button>
       </div>
 
       {panelTab === "teams" && <TeamsPanel />}
       {panelTab === "members" && <MembersPanel />}
       {panelTab === "board" && <BoardConfigPanel />}
-      {panelTab === "draft" && <DraftPanel />}
     </div>
   );
 }
