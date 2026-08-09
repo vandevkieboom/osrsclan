@@ -121,7 +121,7 @@ const PLACEHOLDER_BOARD: BoardData = {
     },
   ],
   myTeamId: 1,
-  draft: { active: false, order: [], pickIndex: 0, log: [] },
+  draft: { active: false, order: [], pickIndex: 0, log: [], unassignedCount: 0 },
 };
 const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
   {
@@ -654,8 +654,14 @@ export function BingoPage() {
                 </div>
               </div>
             )}
-            {!board.draft.active && board.draft.log.length > 0 && (
+            {!board.draft.active && board.draft.log.length > 0 && board.draft.unassignedCount === 0 && (
               <div className="bingo-draft-complete">Draft complete — rosters are final.</div>
+            )}
+            {!board.draft.active && board.draft.log.length > 0 && board.draft.unassignedCount > 0 && (
+              <div className="bingo-admin-empty">
+                The draft was paused — {board.draft.unassignedCount} member
+                {board.draft.unassignedCount === 1 ? "" : "s"} still waiting to be assigned.
+              </div>
             )}
 
             {board.draft.log.length > 0 && (

@@ -170,6 +170,8 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   const leaderPct = teamsWithPct.length > 0 ? Math.max(...teamsWithPct.map((t) => t.pct)) : 0;
   const teams = teamsWithPct.map((t) => ({ ...t, isLeading: t.pct === leaderPct && leaderPct > 0 }));
 
+  const unassignedRows = await sql`SELECT COUNT(*)::int AS count FROM users WHERE team_id IS NULL`;
+
   res.status(200).json({
     config: {
       name: config.name,
@@ -184,6 +186,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       order: config.draft_order,
       pickIndex: config.draft_pick_index,
       log: config.draft_log,
+      unassignedCount: unassignedRows[0]?.count ?? 0,
     },
   });
 }

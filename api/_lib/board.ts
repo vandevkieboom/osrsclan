@@ -19,7 +19,7 @@ export interface BoardConfigRow {
   draft_active: boolean;
   draft_order: number[];
   draft_pick_index: number;
-  draft_log: { pickNumber: number; teamId: number; memberName: string }[];
+  draft_log: { pickNumber: number; teamId: number; memberName: string; userId?: number }[];
   prize_pot: PrizePot;
 }
 

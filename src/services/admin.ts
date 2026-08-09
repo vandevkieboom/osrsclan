@@ -321,3 +321,12 @@ export async function endDraft(): Promise<DraftResponse> {
   });
   return json<DraftResponse>(res);
 }
+
+export async function resetDraft(): Promise<DraftResponse> {
+  const res = await fetch("/api/admin/board?resource=draft", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "reset" }),
+  });
+  return json<DraftResponse>(res);
+}

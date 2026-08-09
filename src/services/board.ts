@@ -62,6 +62,7 @@ export interface DraftState {
   order: number[];
   pickIndex: number;
   log: DraftPick[];
+  unassignedCount: number;
 }
 
 export interface BoardData {

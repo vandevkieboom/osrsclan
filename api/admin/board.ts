@@ -285,7 +285,7 @@ async function pickDraft(req: VercelRequest, res: VercelResponse) {
   await sql`
     UPDATE board_config SET
       draft_pick_index = ${nextIndex}, draft_active = ${stillActive},
-      draft_log = draft_log || ${JSON.stringify([{ pickNumber, teamId, memberName }])}::jsonb,
+      draft_log = draft_log || ${JSON.stringify([{ pickNumber, teamId, memberName, userId }])}::jsonb,
       updated_at = now()
     WHERE id = 1`;
 
@@ -297,6 +297,27 @@ async function endDraft(res: VercelResponse) {
   // log is intentionally left untouched.
   await sql`
     UPDATE board_config SET draft_active = FALSE, draft_order = '[]'::jsonb, draft_pick_index = 0, updated_at = now()
+    WHERE id = 1`;
+  await getDraft(res);
+}
+
+async function resetDraft(res: VercelResponse) {
+  // Fully undoes the last draft run: puts everyone it picked back to
+  // unassigned and wipes the log, so "Start Draft" is meaningful again.
+  // Only entries with a stored userId (picks made after this field was
+  // added) can be safely reversed — older log entries are skipped.
+  const config = await getOrCreateBoardConfig();
+  const draftedUserIds = config.draft_log
+    .map((entry) => entry.userId)
+    .filter((id): id is number => typeof id === "number");
+
+  if (draftedUserIds.length > 0) {
+    await sql`UPDATE users SET team_id = NULL WHERE id = ANY(${draftedUserIds}::bigint[])`;
+  }
+
+  await sql`
+    UPDATE board_config SET
+      draft_active = FALSE, draft_order = '[]'::jsonb, draft_pick_index = 0, draft_log = '[]'::jsonb, updated_at = now()
     WHERE id = 1`;
   await getDraft(res);
 }
@@ -329,7 +350,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === "start") await startDraft(res);
     else if (action === "pick") await pickDraft(req, res);
     else if (action === "end") await endDraft(res);
-    else res.status(400).json({ error: "action must be 'start', 'pick', or 'end'" });
+    else if (action === "reset") await resetDraft(res);
+    else res.status(400).json({ error: "action must be 'start', 'pick', 'end', or 'reset'" });
     return;
   }
 

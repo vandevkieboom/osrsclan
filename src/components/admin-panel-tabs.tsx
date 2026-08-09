@@ -14,6 +14,7 @@ import {
   pickDraftMember,
   recolorTeam,
   renameTeam,
+  resetDraft,
   setCaptain,
   setDonation,
   startDraft,
@@ -887,9 +888,27 @@ function DraftPanel() {
     }
   }
 
+  async function handleReset() {
+    if (
+      !window.confirm(
+        "Reset the draft? Everyone picked in the last draft will be unassigned from their team, and the pick history will be cleared.",
+      )
+    )
+      return;
+    try {
+      const d = await resetDraft();
+      setDraft(d.draft);
+      setMembers(d.unassignedMembers);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset draft");
+    }
+  }
+
   if (!draft || !teams) return <div className="admin-panel">{error ?? "Loading..."}</div>;
 
   const onTheClockTeam = draft.active ? teams.find((t) => t.id === draft.order[draft.pickIndex]) : undefined;
+  const hasPreviousDraft = draft.log.length > 0;
+  const unassignedCount = members?.length ?? 0;
 
   return (
     <div className="admin-panel">
@@ -898,12 +917,26 @@ function DraftPanel() {
       {!draft.active && (
         <div className="admin-draft-intro">
           <p className="page-sub">
-            Runs a snake draft over the {members?.length ?? 0} unassigned members, in order across{" "}
+            Runs a snake draft over the {unassignedCount} unassigned members, in order across{" "}
             {teams.length} teams — you make each pick on behalf of the captains.
           </p>
-          <button type="button" className="admin-btn-primary" onClick={handleStart}>
-            Start Draft
-          </button>
+          {hasPreviousDraft && (
+            <p className="page-sub admin-draft-status">
+              {unassignedCount === 0
+                ? "The last draft finished — every member was assigned."
+                : `The last draft ended with ${unassignedCount} member${unassignedCount === 1 ? "" : "s"} still unassigned.`}
+            </p>
+          )}
+          <div className="admin-draft-actions">
+            <button type="button" className="admin-btn-primary" onClick={handleStart}>
+              Start Draft
+            </button>
+            {hasPreviousDraft && (
+              <button type="button" className="admin-btn-danger" onClick={handleReset}>
+                Reset Draft
+              </button>
+            )}
+          </div>
         </div>
       )}
 

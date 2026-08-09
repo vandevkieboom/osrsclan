@@ -108,7 +108,9 @@ async function updateTeam(req: VercelRequest, res: VercelResponse) {
         return;
       }
       const memberRows = await sql`SELECT team_id FROM users WHERE id = ${captainId}`;
-      if (memberRows.length === 0 || memberRows[0].team_id !== id) {
+      // team_id is BIGINT — the driver returns it as a string, not a number,
+      // so this must be coerced before comparing against `id` or it never matches.
+      if (memberRows.length === 0 || Number(memberRows[0].team_id) !== id) {
         res.status(400).json({ error: "Captain must be a member of this team" });
         return;
       }
