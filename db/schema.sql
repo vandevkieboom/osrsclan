@@ -44,7 +44,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE TABLE IF NOT EXISTS board_config (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   name TEXT NOT NULL DEFAULT 'Bingo',
-  date_range TEXT NOT NULL DEFAULT '',
   size INT NOT NULL DEFAULT 5 CHECK (size BETWEEN 2 AND 10),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -53,6 +52,8 @@ ALTER TABLE board_config DROP COLUMN IF EXISTS draft_active;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_order;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_log;
+-- The Board Config admin form's Date Range field was removed as clutter.
+ALTER TABLE board_config DROP COLUMN IF EXISTS date_range;
 ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":"","buyIn":"","donated":"","entries":[]}';
 
 CREATE TABLE IF NOT EXISTS tiles (

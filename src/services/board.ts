@@ -52,7 +52,7 @@ export interface PrizePot {
 }
 
 export interface BoardData {
-  config: { name: string; dateRange: string; size: number; prizePot: PrizePot };
+  config: { name: string; size: number; prizePot: PrizePot };
   teams: BoardTeam[];
   myTeamId: number | null;
 }

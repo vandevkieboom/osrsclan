@@ -22,7 +22,7 @@ import {
   type PrizePotEntry,
 } from "../services/admin";
 
-type PanelTab = "teams" | "members" | "board";
+type PanelTab = "teams" | "members" | "board" | "prizepot" | "tiles";
 
 const SIZE_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -41,7 +41,6 @@ const PLACEHOLDER_USERS: AdminUser[] = [
 ];
 const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
-  dateRange: "Aug 2 – Aug 16, 2026",
   size: 5,
   prizePot: { total: "", buyIn: "", donated: "", entries: [] },
 };
@@ -537,22 +536,16 @@ function TileRow({
 
 function BoardConfigPanel() {
   const [config, setConfig] = useState<BoardConfig | null>(null);
-  const [tiles, setTiles] = useState<AdminTile[] | null>(null);
-  const [addingPosition, setAddingPosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   function reload() {
-    Promise.all([fetchBoardConfig(), fetchAdminTiles()])
-      .then(([c, t]) => {
-        setConfig(c);
-        setTiles(t);
-      })
+    fetchBoardConfig()
+      .then(setConfig)
       .catch((err: unknown) => {
         if (import.meta.env.DEV) {
           setConfig(PLACEHOLDER_BOARD_CONFIG);
-          setTiles(PLACEHOLDER_TILES);
           return;
         }
         setError(err instanceof Error ? err.message : "Failed to load board config");
@@ -578,36 +571,84 @@ function BoardConfigPanel() {
     }
   }
 
-  async function handleAddTile(
-    position: number,
-    name: string,
-    iconUrl: string,
-    requiredCount: number,
-    category: string,
-    description: string,
-  ) {
-    try {
-      await createTile(position, name, iconUrl, requiredCount, category, description);
-      setAddingPosition(null);
-      reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create tile");
-    }
+  if (!config) return <div className="admin-panel">{error ?? "Loading..."}</div>;
+
+  return (
+    <div className="admin-panel">
+      {error && <div className="admin-error">{error}</div>}
+
+      <form onSubmit={handleSaveConfig}>
+        <div className="admin-board-form">
+          <label className="admin-field">
+            <span>Event name</span>
+            <input
+              type="text"
+              className="admin-input"
+              value={config.name}
+              onChange={(e) => setConfig({ ...config, name: e.target.value })}
+            />
+          </label>
+          <label className="admin-field">
+            <span>Grid size</span>
+            <select
+              className="admin-select"
+              value={config.size}
+              onChange={(e) => setConfig({ ...config, size: Number(e.target.value) })}
+            >
+              {SIZE_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s} × {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="admin-section-save">
+          <button type="submit" className="admin-btn-primary" disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </button>
+          {saved && <span className="admin-saved">Saved.</span>}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function PrizePotPanel() {
+  const [config, setConfig] = useState<BoardConfig | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  function reload() {
+    fetchBoardConfig()
+      .then(setConfig)
+      .catch((err: unknown) => {
+        if (import.meta.env.DEV) {
+          setConfig(PLACEHOLDER_BOARD_CONFIG);
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Failed to load prize pot");
+      });
   }
 
-  async function handleSaveTile(
-    id: number,
-    name: string,
-    iconUrl: string,
-    requiredCount: number,
-    category: string,
-    description: string,
-  ) {
+  useEffect(reload, []);
+
+  async function handleSaveConfig(e: React.FormEvent) {
+    e.preventDefault();
+    if (!config) return;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
     try {
-      await updateTile(id, name, iconUrl, requiredCount, category, description);
-      reload();
+      const updated = await updateBoardConfig(config);
+      setConfig(updated);
+      setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update tile");
+      setError(err instanceof Error ? err.message : "Failed to save prize pot");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -638,71 +679,14 @@ function BoardConfigPanel() {
     });
   }
 
-  async function handleDeleteTile(id: number) {
-    if (!window.confirm("Delete this tile? Any submissions for it will be removed too.")) return;
-    try {
-      await deleteTile(id);
-      reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete tile");
-    }
-  }
-
-  if (!config || !tiles) return <div className="admin-panel">{error ?? "Loading..."}</div>;
-
-  const slotCount = config.size * config.size;
-  const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
-  const overflowTiles = tiles.filter((t) => t.position >= slotCount);
-  const firstEmptyPosition = Array.from({ length: slotCount }, (_, i) => i).find(
-    (i) => !tileByPosition.has(i),
-  );
+  if (!config) return <div className="admin-panel">{error ?? "Loading..."}</div>;
 
   return (
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
 
       <form onSubmit={handleSaveConfig}>
-        <div className="admin-section">
-          <div className="admin-section-label">EVENT SETTINGS</div>
-          <div className="admin-board-form">
-            <label className="admin-field">
-              <span>Event name</span>
-              <input
-                type="text"
-                className="admin-input"
-                value={config.name}
-                onChange={(e) => setConfig({ ...config, name: e.target.value })}
-              />
-            </label>
-            <label className="admin-field">
-              <span>Date range</span>
-              <input
-                type="text"
-                className="admin-input"
-                placeholder="e.g. Aug 2 – Aug 16, 2026"
-                value={config.dateRange}
-                onChange={(e) => setConfig({ ...config, dateRange: e.target.value })}
-              />
-            </label>
-            <label className="admin-field">
-              <span>Grid size</span>
-              <select
-                className="admin-select"
-                value={config.size}
-                onChange={(e) => setConfig({ ...config, size: Number(e.target.value) })}
-              >
-                {SIZE_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s} × {s}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-
-        <div className="admin-section admin-section--prizepot">
-          <div className="admin-section-label">PRIZE POT</div>
+        <div className="admin-section--prizepot">
           <div className="admin-prizepot-row">
             <input
               type="text"
@@ -759,44 +743,122 @@ function BoardConfigPanel() {
           {saved && <span className="admin-saved">Saved.</span>}
         </div>
       </form>
+    </div>
+  );
+}
 
-      <div className="admin-section-divider" />
+function TilesPanel() {
+  const [config, setConfig] = useState<BoardConfig | null>(null);
+  const [tiles, setTiles] = useState<AdminTile[] | null>(null);
+  const [addingPosition, setAddingPosition] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-      <div className="admin-section">
-        <div className="admin-section-label">TILES</div>
-        <div className="admin-row-list admin-tile-list">
-          {tiles
-            .filter((t) => t.position < slotCount)
-            .sort((a, b) => a.position - b.position)
-            .map((tile) => (
-              <TileRow
-                key={tile.position}
-                tile={tile}
-                onSave={(name, iconUrl, requiredCount, category, description) =>
-                  handleSaveTile(tile.id, name, iconUrl, requiredCount, category, description)
-                }
-                onDelete={() => handleDeleteTile(tile.id)}
-              />
-            ))}
-          {addingPosition !== null && (
-            <TileAddRow
+  function reload() {
+    Promise.all([fetchBoardConfig(), fetchAdminTiles()])
+      .then(([c, t]) => {
+        setConfig(c);
+        setTiles(t);
+      })
+      .catch((err: unknown) => {
+        if (import.meta.env.DEV) {
+          setConfig(PLACEHOLDER_BOARD_CONFIG);
+          setTiles(PLACEHOLDER_TILES);
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Failed to load tiles");
+      });
+  }
+
+  useEffect(reload, []);
+
+  async function handleAddTile(
+    position: number,
+    name: string,
+    iconUrl: string,
+    requiredCount: number,
+    category: string,
+    description: string,
+  ) {
+    try {
+      await createTile(position, name, iconUrl, requiredCount, category, description);
+      setAddingPosition(null);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create tile");
+    }
+  }
+
+  async function handleSaveTile(
+    id: number,
+    name: string,
+    iconUrl: string,
+    requiredCount: number,
+    category: string,
+    description: string,
+  ) {
+    try {
+      await updateTile(id, name, iconUrl, requiredCount, category, description);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update tile");
+    }
+  }
+
+  async function handleDeleteTile(id: number) {
+    if (!window.confirm("Delete this tile? Any submissions for it will be removed too.")) return;
+    try {
+      await deleteTile(id);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete tile");
+    }
+  }
+
+  if (!config || !tiles) return <div className="admin-panel">{error ?? "Loading..."}</div>;
+
+  const slotCount = config.size * config.size;
+  const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
+  const overflowTiles = tiles.filter((t) => t.position >= slotCount);
+  const firstEmptyPosition = Array.from({ length: slotCount }, (_, i) => i).find(
+    (i) => !tileByPosition.has(i),
+  );
+
+  return (
+    <div className="admin-panel">
+      {error && <div className="admin-error">{error}</div>}
+
+      <div className="admin-row-list admin-tile-list">
+        {tiles
+          .filter((t) => t.position < slotCount)
+          .sort((a, b) => a.position - b.position)
+          .map((tile) => (
+            <TileRow
+              key={tile.position}
+              tile={tile}
               onSave={(name, iconUrl, requiredCount, category, description) =>
-                handleAddTile(addingPosition, name, iconUrl, requiredCount, category, description)
+                handleSaveTile(tile.id, name, iconUrl, requiredCount, category, description)
               }
-              onCancel={() => setAddingPosition(null)}
+              onDelete={() => handleDeleteTile(tile.id)}
             />
-          )}
-        </div>
-        {addingPosition === null && firstEmptyPosition !== undefined && (
-          <button
-            type="button"
-            className="admin-tile-list-add"
-            onClick={() => setAddingPosition(firstEmptyPosition)}
-          >
-            + Add Tile
-          </button>
+          ))}
+        {addingPosition !== null && (
+          <TileAddRow
+            onSave={(name, iconUrl, requiredCount, category, description) =>
+              handleAddTile(addingPosition, name, iconUrl, requiredCount, category, description)
+            }
+            onCancel={() => setAddingPosition(null)}
+          />
         )}
       </div>
+      {addingPosition === null && firstEmptyPosition !== undefined && (
+        <button
+          type="button"
+          className="admin-tile-list-add"
+          onClick={() => setAddingPosition(firstEmptyPosition)}
+        >
+          + Add Tile
+        </button>
+      )}
 
       {overflowTiles.length > 0 && (
         <>
@@ -848,11 +910,27 @@ export function AdminPanelTabs() {
         >
           BOARD CONFIG
         </button>
+        <button
+          type="button"
+          className={`bingo-tab${panelTab === "prizepot" ? " active" : ""}`}
+          onClick={() => setPanelTab("prizepot")}
+        >
+          PRIZE POT
+        </button>
+        <button
+          type="button"
+          className={`bingo-tab${panelTab === "tiles" ? " active" : ""}`}
+          onClick={() => setPanelTab("tiles")}
+        >
+          TILES
+        </button>
       </div>
 
       {panelTab === "teams" && <TeamsPanel />}
       {panelTab === "members" && <MembersPanel />}
       {panelTab === "board" && <BoardConfigPanel />}
+      {panelTab === "prizepot" && <PrizePotPanel />}
+      {panelTab === "tiles" && <TilesPanel />}
     </div>
   );
 }

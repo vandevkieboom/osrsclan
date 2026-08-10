@@ -33,7 +33,6 @@ export interface PrizePot {
 
 export interface BoardConfig {
   name: string;
-  dateRange: string;
   size: number;
   prizePot: PrizePot;
 }

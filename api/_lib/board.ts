@@ -14,7 +14,6 @@ export interface PrizePot {
 
 export interface BoardConfigRow {
   name: string;
-  date_range: string;
   size: number;
   prize_pot: PrizePot;
 }
@@ -26,6 +25,6 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, date_range, size, prize_pot`;
+    RETURNING name, size, prize_pot`;
   return rows[0] as BoardConfigRow;
 }

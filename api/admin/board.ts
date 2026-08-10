@@ -6,7 +6,7 @@ import { getOrCreateBoardConfig, type PrizePot } from "../_lib/board.js";
 async function getConfig(res: VercelResponse) {
   const c = await getOrCreateBoardConfig();
   res.status(200).json({
-    config: { name: c.name, dateRange: c.date_range, size: c.size, prizePot: c.prize_pot },
+    config: { name: c.name, size: c.size, prizePot: c.prize_pot },
   });
 }
 
@@ -31,8 +31,6 @@ function parsePrizePot(raw: unknown): PrizePot | null {
 
 async function updateConfig(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const dateRange =
-    typeof req.body?.dateRange === "string" ? req.body.dateRange.trim() : "";
   const size = Number(req.body?.size);
 
   if (!name) {
@@ -56,15 +54,15 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
   const current = await getOrCreateBoardConfig();
   const nextPrizePot = prizePot ?? current.prize_pot;
   const rows = await sql`
-    INSERT INTO board_config (id, name, date_range, size, prize_pot)
-    VALUES (1, ${name}, ${dateRange}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb)
+    INSERT INTO board_config (id, name, size, prize_pot)
+    VALUES (1, ${name}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb)
     ON CONFLICT (id) DO UPDATE SET
-      name = EXCLUDED.name, date_range = EXCLUDED.date_range, size = EXCLUDED.size,
+      name = EXCLUDED.name, size = EXCLUDED.size,
       prize_pot = EXCLUDED.prize_pot, updated_at = now()
-    RETURNING name, date_range, size, prize_pot`;
+    RETURNING name, size, prize_pot`;
   const c = rows[0];
   res.status(200).json({
-    config: { name: c.name, dateRange: c.date_range, size: c.size, prizePot: c.prize_pot },
+    config: { name: c.name, size: c.size, prizePot: c.prize_pot },
   });
 }
 

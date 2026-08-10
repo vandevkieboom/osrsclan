@@ -173,7 +173,6 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({
     config: {
       name: config.name,
-      dateRange: config.date_range,
       size: config.size,
       prizePot: config.prize_pot,
     },

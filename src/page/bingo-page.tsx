@@ -63,7 +63,6 @@ function placeholderTiles(teamId: number): BoardTile[] {
 const PLACEHOLDER_BOARD: BoardData = {
   config: {
     name: "Summer Blackout Bingo",
-    dateRange: "Aug 2 – Aug 16, 2026",
     size: 5,
     prizePot: {
       total: "51.50M",
@@ -476,17 +475,12 @@ export function BingoPage() {
 
       <div className="page">
         <div className="page-head">
-          <div className="page-head-row">
-            <div className="page-head-text">
-              <div className="page-eyebrow">Clan Event</div>
-              <h1 className="page-title">{board.config.name}</h1>
-              <p className="page-sub">
-                First team to complete every tile on their board wins. Click a tile to see exactly
-                what it needs, who's contributed, and to submit proof.
-              </p>
-            </div>
-            {board.config.dateRange && <div className="bingo-date-range">{board.config.dateRange}</div>}
-          </div>
+          <div className="page-eyebrow">Clan Event</div>
+          <h1 className="page-title">{board.config.name}</h1>
+          <p className="page-sub">
+            First team to complete every tile on their board wins. Click a tile to see exactly
+            what it needs, who's contributed, and to submit proof.
+          </p>
         </div>
 
         <div className="bingo-tabs">
@@ -546,7 +540,6 @@ export function BingoPage() {
             <div className="bingo-board-head">
               <div>
                 <div className="bingo-board-title">{boardTeam.name}'s Board</div>
-                <div className="bingo-board-count">{board.config.dateRange}</div>
               </div>
               <div className="bingo-board-head-stat">
                 <div className="bingo-board-head-track">

@@ -2956,11 +2956,6 @@ body {
    Bingo page
    ===================== */
 
-.bingo-date-range {
-  font-size: 12px;
-  color: var(--text-body);
-}
-
 .bingo-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -3088,11 +3083,6 @@ body {
   font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
   font-size: 20px;
   color: var(--text-primary);
-}
-
-.bingo-board-count {
-  font-size: 12px;
-  color: var(--text-body);
 }
 
 .bingo-tiles-grid {
@@ -3496,27 +3486,12 @@ body {
   color: #a08c89;
 }
 
-.admin-section-label {
-  font-family: "Manrope", Arial, Helvetica, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #8f7a78;
-  margin-bottom: 14px;
-}
-
 .admin-section--prizepot {
   max-width: 700px;
 }
 
 .admin-section-save {
   margin-top: 24px;
-}
-
-.admin-section-divider {
-  border-top: 1px solid #2a1315;
-  margin: 32px 0;
-  max-width: 900px;
 }
 
 .admin-tiles-heading {
