@@ -66,13 +66,6 @@ const PLACEHOLDER_BOARD: BoardData = {
     size: 5,
     prizePot: {
       total: "51.50M",
-      buyIn: "1.50M",
-      donated: "50.00M",
-      entries: [
-        { name: "Crimson Fang", amount: "500.00K" },
-        { name: "Onyx Talon", amount: "500.00K" },
-        { name: "Coffer donation", amount: "50.00M" },
-      ],
     },
   },
   teams: [
