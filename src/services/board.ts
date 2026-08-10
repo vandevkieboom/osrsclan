@@ -39,16 +39,8 @@ export interface BoardTeam {
   tiles: BoardTile[];
 }
 
-export interface PrizePotEntry {
-  name: string;
-  amount: string;
-}
-
 export interface PrizePot {
   total: string;
-  buyIn: string;
-  donated: string;
-  entries: PrizePotEntry[];
 }
 
 export interface BoardData {

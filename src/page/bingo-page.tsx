@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import { useAuth } from "../context/auth-context";
@@ -154,7 +154,11 @@ function TeamCard({ team }: { team: BoardTeam }) {
       className="bingo-team-card"
       style={{ "--team-accent": team.accentColor } as React.CSSProperties}
     >
-      {team.isLeading && <div className="bingo-team-leading-badge">LEADING</div>}
+      {team.isLeading && (
+        <div className="bingo-team-leading-badge">
+          {team.completeCount === team.totalTiles ? "WINNER" : "LEADING"}
+        </div>
+      )}
       <div className="bingo-team-name">{team.name}</div>
       <div className="bingo-team-members">
         {team.memberCount} members
@@ -224,7 +228,7 @@ function TileDetailPanel({
   canSubmit,
   viewingTeamName,
   isUploading,
-  onSubmitClick,
+  onSubmit,
   onOpenLightbox,
 }: {
   tile: BoardTile | null;
@@ -232,9 +236,24 @@ function TileDetailPanel({
   canSubmit: boolean;
   viewingTeamName: string;
   isUploading: boolean;
-  onSubmitClick: () => void;
+  onSubmit: (file: File) => Promise<void>;
   onOpenLightbox: (url: string) => void;
 }) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // A newly selected tile shouldn't carry over the previous tile's pending
+  // (unsubmitted) screenshot choice.
+  useEffect(() => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+  }, [tile?.tileId]);
+
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
   if (!tile) {
     return (
       <div className="bingo-detail-card bingo-detail-card--empty">
@@ -244,6 +263,24 @@ function TileDetailPanel({
   }
 
   const pct = tile.requiredCount > 1 ? Math.min(100, Math.round((tile.approvedCount / tile.requiredCount) * 100)) : 0;
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+    setPreviewUrl(file ? URL.createObjectURL(file) : null);
+  }
+
+  async function handleSubmit() {
+    if (!selectedFile) return;
+    try {
+      await onSubmit(selectedFile);
+      setSelectedFile(null);
+      setPreviewUrl(null);
+    } catch {
+      // The parent already surfaces the error — keep the selection so the
+      // user can retry without re-picking the file.
+    }
+  }
 
   return (
     <div className="bingo-detail-card">
@@ -306,14 +343,27 @@ function TileDetailPanel({
 
       {canSubmit ? (
         <div className="bingo-detail-submit">
-          <div className="bingo-detail-section-label">Submit proof</div>
+          <div className="bingo-detail-section-label">SUBMIT PROOF</div>
+          <label className="bingo-detail-dropzone">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="bingo-detail-dropzone-input"
+              onChange={handleFileChange}
+            />
+            {previewUrl ? (
+              <img src={previewUrl} alt="" className="bingo-detail-dropzone-preview" />
+            ) : (
+              <span className="bingo-detail-dropzone-empty">📷 Click to choose a screenshot</span>
+            )}
+          </label>
           <button
             type="button"
-            className="admin-btn-primary bingo-detail-submit-btn"
-            onClick={onSubmitClick}
-            disabled={isUploading || tile.approvedCount >= tile.requiredCount}
+            className="bingo-detail-submit-btn"
+            onClick={handleSubmit}
+            disabled={!selectedFile || isUploading || tile.approvedCount >= tile.requiredCount}
           >
-            {isUploading ? "Uploading…" : "Choose a screenshot"}
+            {isUploading ? "Uploading…" : "SUBMIT FOR REVIEW"}
           </button>
         </div>
       ) : (
@@ -325,22 +375,18 @@ function TileDetailPanel({
   );
 }
 
-function PrizePotCard({ prizePot }: { prizePot: BoardData["config"]["prizePot"] }) {
+function PrizePotChip({ total }: { total: string }) {
+  if (!total) return null;
   return (
-    <div className="bingo-detail-card">
-      <div className="profile-card-title profile-card-title--sm">Prize Pot</div>
-      <div className="bingo-prizepot-total">{prizePot.total} GP</div>
-      <div className="bingo-prizepot-breakdown">
-        {prizePot.buyIn} in buy-ins · {prizePot.donated} donated
-      </div>
-      <div className="bingo-prizepot-entries">
-        {prizePot.entries.map((e, i) => (
-          <div key={i} className="bingo-prizepot-entry">
-            <span>{e.name}</span>
-            <span className="bingo-prizepot-amount">{e.amount}</span>
-          </div>
-        ))}
-      </div>
+    <div className="bingo-prizepot-chip">
+      <span className="bingo-prizepot-chip-label">PRIZE POT</span>
+      <img
+        className="bingo-prizepot-chip-icon"
+        src="https://oldschool.runescape.wiki/images/Coins_10000.png?7fa38"
+        alt=""
+        aria-hidden="true"
+      />
+      <span className="bingo-prizepot-chip-amount">{total} GP</span>
     </div>
   );
 }
@@ -363,8 +409,6 @@ export function BingoPage() {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(null);
-  const pendingTileId = useRef<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function reloadBoard() {
     fetchBoard()
@@ -399,17 +443,7 @@ export function BingoPage() {
 
   useEffect(reloadSubmissions, [isAdmin, view]);
 
-  function handleSubmitClick(tileId: number) {
-    pendingTileId.current = tileId;
-    fileInputRef.current?.click();
-  }
-
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    const tileId = pendingTileId.current;
-    e.target.value = "";
-    if (!file || tileId === null) return;
-
+  async function handleSubmitProof(tileId: number, file: File) {
     setUploadingTileId(tileId);
     setError(null);
     try {
@@ -417,6 +451,7 @@ export function BingoPage() {
       reloadBoard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit proof");
+      throw err;
     } finally {
       setUploadingTileId(null);
     }
@@ -475,12 +510,17 @@ export function BingoPage() {
 
       <div className="page">
         <div className="page-head">
-          <div className="page-eyebrow">Clan Event</div>
-          <h1 className="page-title">{board.config.name}</h1>
-          <p className="page-sub">
-            First team to complete every tile on their board wins. Click a tile to see exactly
-            what it needs, who's contributed, and to submit proof.
-          </p>
+          <div className="page-head-row">
+            <div className="page-head-text">
+              <div className="page-eyebrow">Clan Event</div>
+              <h1 className="page-title">{board.config.name}</h1>
+              <p className="page-sub">
+                First team to complete every tile on their board wins. Click a tile to see exactly
+                what it needs, who's contributed, and to submit proof.
+              </p>
+            </div>
+            <PrizePotChip total={board.config.prizePot.total} />
+          </div>
         </div>
 
         <div className="bingo-tabs">
@@ -513,14 +553,6 @@ export function BingoPage() {
         </div>
 
         {error && <div className="admin-error">{error}</div>}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          style={{ display: "none" }}
-          onChange={handleFileSelected}
-        />
 
         {view === "leaderboard" && (
           <div className="bingo-teams-grid">
@@ -603,10 +635,12 @@ export function BingoPage() {
                   canSubmit={canSubmitToBoardTeam}
                   viewingTeamName={boardTeam.name}
                   isUploading={uploadingTileId === selectedTile?.tileId}
-                  onSubmitClick={() => selectedTile && handleSubmitClick(selectedTile.tileId)}
+                  onSubmit={async (file) => {
+                    if (!selectedTile) return;
+                    await handleSubmitProof(selectedTile.tileId, file);
+                  }}
                   onOpenLightbox={setLightboxUrl}
                 />
-                <PrizePotCard prizePot={board.config.prizePot} />
               </div>
             </div>
           </>

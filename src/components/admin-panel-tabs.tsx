@@ -1,28 +1,31 @@
 import { useEffect, useState } from "react";
 import {
+  addDonation,
   assignTeam,
   createTeam,
   createTile,
+  deleteDonation,
   deleteTeam,
   deleteTile,
   fetchAdminTeams,
   fetchAdminTiles,
   fetchAdminUsers,
   fetchBoardConfig,
+  fetchDonations,
   recolorTeam,
   renameTeam,
   setCaptain,
-  setDonation,
   updateBoardConfig,
+  updateDonation,
   updateTile,
   type AdminTeam,
   type AdminTile,
   type AdminUser,
   type BoardConfig,
-  type PrizePotEntry,
+  type Donation,
 } from "../services/admin";
 
-type PanelTab = "teams" | "members" | "board" | "prizepot" | "tiles";
+type PanelTab = "teams" | "members" | "donations" | "board" | "tiles";
 
 const SIZE_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -35,14 +38,17 @@ const PLACEHOLDER_TEAMS: AdminTeam[] = [
   { id: 2, name: "Onyx Talon", slug: "onyx-talon", accentColor: "#5b9bd5", memberCount: 5, captainId: null, captainName: null },
 ];
 const PLACEHOLDER_USERS: AdminUser[] = [
-  { id: 1, username: "izjordy", globalName: "izJordy", runescapeName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" }, donatedGp: 500000 },
-  { id: 2, username: "test_user_two", globalName: "Test User Two", runescapeName: null, avatarUrl: null, isAdmin: false, team: null, donatedGp: 0 },
-  { id: 3, username: "test_user_three", globalName: null, runescapeName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" }, donatedGp: 0 },
+  { id: 1, username: "izjordy", globalName: "izJordy", runescapeName: "izJordy", avatarUrl: null, isAdmin: true, team: { id: 1, name: "Crimson Fang" } },
+  { id: 2, username: "test_user_two", globalName: "Test User Two", runescapeName: null, avatarUrl: null, isAdmin: false, team: null },
+  { id: 3, username: "test_user_three", globalName: null, runescapeName: null, avatarUrl: null, isAdmin: false, team: { id: 2, name: "Onyx Talon" } },
+];
+const PLACEHOLDER_DONATIONS: Donation[] = [
+  { id: 1, name: "izJordy", amountGp: 500000 },
 ];
 const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
   size: 5,
-  prizePot: { total: "", buyIn: "", donated: "", entries: [] },
+  prizePot: { total: "" },
 };
 const PLACEHOLDER_TILES: AdminTile[] = [
   { id: 1, position: 0, name: "Twisted Bow", iconUrl: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png", requiredCount: 1, category: "ITEM DROP", description: "" },
@@ -264,15 +270,6 @@ function MembersPanel() {
     }
   }
 
-  async function handleDonation(userId: number, donatedGp: number) {
-    try {
-      await setDonation(userId, donatedGp);
-      reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update donation total");
-    }
-  }
-
   const filtered = (users ?? []).filter((u) => {
     if (!search.trim()) return true;
     const name = u.runescapeName ?? u.globalName ?? u.username;
@@ -299,7 +296,6 @@ function MembersPanel() {
             user={u}
             teams={teams ?? []}
             onAssign={(value) => handleAssign(u.id, value)}
-            onDonation={(gp) => handleDonation(u.id, gp)}
           />
         ))}
         {users && users.length > 0 && filtered.length === 0 && (
@@ -315,39 +311,14 @@ function MemberRow({
   user,
   teams,
   onAssign,
-  onDonation,
 }: {
   user: AdminUser;
   teams: AdminTeam[];
   onAssign: (value: string) => void;
-  onDonation: (donatedGp: number) => void;
 }) {
-  const [donation, setDonation] = useState(String(user.donatedGp));
-  const [prevGp, setPrevGp] = useState(user.donatedGp);
-  if (user.donatedGp !== prevGp) {
-    setPrevGp(user.donatedGp);
-    setDonation(String(user.donatedGp));
-  }
-
-  function commitDonation() {
-    const parsed = Math.max(0, Math.floor(Number(donation)) || 0);
-    if (parsed !== user.donatedGp) onDonation(parsed);
-    else setDonation(String(user.donatedGp));
-  }
-
   return (
     <div className="admin-row">
       <span className="admin-row-name">{user.runescapeName ?? user.globalName ?? user.username}</span>
-      <input
-        type="number"
-        min={0}
-        className="admin-input admin-donation-input"
-        title="Total GP donated"
-        value={donation}
-        onChange={(e) => setDonation(e.target.value)}
-        onBlur={commitDonation}
-        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-      />
       <select className="admin-select" value={user.team?.id ?? ""} onChange={(e) => onAssign(e.target.value)}>
         <option value="">Unassigned</option>
         {teams.map((t) => (
@@ -356,6 +327,176 @@ function MemberRow({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function DonationsPanel() {
+  const [donations, setDonations] = useState<Donation[] | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reload() {
+    fetchDonations()
+      .then(setDonations)
+      .catch((err: unknown) => {
+        if (import.meta.env.DEV) {
+          setDonations(PLACEHOLDER_DONATIONS);
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Failed to load donations");
+      });
+  }
+
+  useEffect(reload, []);
+
+  async function handleAdd(name: string, amountGp: number) {
+    try {
+      await addDonation(name, amountGp);
+      setAdding(false);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add donation");
+    }
+  }
+
+  async function handleSave(id: number, name: string, amountGp: number) {
+    try {
+      await updateDonation(id, name, amountGp);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update donation");
+    }
+  }
+
+  async function handleDelete(id: number) {
+    try {
+      await deleteDonation(id);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete donation");
+    }
+  }
+
+  if (!donations) return <div className="admin-panel">{error ?? "Loading..."}</div>;
+
+  return (
+    <div className="admin-panel">
+      {error && <div className="admin-error">{error}</div>}
+      <div className="admin-row-list">
+        {donations.map((d) => (
+          <DonationRow
+            key={d.id}
+            donation={d}
+            onSave={(name, amountGp) => handleSave(d.id, name, amountGp)}
+            onDelete={() => handleDelete(d.id)}
+          />
+        ))}
+        {adding && <DonationAddRow onSave={handleAdd} onCancel={() => setAdding(false)} />}
+        {donations.length === 0 && !adding && (
+          <div className="admin-empty">No donations recorded yet.</div>
+        )}
+      </div>
+      {!adding && (
+        <button type="button" className="admin-tile-list-add" onClick={() => setAdding(true)}>
+          + Add Donor
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DonationRow({
+  donation,
+  onSave,
+  onDelete,
+}: {
+  donation: Donation;
+  onSave: (name: string, amountGp: number) => void;
+  onDelete: () => void;
+}) {
+  const [name, setName] = useState(donation.name);
+  const [amount, setAmount] = useState(String(donation.amountGp));
+  const [prevDonation, setPrevDonation] = useState(donation);
+  if (donation.name !== prevDonation.name || donation.amountGp !== prevDonation.amountGp) {
+    setPrevDonation(donation);
+    setName(donation.name);
+    setAmount(String(donation.amountGp));
+  }
+
+  function commit() {
+    const n = name.trim();
+    const a = Math.max(0, Math.floor(Number(amount)) || 0);
+    if (n && (n !== donation.name || a !== donation.amountGp)) {
+      onSave(n, a);
+    } else {
+      setName(donation.name);
+      setAmount(String(donation.amountGp));
+    }
+  }
+
+  return (
+    <div className="admin-row">
+      <input
+        type="text"
+        className="admin-input admin-row-input"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={commit}
+      />
+      <input
+        type="number"
+        min={0}
+        className="admin-input admin-donation-amount-input"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+      />
+      <button type="button" className="admin-btn-danger" onClick={onDelete}>
+        ✕
+      </button>
+    </div>
+  );
+}
+
+function DonationAddRow({
+  onSave,
+  onCancel,
+}: {
+  onSave: (name: string, amountGp: number) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("0");
+  return (
+    <div className="admin-row">
+      <input
+        type="text"
+        className="admin-input admin-row-input"
+        placeholder="Donor name / RSN"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        autoFocus
+      />
+      <input
+        type="number"
+        min={0}
+        className="admin-input admin-donation-amount-input"
+        placeholder="Amount"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+      />
+      <button
+        type="button"
+        className="admin-btn-primary"
+        onClick={() => name.trim() && onSave(name.trim(), Math.max(0, Math.floor(Number(amount)) || 0))}
+      >
+        Save
+      </button>
+      <button type="button" className="admin-btn-ghost" onClick={onCancel}>
+        Cancel
+      </button>
     </div>
   );
 }
@@ -602,138 +743,16 @@ function BoardConfigPanel() {
               ))}
             </select>
           </label>
-        </div>
-
-        <div className="admin-section-save">
-          <button type="submit" className="admin-btn-primary" disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
-          {saved && <span className="admin-saved">Saved.</span>}
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function PrizePotPanel() {
-  const [config, setConfig] = useState<BoardConfig | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  function reload() {
-    fetchBoardConfig()
-      .then(setConfig)
-      .catch((err: unknown) => {
-        if (import.meta.env.DEV) {
-          setConfig(PLACEHOLDER_BOARD_CONFIG);
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Failed to load prize pot");
-      });
-  }
-
-  useEffect(reload, []);
-
-  async function handleSaveConfig(e: React.FormEvent) {
-    e.preventDefault();
-    if (!config) return;
-    setSaving(true);
-    setError(null);
-    setSaved(false);
-    try {
-      const updated = await updateBoardConfig(config);
-      setConfig(updated);
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save prize pot");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function updatePrizePotField(field: "total" | "buyIn" | "donated", value: string) {
-    if (!config) return;
-    setConfig({ ...config, prizePot: { ...config.prizePot, [field]: value } });
-  }
-
-  function updatePrizePotEntry(index: number, patch: Partial<PrizePotEntry>) {
-    if (!config) return;
-    const entries = config.prizePot.entries.map((e, i) => (i === index ? { ...e, ...patch } : e));
-    setConfig({ ...config, prizePot: { ...config.prizePot, entries } });
-  }
-
-  function addPrizePotEntry() {
-    if (!config) return;
-    setConfig({
-      ...config,
-      prizePot: { ...config.prizePot, entries: [...config.prizePot.entries, { name: "", amount: "" }] },
-    });
-  }
-
-  function removePrizePotEntry(index: number) {
-    if (!config) return;
-    setConfig({
-      ...config,
-      prizePot: { ...config.prizePot, entries: config.prizePot.entries.filter((_, i) => i !== index) },
-    });
-  }
-
-  if (!config) return <div className="admin-panel">{error ?? "Loading..."}</div>;
-
-  return (
-    <div className="admin-panel">
-      {error && <div className="admin-error">{error}</div>}
-
-      <form onSubmit={handleSaveConfig}>
-        <div className="admin-section--prizepot">
-          <div className="admin-prizepot-row">
+          <label className="admin-field">
+            <span>Prize pot total</span>
             <input
               type="text"
               className="admin-input"
-              placeholder="Total (e.g. 51.50M)"
+              placeholder="e.g. 51.50M"
               value={config.prizePot.total}
-              onChange={(e) => updatePrizePotField("total", e.target.value)}
+              onChange={(e) => setConfig({ ...config, prizePot: { total: e.target.value } })}
             />
-            <input
-              type="text"
-              className="admin-input"
-              placeholder="Buy-in (e.g. 1.50M)"
-              value={config.prizePot.buyIn}
-              onChange={(e) => updatePrizePotField("buyIn", e.target.value)}
-            />
-            <input
-              type="text"
-              className="admin-input"
-              placeholder="Donated (e.g. 50.00M)"
-              value={config.prizePot.donated}
-              onChange={(e) => updatePrizePotField("donated", e.target.value)}
-            />
-          </div>
-          {config.prizePot.entries.map((entry, i) => (
-            <div key={i} className="admin-prizepot-row">
-              <input
-                type="text"
-                className="admin-input"
-                placeholder="Entry name"
-                value={entry.name}
-                onChange={(e) => updatePrizePotEntry(i, { name: e.target.value })}
-              />
-              <input
-                type="text"
-                className="admin-input"
-                placeholder="Amount"
-                value={entry.amount}
-                onChange={(e) => updatePrizePotEntry(i, { amount: e.target.value })}
-              />
-              <button type="button" className="admin-btn-danger" onClick={() => removePrizePotEntry(i)}>
-                ✕
-              </button>
-            </div>
-          ))}
-          <button type="button" className="admin-btn-ghost" onClick={addPrizePotEntry}>
-            + Entry
-          </button>
+          </label>
         </div>
 
         <div className="admin-section-save">
@@ -905,17 +924,17 @@ export function AdminPanelTabs() {
         </button>
         <button
           type="button"
-          className={`bingo-tab${panelTab === "board" ? " active" : ""}`}
-          onClick={() => setPanelTab("board")}
+          className={`bingo-tab${panelTab === "donations" ? " active" : ""}`}
+          onClick={() => setPanelTab("donations")}
         >
-          BOARD CONFIG
+          DONATIONS
         </button>
         <button
           type="button"
-          className={`bingo-tab${panelTab === "prizepot" ? " active" : ""}`}
-          onClick={() => setPanelTab("prizepot")}
+          className={`bingo-tab${panelTab === "board" ? " active" : ""}`}
+          onClick={() => setPanelTab("board")}
         >
-          PRIZE POT
+          BINGO CONFIG
         </button>
         <button
           type="button"
@@ -928,8 +947,8 @@ export function AdminPanelTabs() {
 
       {panelTab === "teams" && <TeamsPanel />}
       {panelTab === "members" && <MembersPanel />}
+      {panelTab === "donations" && <DonationsPanel />}
       {panelTab === "board" && <BoardConfigPanel />}
-      {panelTab === "prizepot" && <PrizePotPanel />}
       {panelTab === "tiles" && <TilesPanel />}
     </div>
   );

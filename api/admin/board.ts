@@ -13,19 +13,8 @@ async function getConfig(res: VercelResponse) {
 function parsePrizePot(raw: unknown): PrizePot | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  if (!Array.isArray(r.entries)) return null;
-  const entries = r.entries
-    .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
-    .map((e) => ({
-      name: typeof e.name === "string" ? e.name.trim() : "",
-      amount: typeof e.amount === "string" ? e.amount.trim() : "",
-    }))
-    .filter((e) => e.name && e.amount);
   return {
     total: typeof r.total === "string" ? r.total.trim() : "",
-    buyIn: typeof r.buyIn === "string" ? r.buyIn.trim() : "",
-    donated: typeof r.donated === "string" ? r.donated.trim() : "",
-    entries,
   };
 }
 

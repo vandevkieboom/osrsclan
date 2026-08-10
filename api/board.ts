@@ -183,16 +183,16 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
 
 async function getDonors(res: VercelResponse) {
   const rows = await sql`
-    SELECT discord_username, discord_global_name, runescape_name, donated_gp
-    FROM users
-    WHERE donated_gp > 0
-    ORDER BY donated_gp DESC, discord_username ASC
+    SELECT name, amount_gp
+    FROM donations
+    WHERE amount_gp > 0
+    ORDER BY amount_gp DESC, name ASC
     LIMIT 5`;
 
   res.status(200).json({
     donors: rows.map((r) => ({
-      name: r.runescape_name ?? r.discord_global_name ?? r.discord_username,
-      donatedGp: Number(r.donated_gp),
+      name: r.name,
+      donatedGp: Number(r.amount_gp),
     })),
   });
 }

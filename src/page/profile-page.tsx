@@ -171,7 +171,8 @@ export function ProfilePage() {
             <div className="page-head-text">
               <div className="page-eyebrow">Clan Member</div>
               <h1 className="page-title">Member Profile</h1>
-              <p className="page-sub">Look up any clan member's stats, rank, and trophy case.</p>
+              <p className="page-sub">Look up any player's stats, rank, and trophy case by RuneScape name.
+              See XP gains, boss kills, and every trophy they've earned.</p>
             </div>
             <div className="profile-search">
               <input

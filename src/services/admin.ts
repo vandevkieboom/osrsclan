@@ -16,19 +16,16 @@ export interface AdminUser {
   avatarUrl: string | null;
   isAdmin: boolean;
   team: { id: number; name: string } | null;
-  donatedGp: number;
 }
 
-export interface PrizePotEntry {
+export interface Donation {
+  id: number;
   name: string;
-  amount: string;
+  amountGp: number;
 }
 
 export interface PrizePot {
   total: string;
-  buyIn: string;
-  donated: string;
-  entries: PrizePotEntry[];
 }
 
 export interface BoardConfig {
@@ -123,12 +120,34 @@ export async function deleteTeam(id: number): Promise<void> {
   await json(res);
 }
 
-export async function setDonation(userId: number, donatedGp: number): Promise<void> {
-  const res = await fetch("/api/admin/teams?resource=donation", {
+export async function fetchDonations(): Promise<Donation[]> {
+  const res = await fetch("/api/admin/teams?resource=donations");
+  const data = await json<{ donations: Donation[] }>(res);
+  return data.donations;
+}
+
+export async function addDonation(name: string, amountGp: number): Promise<Donation> {
+  const res = await fetch("/api/admin/teams?resource=donations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, donatedGp }),
+    body: JSON.stringify({ name, amountGp }),
   });
+  const data = await json<{ donation: Donation }>(res);
+  return data.donation;
+}
+
+export async function updateDonation(id: number, name: string, amountGp: number): Promise<Donation> {
+  const res = await fetch("/api/admin/teams?resource=donations", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, name, amountGp }),
+  });
+  const data = await json<{ donation: Donation }>(res);
+  return data.donation;
+}
+
+export async function deleteDonation(id: number): Promise<void> {
+  const res = await fetch(`/api/admin/teams?resource=donations&id=${id}`, { method: "DELETE" });
   await json(res);
 }
 

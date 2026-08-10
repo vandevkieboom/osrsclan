@@ -54,7 +54,11 @@ ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_log;
 -- The Board Config admin form's Date Range field was removed as clutter.
 ALTER TABLE board_config DROP COLUMN IF EXISTS date_range;
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":"","buyIn":"","donated":"","entries":[]}';
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":""}';
+-- The prize pot admin form was simplified down to just the total GP amount —
+-- buy-in, donated, and the per-donor entries list were never shown anywhere
+-- on the public site and are dropped from new rows and future saves.
+ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,
@@ -96,3 +100,15 @@ CREATE TABLE IF NOT EXISTS trophies (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_trophies_rsn_key ON trophies(rsn_key);
+
+-- Donations used to live as a `donated_gp` number on a `users` row, which
+-- meant a donor had to have logged into the site at least once with Discord
+-- before their donation would show up anywhere. Tracking them independently
+-- by name lets an admin record a donation for any clan member.
+CREATE TABLE IF NOT EXISTS donations (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  amount_gp BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE users DROP COLUMN IF EXISTS donated_gp;

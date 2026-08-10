@@ -179,7 +179,7 @@ async function deleteTeam(req: VercelRequest, res: VercelResponse) {
 async function listUsers(res: VercelResponse) {
   const rows = await sql`
     SELECT u.id, u.discord_id, u.discord_username, u.discord_global_name, u.discord_avatar_hash,
-           u.is_admin, u.team_id, u.runescape_name, u.donated_gp, t.name AS team_name
+           u.is_admin, u.team_id, u.runescape_name, t.name AS team_name
     FROM users u
     LEFT JOIN teams t ON t.id = u.team_id
     ORDER BY u.discord_username`;
@@ -195,7 +195,6 @@ async function listUsers(res: VercelResponse) {
         : null,
       isAdmin: r.is_admin,
       team: r.team_id ? { id: r.team_id, name: r.team_name } : null,
-      donatedGp: Number(r.donated_gp),
     })),
   });
 }
@@ -230,29 +229,65 @@ async function assignTeam(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ userId: rows[0].id, teamId: rows[0].team_id });
 }
 
-async function setDonation(req: VercelRequest, res: VercelResponse) {
-  const userId = Number(req.body?.userId);
-  const donatedGp = Number(req.body?.donatedGp);
-  if (!Number.isInteger(userId) || !Number.isInteger(donatedGp) || donatedGp < 0) {
-    res.status(400).json({ error: "userId and a non-negative integer donatedGp are required" });
-    return;
-  }
-
-  const rows = await sql`
-    UPDATE users SET donated_gp = ${donatedGp} WHERE id = ${userId}
-    RETURNING id, donated_gp`;
-  if (rows.length === 0) {
-    res.status(404).json({ error: "User not found" });
-    return;
-  }
-  res.status(200).json({ userId: rows[0].id, donatedGp: Number(rows[0].donated_gp) });
+// Donations are tracked by free-text name rather than a users.id FK — not
+// every clan member has ever logged into the site, so tying a donation to a
+// registered account would hide anyone who hasn't.
+async function listDonations(res: VercelResponse) {
+  const rows = await sql`SELECT id, name, amount_gp FROM donations ORDER BY amount_gp DESC, name ASC`;
+  res.status(200).json({
+    donations: rows.map((r) => ({ id: r.id, name: r.name, amountGp: Number(r.amount_gp) })),
+  });
 }
 
-// Teams, users, and team-assignment are combined into one function — the
-// Vercel Hobby plan caps a deployment at 12 serverless functions total, and
-// this project already needed all of auth + board + the legacy WOM/RuneProfile
-// proxies, so closely-related admin endpoints share a file dispatched by
-// `resource`/method the same way api/wom-proxy.ts dispatches on `type`.
+async function addDonation(req: VercelRequest, res: VercelResponse) {
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const amountGp = Number(req.body?.amountGp);
+  if (!name || !Number.isInteger(amountGp) || amountGp < 0) {
+    res.status(400).json({ error: "name and a non-negative integer amountGp are required" });
+    return;
+  }
+  const rows = await sql`
+    INSERT INTO donations (name, amount_gp) VALUES (${name}, ${amountGp})
+    RETURNING id, name, amount_gp`;
+  const d = rows[0];
+  res.status(201).json({ donation: { id: d.id, name: d.name, amountGp: Number(d.amount_gp) } });
+}
+
+async function updateDonation(req: VercelRequest, res: VercelResponse) {
+  const id = Number(req.body?.id);
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const amountGp = Number(req.body?.amountGp);
+  if (!Number.isInteger(id) || !name || !Number.isInteger(amountGp) || amountGp < 0) {
+    res.status(400).json({ error: "id, name, and a non-negative integer amountGp are required" });
+    return;
+  }
+  const rows = await sql`
+    UPDATE donations SET name = ${name}, amount_gp = ${amountGp} WHERE id = ${id}
+    RETURNING id, name, amount_gp`;
+  if (rows.length === 0) {
+    res.status(404).json({ error: "Donation not found" });
+    return;
+  }
+  const d = rows[0];
+  res.status(200).json({ donation: { id: d.id, name: d.name, amountGp: Number(d.amount_gp) } });
+}
+
+async function deleteDonation(req: VercelRequest, res: VercelResponse) {
+  const id = Number(req.query.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  await sql`DELETE FROM donations WHERE id = ${id}`;
+  res.status(200).json({ ok: true });
+}
+
+// Teams, users, team-assignment, and donations are combined into one
+// function — the Vercel Hobby plan caps a deployment at 12 serverless
+// functions total, and this project already needed all of auth + board +
+// the legacy WOM/RuneProfile proxies, so closely-related admin endpoints
+// share a file dispatched by `resource`/method the same way
+// api/wom-proxy.ts dispatches on `type`.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!(await requireAdmin(req, res))) return;
 
@@ -261,6 +296,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") {
     if (resource === "users") {
       await listUsers(res);
+      return;
+    }
+    if (resource === "donations") {
+      await listDonations(res);
       return;
     }
     await listTeams(res);
@@ -272,8 +311,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await assignTeam(req, res);
       return;
     }
-    if (resource === "donation") {
-      await setDonation(req, res);
+    if (resource === "donations") {
+      await addDonation(req, res);
       return;
     }
     await createTeam(req, res);
@@ -281,11 +320,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === "PUT") {
+    if (resource === "donations") {
+      await updateDonation(req, res);
+      return;
+    }
     await updateTeam(req, res);
     return;
   }
 
   if (req.method === "DELETE") {
+    if (resource === "donations") {
+      await deleteDonation(req, res);
+      return;
+    }
     await deleteTeam(req, res);
     return;
   }

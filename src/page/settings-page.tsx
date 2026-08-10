@@ -49,7 +49,8 @@ export function SettingsPage() {
           <div className="page-head">
             <div className="page-eyebrow">Account</div>
             <h1 className="page-title">Settings</h1>
-            <p className="page-sub">Manage your account and site preferences.</p>
+            <p className="page-sub">Manage your account and site preferences. Link your RuneScape name and
+            choose whether the leaderboard remembers your search.</p>
           </div>
           <div className="bingo-admin-empty">
             Log in with Discord to manage your settings.
@@ -79,7 +80,8 @@ export function SettingsPage() {
         <div className="page-head">
           <div className="page-eyebrow">Account</div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-sub">Manage your account and site preferences.</p>
+          <p className="page-sub">Manage your account and site preferences. Link your RuneScape name and
+            choose whether the leaderboard remembers your search.</p>
         </div>
 
         <div className="profile-card">

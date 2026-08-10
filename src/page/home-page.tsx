@@ -165,6 +165,21 @@ export function HomePage() {
               </div>
             </div>
           </Link>
+
+          <Link to="/bingo" className="home-card">
+            <img
+              src="https://oldschool.runescape.wiki/images/Puzzle_box_castle_detail.png"
+              className="home-card-icon"
+              alt=""
+            />
+            <div className="home-card-body">
+              <div className="home-card-title">Bingo</div>
+              <div className="home-card-desc">
+                Complete tiles on your team's board to win a share of the prize
+                pot. Track every team's progress and submit proof as you go.
+              </div>
+            </div>
+          </Link>
           <Link to="/activity" className="home-card">
             <img
               src="https://oldschool.runescape.wiki/images/Chronicle_detail.png"
@@ -190,9 +205,13 @@ export function HomePage() {
                   key={donor.name}
                   className={`home-donor-card${i < 3 ? ` home-donor-card--rank${i + 1}` : ""}`}
                 >
-                  <div className="home-donor-rank">{MEDALS[i] ?? `#${i + 1}`}</div>
+                  <div className="home-donor-rank">
+                    {MEDALS[i] ?? `#${i + 1}`}
+                  </div>
                   <div className="home-donor-name">{donor.name}</div>
-                  <div className="home-donor-amount">{donor.donatedGp.toLocaleString()} GP</div>
+                  <div className="home-donor-amount">
+                    {donor.donatedGp.toLocaleString()} GP
+                  </div>
                 </div>
               ))}
             </div>
