@@ -101,6 +101,21 @@ CREATE TABLE IF NOT EXISTS trophies (
 );
 CREATE INDEX IF NOT EXISTS idx_trophies_rsn_key ON trophies(rsn_key);
 
+-- Records which rank items that can't be auto-verified from a collection log
+-- an admin has manually confirmed for a given RSN (e.g. via a screenshot).
+-- Keyed by RSN like trophies, not user id, for the same reason. item_name is
+-- stored lowercased to match how RuneProfile item names are looked up
+-- elsewhere (see buildItemMap in src/services/runeprofile.ts).
+CREATE TABLE IF NOT EXISTS manual_item_verifications (
+  id BIGSERIAL PRIMARY KEY,
+  rsn_key TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  verified_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (rsn_key, item_name)
+);
+CREATE INDEX IF NOT EXISTS idx_manual_item_verifications_rsn_key ON manual_item_verifications(rsn_key);
+
 -- Donations used to live as a `donated_gp` number on a `users` row, which
 -- meant a donor had to have logged into the site at least once with Discord
 -- before their donation would show up anywhere. Tracking them independently

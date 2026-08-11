@@ -330,7 +330,9 @@ export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
 export interface ClanLeaderboardEntry {
   name: string;
   totalSatisfied: number;
-  highestEligibleRankIndex: number;
+  rankName: string | null;
+  rankColor: string | null;
+  rankIcon: string | null;
   nextRankPct: number;
 }
 

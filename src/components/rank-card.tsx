@@ -24,6 +24,9 @@ type RankCardProps = Rank & {
   eligible: boolean;
   priorRanksMet: boolean;
   stats: RankStats;
+  verifiedItemNames: Set<string>;
+  canEditVerification: boolean;
+  onToggleVerification: (itemName: string) => void;
 };
 
 const RankCard: React.FC<RankCardProps> = ({
@@ -39,6 +42,9 @@ const RankCard: React.FC<RankCardProps> = ({
   eligible,
   priorRanksMet,
   stats,
+  verifiedItemNames,
+  canEditVerification,
+  onToggleVerification,
 }) => {
   // Ranks are cumulative, so "progress" (prior ranks met, this one isn't
   // yet) can only ever be true for a single rank at a time — the next one
@@ -93,7 +99,11 @@ const RankCard: React.FC<RankCardProps> = ({
         {items.map((item, itemIndex) => {
           const key = `${rankIndex}-${itemIndex}`;
           const apiResult = apiVerified[key] ?? null;
-          const isApiDone = apiResult === "pass" || apiResult === "pass-alt";
+          const isUntrackable = !item.apiCheck;
+          const isManuallyVerified =
+            isUntrackable && verifiedItemNames.has(item.name.toLowerCase());
+          const isApiDone =
+            apiResult === "pass" || apiResult === "pass-alt" || isManuallyVerified;
           if (hideCompleted && isApiDone) {
             return null;
           }
@@ -104,6 +114,12 @@ const RankCard: React.FC<RankCardProps> = ({
               {...item}
               apiResult={apiResult}
               progress={apiProgress[key] ?? null}
+              isUntrackable={isUntrackable}
+              isManuallyVerified={isManuallyVerified}
+              canEditVerification={canEditVerification && isUntrackable}
+              onToggleVerification={
+                isUntrackable ? () => onToggleVerification(item.name) : undefined
+              }
             />
           );
         })}

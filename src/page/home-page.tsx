@@ -5,7 +5,7 @@ import { SiteFooter } from "../components/site-footer";
 import { SiteHeader } from "../components/site-header";
 import { fetchDonors, type Donor } from "../services/board";
 
-const MEDALS = ["🥇", "🥈", "🥉"];
+const TROPHY_ICONS = ["/trophy.png", "/trophy-silver.png", "/trophy-bronze.png"];
 
 const WOM_GROUP_ID = 22206;
 const WOM_BASE = "https://api.wiseoldman.net/v2";
@@ -206,7 +206,15 @@ export function HomePage() {
                   className={`home-donor-card${i < 3 ? ` home-donor-card--rank${i + 1}` : ""}`}
                 >
                   <div className="home-donor-rank">
-                    {MEDALS[i] ?? `#${i + 1}`}
+                    {TROPHY_ICONS[i] ? (
+                      <img
+                        src={TROPHY_ICONS[i]}
+                        alt={`Rank ${i + 1}`}
+                        className="home-donor-trophy-icon"
+                      />
+                    ) : (
+                      <span className="home-donor-rank-num">#{i + 1}</span>
+                    )}
                   </div>
                   <div className="home-donor-name">{donor.name}</div>
                   <div className="home-donor-amount">

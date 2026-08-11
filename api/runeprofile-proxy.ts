@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
-import ranks from "../src/data/ranks-data.js";
+import ranks, { rankIconByRole, staffRankByRole } from "../src/data/ranks-data.js";
 import { computeClanRankProgress } from "../src/services/rank-checker.js";
+import { getRankForRole } from "../src/services/profile.js";
 import {
   buildRuneProfile,
   type CombatAchievementTasksResponse,
@@ -61,9 +62,31 @@ async function proxyPath(req: VercelRequest, res: VercelResponse) {
 interface LeaderboardEntry {
   name: string;
   totalSatisfied: number;
-  highestEligibleRankIndex: number;
+  rankName: string | null;
+  rankColor: string | null;
+  rankIcon: string | null;
   nextRankPct: number;
 }
+
+// The clan's admin-assigned WOM group role is the source of truth for a
+// member's rank — it accounts for items that can't be auto-verified from a
+// collection log and require manual sign-off, which the RuneProfile checklist
+// alone cannot see. This mirrors profile-page.tsx's getRankForRole() lookup,
+// just also returning the index into `ranks` (needed for the "next tier"
+// progress bar below), which that helper doesn't expose.
+// Returns -1 for no/unrecognized role (progress shown toward the first
+// tier), or `ranks.length` for a staff role (above the achievement ladder,
+// no "next tier").
+function resolveMemberRankIndex(role: string | undefined): number {
+  if (!role) return -1;
+  const roleKey = role.toLowerCase();
+  if (staffRankByRole[roleKey]) return ranks.length;
+  const icon = rankIconByRole[roleKey];
+  if (!icon) return -1;
+  return ranks.findIndex((r) => r.icon === icon);
+}
+
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -95,15 +118,28 @@ async function refreshLeaderboard(res: VercelResponse) {
     return;
   }
   const group = (await rolesRes.json()) as {
-    memberships?: Array<{ player: { displayName: string } }>;
+    memberships?: Array<{ player: { displayName: string }; role: string }>;
   };
   // RuneProfile needs the real, properly-cased in-game name — WOM's `username`
   // field is a lowercased/sanitized lookup key (fine for internal maps, wrong
   // account or a 404 if used against an external API), same distinction the
   // rest of the app already respects (see hiscores-page.tsx, profile-page.tsx).
-  const usernames = Array.from(
-    new Set((group.memberships ?? []).map((m) => m.player.displayName).filter(Boolean)),
+  const roleByName = new Map(
+    (group.memberships ?? [])
+      .filter((m) => m.player.displayName)
+      .map((m) => [m.player.displayName, m.role]),
   );
+  const usernames = Array.from(roleByName.keys());
+
+  // One bulk query up front rather than one per member — feeds the same
+  // manually-verified-item data the Rankings page's admin toggle writes to.
+  const verificationRows = await sql`SELECT rsn_key, item_name FROM manual_item_verifications`;
+  const verifiedByRsn = new Map<string, Set<string>>();
+  for (const row of verificationRows) {
+    const set = verifiedByRsn.get(row.rsn_key) ?? new Set<string>();
+    set.add(row.item_name);
+    verifiedByRsn.set(row.rsn_key, set);
+  }
 
   const entries: LeaderboardEntry[] = [];
   const CONCURRENCY = 4;
@@ -129,10 +165,19 @@ async function refreshLeaderboard(res: VercelResponse) {
           ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
           : null;
 
+        const verifiedItemNames = verifiedByRsn.get(username.toLowerCase()) ?? EMPTY_SET;
         const profile = buildRuneProfile(data, tasksData, null);
-        const progress = computeClanRankProgress(ranks, profile);
+        // Untrackable items an admin has confirmed (verifiedItemNames) are
+        // counted directly here, same as the per-user "My Progress" view —
+        // the rank badge itself still comes from the member's real WOM role
+        // below, not this checklist.
+        const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
 
-        const nextRankIndex = progress.highestEligibleRankIndex + 1;
+        const role = roleByName.get(username);
+        const rankInfo = getRankForRole(role);
+        const currentRankIndex = resolveMemberRankIndex(role);
+
+        const nextRankIndex = currentRankIndex + 1;
         const nextRankStats = progress.rankStats[nextRankIndex];
         const nextRankPct =
           nextRankIndex >= ranks.length
@@ -141,10 +186,32 @@ async function refreshLeaderboard(res: VercelResponse) {
               ? Math.round((nextRankStats.satisfiedCount / nextRankStats.total) * 100)
               : 0;
 
+        // Being verified into a tier only proves "all but one item" was
+        // satisfied — never that every untrackable item was owned, since one
+        // of any kind can be skipped. So for an already-verified tier, items
+        // an admin has explicitly confirmed (verifiedItemNames, folded into
+        // stats.satisfiedCount above) count for real; any STILL-unconfirmed
+        // untrackable items only get credited when the confirmed count alone
+        // falls short of what verification requires — proving at least that
+        // many more must have counted toward it. A provable lower bound: it
+        // can undercount but can never overcount.
+        const totalSatisfied = ranks.reduce((sum, rank, idx) => {
+          const stats = progress.rankStats[idx];
+          if (idx > currentRankIndex) return sum + stats.satisfiedCount;
+          const unconfirmedUntrackable = rank.items.filter(
+            (item) => !item.apiCheck && !verifiedItemNames.has(item.name.toLowerCase()),
+          ).length;
+          const shortfall = Math.max(0, stats.requiredCount - stats.satisfiedCount);
+          const creditedUntrackable = Math.min(unconfirmedUntrackable, shortfall);
+          return sum + stats.satisfiedCount + creditedUntrackable;
+        }, 0);
+
         entries.push({
           name: data.username || username,
-          totalSatisfied: progress.overallSatisfied,
-          highestEligibleRankIndex: progress.highestEligibleRankIndex,
+          totalSatisfied,
+          rankName: rankInfo?.name ?? null,
+          rankColor: rankInfo?.color ?? null,
+          rankIcon: rankInfo?.icon ?? null,
           nextRankPct,
         });
       } catch {

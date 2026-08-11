@@ -77,10 +77,80 @@ async function removeTrophy(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ ok: true });
 }
 
-// Listing (public), adding, and removing trophies are combined into one
-// function to stay under the Vercel Hobby plan's 12-function-per-deployment
-// cap, dispatched by HTTP method.
+// Items a rank requires that RuneProfile can't auto-verify (no collection-log
+// signal) still get manually confirmed by an admin from a screenshot — this
+// just persists that decision instead of it only ever changing a WOM role.
+// Keyed by RSN like trophies, for the same reason: lookups work for any RSN
+// in the WOM group, not just linked accounts. Listing is public (it feeds
+// the Rankings page for every viewer), adding/removing is admin-only.
+async function listVerifiedItems(req: VercelRequest, res: VercelResponse) {
+  const rsn = typeof req.query.rsn === "string" ? req.query.rsn.trim() : "";
+  if (!rsn) {
+    res.status(400).json({ error: "rsn is required" });
+    return;
+  }
+
+  const rows = await sql`
+    SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${rsn.toLowerCase()}`;
+  res.status(200).json({ items: rows.map((r) => r.item_name) });
+}
+
+async function addVerifiedItem(req: VercelRequest, res: VercelResponse) {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  const rsn = typeof req.body?.rsn === "string" ? req.body.rsn.trim() : "";
+  const itemName = typeof req.body?.itemName === "string" ? req.body.itemName.trim() : "";
+  if (!rsn || !itemName) {
+    res.status(400).json({ error: "rsn and itemName are required" });
+    return;
+  }
+
+  await sql`
+    INSERT INTO manual_item_verifications (rsn_key, item_name, verified_by)
+    VALUES (${rsn.toLowerCase()}, ${itemName.toLowerCase()}, ${admin.id})
+    ON CONFLICT (rsn_key, item_name) DO NOTHING`;
+  res.status(201).json({ ok: true });
+}
+
+async function removeVerifiedItem(req: VercelRequest, res: VercelResponse) {
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  const rsn = typeof req.query.rsn === "string" ? req.query.rsn.trim() : "";
+  const itemName = typeof req.query.itemName === "string" ? req.query.itemName.trim() : "";
+  if (!rsn || !itemName) {
+    res.status(400).json({ error: "rsn and itemName are required" });
+    return;
+  }
+
+  await sql`
+    DELETE FROM manual_item_verifications
+    WHERE rsn_key = ${rsn.toLowerCase()} AND item_name = ${itemName.toLowerCase()}`;
+  res.status(200).json({ ok: true });
+}
+
+// Listing (public), adding, and removing trophies (and, via `?resource=`,
+// manually-verified items) are combined into one function to stay under the
+// Vercel Hobby plan's 12-function-per-deployment cap.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.query.resource === "verified-items") {
+    if (req.method === "GET") {
+      await listVerifiedItems(req, res);
+      return;
+    }
+    if (req.method === "POST") {
+      await addVerifiedItem(req, res);
+      return;
+    }
+    if (req.method === "DELETE") {
+      await removeVerifiedItem(req, res);
+      return;
+    }
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
   if (req.method === "GET") {
     await listTrophies(req, res);
     return;

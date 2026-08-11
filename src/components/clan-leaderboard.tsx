@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import ranks from "../data/ranks-data";
 import {
   fetchClanLeaderboard,
   type ClanLeaderboardResult,
@@ -50,43 +49,36 @@ export default function ClanLeaderboard() {
 
       {entries && entries.length > 0 && (
         <div className="leaderboard-rows">
-          {entries.map((entry, index) => {
-            const rank =
-              entry.highestEligibleRankIndex >= 0
-                ? ranks[entry.highestEligibleRankIndex]
-                : null;
-
-            return (
-              <div className="leaderboard-row" key={entry.name}>
-                <div className="leaderboard-row-position">#{index + 1}</div>
-                {rank && (
-                  <div
-                    className="leaderboard-row-icon"
-                    style={{ backgroundImage: `url(${rank.icon})` }}
-                  />
-                )}
-                <div className="leaderboard-row-info">
-                  <div className="leaderboard-row-name">{entry.name}</div>
-                  <div
-                    className="leaderboard-row-rank"
-                    style={{ color: rank ? rank.textColor : UNRANKED_COLOR }}
-                  >
-                    {rank ? rank.name : "Unranked"}
-                  </div>
-                </div>
-                <div className="leaderboard-row-track">
-                  <div
-                    className="leaderboard-row-fill"
-                    style={{ width: `${entry.nextRankPct}%` }}
-                  />
-                </div>
-                <div className="leaderboard-row-count">
-                  {entry.totalSatisfied}
-                  <span className="leaderboard-row-count-label">items</span>
+          {entries.map((entry, index) => (
+            <div className="leaderboard-row" key={entry.name}>
+              <div className="leaderboard-row-position">#{index + 1}</div>
+              {entry.rankIcon && (
+                <div
+                  className="leaderboard-row-icon"
+                  style={{ backgroundImage: `url(${entry.rankIcon})` }}
+                />
+              )}
+              <div className="leaderboard-row-info">
+                <div className="leaderboard-row-name">{entry.name}</div>
+                <div
+                  className="leaderboard-row-rank"
+                  style={{ color: entry.rankColor ?? UNRANKED_COLOR }}
+                >
+                  {entry.rankName ?? "Unranked"}
                 </div>
               </div>
-            );
-          })}
+              <div className="leaderboard-row-track">
+                <div
+                  className="leaderboard-row-fill"
+                  style={{ width: `${entry.nextRankPct}%` }}
+                />
+              </div>
+              <div className="leaderboard-row-count">
+                {entry.totalSatisfied}
+                <span className="leaderboard-row-count-label">items</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

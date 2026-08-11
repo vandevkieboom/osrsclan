@@ -422,23 +422,32 @@ export interface RankStats {
 // yet" state of the per-user progress view: no checks are evaluated, so
 // only ranks with zero required items (after the one-item skip) show as
 // satisfied.
-export function getRankStats(rank: Rank, profile: RuneProfile | null): RankStats {
+// `verifiedItemNames` covers items with no `apiCheck` at all — those can
+// never be verified from a collection log, so an admin confirms them by hand
+// (see manual_item_verifications) and that's the only way they ever count.
+export function getRankStats(
+  rank: Rank,
+  profile: RuneProfile | null,
+  verifiedItemNames: ReadonlySet<string> = new Set(),
+): RankStats {
   const total = rank.items.length;
   const requiredCount = Math.max(total - 1, 0);
   let satisfiedCount = 0;
   let hardFailCount = 0;
 
-  if (profile) {
-    rank.items.forEach((item) => {
-      if (!item.apiCheck) return;
-      const result = checkRequirement(item.apiCheck, profile);
-      if (result === "pass" || result === "pass-alt") {
-        satisfiedCount += 1;
-      } else if (isMultiItemHardFail(item, result)) {
-        hardFailCount += 1;
-      }
-    });
-  }
+  rank.items.forEach((item) => {
+    if (!item.apiCheck) {
+      if (verifiedItemNames.has(item.name.toLowerCase())) satisfiedCount += 1;
+      return;
+    }
+    if (!profile) return;
+    const result = checkRequirement(item.apiCheck, profile);
+    if (result === "pass" || result === "pass-alt") {
+      satisfiedCount += 1;
+    } else if (isMultiItemHardFail(item, result)) {
+      hardFailCount += 1;
+    }
+  });
 
   return {
     total,
@@ -463,8 +472,9 @@ export interface ClanRankProgress {
 export function computeClanRankProgress(
   ranks: Rank[],
   profile: RuneProfile | null,
+  verifiedItemNames: ReadonlySet<string> = new Set(),
 ): ClanRankProgress {
-  const rankStats = ranks.map((rank) => getRankStats(rank, profile));
+  const rankStats = ranks.map((rank) => getRankStats(rank, profile, verifiedItemNames));
 
   const eligibleByRank = ranks.map((_, rankIndex) => {
     for (let i = 0; i <= rankIndex; i += 1) {

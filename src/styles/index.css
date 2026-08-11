@@ -595,6 +595,35 @@ body {
   letter-spacing: -0.02em;
 }
 
+/* Admin-only toggle for items with no apiCheck — RuneProfile can't verify
+   these, so an admin confirms them by hand from a screenshot. */
+.item-status.manual-verify {
+  pointer-events: auto;
+  cursor: pointer;
+  margin: 0;
+  font-family: inherit;
+  line-height: 1;
+  background: #241d1d;
+  color: #7a655f;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.item-status.manual-verify:hover {
+  background: #3a2d2d;
+  color: #b09b98;
+}
+
+.item-status.manual-verify.checked {
+  background: var(--green);
+  color: #fff;
+}
+
+.item-status.manual-verify.checked:hover {
+  filter: brightness(1.1);
+}
+
 .badge-legend {
   display: flex;
   flex-wrap: wrap;
@@ -4706,20 +4735,32 @@ body {
 }
 
 .home-donor-card--rank1 {
-  border-top: 3px solid #d4a017;
+  border-top: 3px solid #f4d35e;
 }
 
 .home-donor-card--rank2 {
-  border-top: 3px solid #c9c9c9;
+  border-top: 3px solid #f0e8e6;
 }
 
 .home-donor-card--rank3 {
-  border-top: 3px solid #cd7f32;
+  border-top: 3px solid #f4a35e;
 }
 
 .home-donor-rank {
-  font-size: 20px;
   margin-bottom: 0.4rem;
+}
+
+.home-donor-trophy-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.home-donor-rank-num {
+  display: inline-block;
+  font-size: 13px;
+  color: #8f7a78;
 }
 
 .home-donor-name {

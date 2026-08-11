@@ -17,6 +17,11 @@ import {
 } from "../services/rank-checker";
 import type { CheckResult } from "../components/item-card";
 import ClanLeaderboard from "../components/clan-leaderboard";
+import {
+  addVerifiedItem,
+  fetchVerifiedItems,
+  removeVerifiedItem,
+} from "../services/profile";
 
 const STORAGE_KEY = "clan-rankings-hide-completed-v1";
 
@@ -24,15 +29,19 @@ const getKey = (rankIndex: number, itemIndex: number) =>
   `${rankIndex}-${itemIndex}`;
 
 export const ClanRankings = () => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<"progress" | "leaderboard">("progress");
   const [hideCompleted, setHideCompleted] = useState(false);
 
   const [username, setUsername] = useState("");
   const [profile, setProfile] = useState<RuneProfile | null>(null);
+  const [profileRsn, setProfileRsn] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [verifiedItemNames, setVerifiedItemNames] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -96,14 +105,49 @@ export const ClanRankings = () => {
     setProfileLoading(true);
     setProfileError(null);
     try {
-      const data = await fetchRuneProfile(trimmed);
+      const [data, verified] = await Promise.all([
+        fetchRuneProfile(trimmed),
+        fetchVerifiedItems(trimmed).catch(() => new Set<string>()),
+      ]);
       setProfile(data);
+      setProfileRsn(trimmed);
+      setVerifiedItemNames(verified);
     } catch (err) {
       setProfileError(
         err instanceof Error ? err.message : "Failed to load profile.",
       );
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  // Optimistic — flips immediately, then rolls back if the request fails.
+  // Only reachable by admins (see canEditVerification on RankCard below).
+  const toggleVerification = async (itemName: string) => {
+    if (!profileRsn) return;
+    const key = itemName.toLowerCase();
+    const wasVerified = verifiedItemNames.has(key);
+
+    setVerifiedItemNames((prev) => {
+      const next = new Set(prev);
+      if (wasVerified) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+    try {
+      if (wasVerified) {
+        await removeVerifiedItem(profileRsn, itemName);
+      } else {
+        await addVerifiedItem(profileRsn, itemName);
+      }
+    } catch {
+      setVerifiedItemNames((prev) => {
+        const next = new Set(prev);
+        if (wasVerified) next.add(key);
+        else next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -125,8 +169,8 @@ export const ClanRankings = () => {
   }, [authLoading]);
 
   const clanProgress = useMemo(
-    () => computeClanRankProgress(ranks, profile),
-    [profile],
+    () => computeClanRankProgress(ranks, profile, verifiedItemNames),
+    [profile, verifiedItemNames],
   );
   const {
     eligibleByRank,
@@ -151,6 +195,8 @@ export const ClanRankings = () => {
     setUsername("");
     setProfile(null);
     setProfileError(null);
+    setProfileRsn("");
+    setVerifiedItemNames(new Set());
   };
 
   return (
@@ -341,6 +387,9 @@ export const ClanRankings = () => {
                   eligible={eligibleByRank[rankIndex]}
                   priorRanksMet={priorRanksMetByRank[rankIndex]}
                   stats={clanProgress.rankStats[rankIndex]}
+                  verifiedItemNames={verifiedItemNames}
+                  canEditVerification={isAdmin && !!profile}
+                  onToggleVerification={toggleVerification}
                 />
               ))}
             </div>

@@ -1,4 +1,4 @@
-import ranks, { rankIconByRole, staffRankByRole } from "../data/ranks-data";
+import ranks, { rankIconByRole, staffRankByRole } from "../data/ranks-data.js";
 
 export interface WomSkillEntry {
   level: number;
@@ -95,5 +95,33 @@ export async function addTrophy(rsn: string, label: string, date: string): Promi
 
 export async function removeTrophy(id: number): Promise<void> {
   const res = await fetch(`/api/profile?id=${id}`, { method: "DELETE" });
+  await json(res);
+}
+
+// Items a rank requires that can't be auto-verified from a collection log
+// (no `apiCheck`) — an admin confirms these by hand, and the site remembers
+// it against the RSN instead of only reflecting it in a WOM role change.
+export async function fetchVerifiedItems(rsn: string): Promise<Set<string>> {
+  const res = await fetch(
+    `/api/profile?resource=verified-items&rsn=${encodeURIComponent(rsn)}`,
+  );
+  const data = await json<{ items: string[] }>(res);
+  return new Set(data.items);
+}
+
+export async function addVerifiedItem(rsn: string, itemName: string): Promise<void> {
+  const res = await fetch("/api/profile?resource=verified-items", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rsn, itemName }),
+  });
+  await json(res);
+}
+
+export async function removeVerifiedItem(rsn: string, itemName: string): Promise<void> {
+  const res = await fetch(
+    `/api/profile?resource=verified-items&rsn=${encodeURIComponent(rsn)}&itemName=${encodeURIComponent(itemName)}`,
+    { method: "DELETE" },
+  );
   await json(res);
 }

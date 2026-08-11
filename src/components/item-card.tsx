@@ -41,6 +41,10 @@ export type Item = {
 type ItemCardProps = Item & {
   apiResult: CheckResult | null;
   progress: { found: number; required: number } | null;
+  isUntrackable: boolean;
+  isManuallyVerified: boolean;
+  canEditVerification: boolean;
+  onToggleVerification?: () => void;
 };
 
 const ItemCard: React.FC<ItemCardProps> = ({
@@ -49,8 +53,15 @@ const ItemCard: React.FC<ItemCardProps> = ({
   alt,
   apiResult,
   progress,
+  isUntrackable,
+  isManuallyVerified,
+  canEditVerification,
+  onToggleVerification,
 }) => {
-  const isDone = apiResult === "pass" || apiResult === "pass-alt";
+  const isDone =
+    apiResult === "pass" ||
+    apiResult === "pass-alt" ||
+    (isUntrackable && isManuallyVerified);
 
   return (
     <div className={`item ${isDone ? "is-complete" : ""}`}>
@@ -76,6 +87,31 @@ const ItemCard: React.FC<ItemCardProps> = ({
               title="Passed via alternative — primary item not in collection log"
             >
               ~
+            </span>
+          )}
+          {isUntrackable && canEditVerification && (
+            <button
+              type="button"
+              className={`item-status manual-verify${isManuallyVerified ? " checked" : ""}`}
+              title={
+                isManuallyVerified
+                  ? "Manually verified — click to unverify"
+                  : "Not trackable via RuneProfile — click to mark as manually verified"
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleVerification?.();
+              }}
+            >
+              {isManuallyVerified ? "✓" : "+"}
+            </button>
+          )}
+          {isUntrackable && !canEditVerification && isManuallyVerified && (
+            <span
+              className="item-status api-verified"
+              title="Manually verified by an admin"
+            >
+              ✓
             </span>
           )}
           {!isDone && progress && (
