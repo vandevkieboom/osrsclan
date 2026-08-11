@@ -226,6 +226,11 @@ async function refreshLeaderboard(res: VercelResponse) {
 
   entries.sort((a, b) => b.totalSatisfied - a.totalSatisfied || a.name.localeCompare(b.name));
 
+  // getSessionUser filters on expires_at, so stale rows are already harmless —
+  // they just accumulate forever otherwise. This daily job is the natural
+  // place to clear them out.
+  await sql`DELETE FROM sessions WHERE expires_at < now()`;
+
   await sql`
     INSERT INTO leaderboard_cache (id, entries, updated_at)
     VALUES (1, ${JSON.stringify(entries)}::jsonb, now())

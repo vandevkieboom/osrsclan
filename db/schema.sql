@@ -26,6 +26,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS donated_gp BIGINT NOT NULL DEFAULT 0;
 -- removed — drop the columns it left behind.
 ALTER TABLE users DROP COLUMN IF EXISTS bingo_entrant;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
+-- api/profile.ts looks members up with `WHERE lower(runescape_name) = …`.
+-- A plain column index can't serve a function call, so this has to match the
+-- expression exactly or the lookup stays a sequential scan.
+CREATE INDEX IF NOT EXISTS idx_users_runescape_name_lower ON users (lower(runescape_name));
 
 -- Added after users so the FK target already exists when this file is
 -- re-run in full from a fresh database.
