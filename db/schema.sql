@@ -26,10 +26,22 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS donated_gp BIGINT NOT NULL DEFAULT 0;
 -- removed — drop the columns it left behind.
 ALTER TABLE users DROP COLUMN IF EXISTS bingo_entrant;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
--- api/profile.ts looks members up with `WHERE lower(runescape_name) = …`.
--- A plain column index can't serve a function call, so this has to match the
--- expression exactly or the lookup stays a sequential scan.
-CREATE INDEX IF NOT EXISTS idx_users_runescape_name_lower ON users (lower(runescape_name));
+-- Serves two purposes. api/profile.ts looks members up with
+-- `WHERE lower(runescape_name) = …`, and a plain column index can't serve a
+-- function call, so the expression has to match exactly or the lookup stays a
+-- sequential scan. UNIQUE additionally makes a claim exclusive — first member
+-- to set a name holds it, so two people can't split one RSN's trophies and
+-- verifications between them.
+--
+-- Lowercased on purpose: a plain UNIQUE (runescape_name) would happily accept
+-- both 'Wafas' and 'wafas', which defeats the point given every rsn_key
+-- lookup lowercases. NULL is exempt — Postgres allows unlimited NULLs in a
+-- unique index, so members who haven't set a name are unaffected.
+--
+-- Dropped first because CREATE UNIQUE INDEX IF NOT EXISTS would silently do
+-- nothing if a non-unique index of this name already exists.
+DROP INDEX IF EXISTS idx_users_runescape_name_lower;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_runescape_name_lower ON users (lower(runescape_name));
 
 -- Added after users so the FK target already exists when this file is
 -- re-run in full from a fresh database.

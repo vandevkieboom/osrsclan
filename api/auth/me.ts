@@ -49,7 +49,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const oldKey = user.runescapeName?.trim().toLowerCase() ?? "";
       const newKey = raw.toLowerCase();
 
-      await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${user.id}`;
+      // lower(runescape_name) is UNIQUE, so a name another member already
+      // holds comes back as a constraint violation rather than silently
+      // splitting that RSN's trophies and verifications across two accounts.
+      // Same "duplicate key" match api/admin/board.ts already uses for tiles.
+      try {
+        await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${user.id}`;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "";
+        if (message.includes("duplicate key")) {
+          res.status(409).json({
+            error: "That RuneScape name is already claimed by another member. Ask an admin if it should be yours.",
+          });
+          return;
+        }
+        throw err;
+      }
 
       if (oldKey && newKey && oldKey !== newKey) {
         await sql.transaction([
