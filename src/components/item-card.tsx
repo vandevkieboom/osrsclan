@@ -85,7 +85,8 @@ const ItemCard: React.FC<ItemCardProps> = ({
             <button
               type="button"
               className={`item-manual-toggle${isManuallyVerified ? " checked" : ""}`}
-              title={manualTitle}
+              aria-label={manualTitle}
+              data-tooltip={manualTitle}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleVerification?.();
@@ -97,7 +98,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
             isManuallyVerified && (
               <span
                 className="item-manual-toggle checked"
-                title="Manually verified by an admin"
+                data-tooltip="Manually verified by an admin"
               >
                 <span className="item-manual-toggle-icon">✓</span>
               </span>
