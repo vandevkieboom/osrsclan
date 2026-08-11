@@ -595,33 +595,61 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* Admin-only toggle for items with no apiCheck — RuneProfile can't verify
-   these, so an admin confirms them by hand from a screenshot. */
-.item-status.manual-verify {
+/* Manual verification is an admin override that beats whatever RuneProfile
+   found, so it gets a big, hard-to-miss treatment covering the whole icon —
+   not a small corner dot like the auto-check badges below. Admins can click
+   it on ANY item (not just untrackable ones) to force-verify or unverify. */
+.item-manual-toggle {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+button.item-manual-toggle {
   pointer-events: auto;
   cursor: pointer;
-  margin: 0;
-  font-family: inherit;
+}
+
+button.item-manual-toggle:hover {
+  background: color-mix(in srgb, #7a655f 30%, transparent);
+}
+
+.item-manual-toggle.checked {
+  background: color-mix(in srgb, var(--green) 42%, transparent);
+}
+
+button.item-manual-toggle.checked:hover {
+  background: color-mix(in srgb, var(--green) 58%, transparent);
+}
+
+.item-manual-toggle-icon {
+  font-size: 20px;
+  font-weight: 900;
   line-height: 1;
-  background: #241d1d;
-  color: #7a655f;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.item-status.manual-verify:hover {
-  background: #3a2d2d;
-  color: #b09b98;
-}
-
-.item-status.manual-verify.checked {
-  background: var(--green);
   color: #fff;
+  text-shadow: 0 1px 3px #000c;
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
-.item-status.manual-verify.checked:hover {
-  filter: brightness(1.1);
+.item-manual-toggle.checked .item-manual-toggle-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
+  opacity: 0.6;
+  transform: scale(1);
 }
 
 .badge-legend {

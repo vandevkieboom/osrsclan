@@ -422,9 +422,11 @@ export interface RankStats {
 // yet" state of the per-user progress view: no checks are evaluated, so
 // only ranks with zero required items (after the one-item skip) show as
 // satisfied.
-// `verifiedItemNames` covers items with no `apiCheck` at all — those can
-// never be verified from a collection log, so an admin confirms them by hand
-// (see manual_item_verifications) and that's the only way they ever count.
+// `verifiedItemNames` is an admin override — items with no `apiCheck` can
+// never be verified from a collection log at all, so this is their only path
+// to counting; items that DO have an `apiCheck` can also be manually flagged
+// here to override a stale or wrong RuneProfile result. Either way, a manual
+// verification always wins over whatever the checklist would've said.
 export function getRankStats(
   rank: Rank,
   profile: RuneProfile | null,
@@ -436,11 +438,11 @@ export function getRankStats(
   let hardFailCount = 0;
 
   rank.items.forEach((item) => {
-    if (!item.apiCheck) {
-      if (verifiedItemNames.has(item.name.toLowerCase())) satisfiedCount += 1;
+    if (verifiedItemNames.has(item.name.toLowerCase())) {
+      satisfiedCount += 1;
       return;
     }
-    if (!profile) return;
+    if (!item.apiCheck || !profile) return;
     const result = checkRequirement(item.apiCheck, profile);
     if (result === "pass" || result === "pass-alt") {
       satisfiedCount += 1;

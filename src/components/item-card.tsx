@@ -59,9 +59,13 @@ const ItemCard: React.FC<ItemCardProps> = ({
   onToggleVerification,
 }) => {
   const isDone =
-    apiResult === "pass" ||
-    apiResult === "pass-alt" ||
-    (isUntrackable && isManuallyVerified);
+    apiResult === "pass" || apiResult === "pass-alt" || isManuallyVerified;
+
+  const manualTitle = isManuallyVerified
+    ? "Manually verified — click to unverify"
+    : isUntrackable
+      ? "Not trackable via RuneProfile — click to mark as manually verified"
+      : "Click to manually verify, overriding the RuneProfile result";
 
   return (
     <div className={`item ${isDone ? "is-complete" : ""}`}>
@@ -73,6 +77,32 @@ const ItemCard: React.FC<ItemCardProps> = ({
             src={img}
             alt={alt}
           />
+          {/* Manual verification is the authoritative status (it overrides
+              whatever RuneProfile says), so it gets the big centered overlay.
+              The small corner badges below stay as supplementary info about
+              what the checklist itself found. */}
+          {canEditVerification ? (
+            <button
+              type="button"
+              className={`item-manual-toggle${isManuallyVerified ? " checked" : ""}`}
+              title={manualTitle}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleVerification?.();
+              }}
+            >
+              <span className="item-manual-toggle-icon">✓</span>
+            </button>
+          ) : (
+            isManuallyVerified && (
+              <span
+                className="item-manual-toggle checked"
+                title="Manually verified by an admin"
+              >
+                <span className="item-manual-toggle-icon">✓</span>
+              </span>
+            )
+          )}
           {apiResult === "pass" && (
             <span
               className="item-status api-verified"
@@ -87,31 +117,6 @@ const ItemCard: React.FC<ItemCardProps> = ({
               title="Passed via alternative — primary item not in collection log"
             >
               ~
-            </span>
-          )}
-          {isUntrackable && canEditVerification && (
-            <button
-              type="button"
-              className={`item-status manual-verify${isManuallyVerified ? " checked" : ""}`}
-              title={
-                isManuallyVerified
-                  ? "Manually verified — click to unverify"
-                  : "Not trackable via RuneProfile — click to mark as manually verified"
-              }
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleVerification?.();
-              }}
-            >
-              {isManuallyVerified ? "✓" : "+"}
-            </button>
-          )}
-          {isUntrackable && !canEditVerification && isManuallyVerified && (
-            <span
-              className="item-status api-verified"
-              title="Manually verified by an admin"
-            >
-              ✓
             </span>
           )}
           {!isDone && progress && (

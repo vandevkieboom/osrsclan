@@ -100,8 +100,7 @@ const RankCard: React.FC<RankCardProps> = ({
           const key = `${rankIndex}-${itemIndex}`;
           const apiResult = apiVerified[key] ?? null;
           const isUntrackable = !item.apiCheck;
-          const isManuallyVerified =
-            isUntrackable && verifiedItemNames.has(item.name.toLowerCase());
+          const isManuallyVerified = verifiedItemNames.has(item.name.toLowerCase());
           const isApiDone =
             apiResult === "pass" || apiResult === "pass-alt" || isManuallyVerified;
           if (hideCompleted && isApiDone) {
@@ -116,10 +115,8 @@ const RankCard: React.FC<RankCardProps> = ({
               progress={apiProgress[key] ?? null}
               isUntrackable={isUntrackable}
               isManuallyVerified={isManuallyVerified}
-              canEditVerification={canEditVerification && isUntrackable}
-              onToggleVerification={
-                isUntrackable ? () => onToggleVerification(item.name) : undefined
-              }
+              canEditVerification={canEditVerification}
+              onToggleVerification={() => onToggleVerification(item.name)}
             />
           );
         })}
