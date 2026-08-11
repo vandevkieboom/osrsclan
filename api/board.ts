@@ -219,28 +219,37 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const tileRows = await sql`SELECT id, required_count FROM tiles WHERE id = ${tileId}`;
+  // Counting submissions and then inserting used to be two separate round
+  // trips, so two teammates submitting the same tile at once could both read
+  // "one slot left" and both insert. The UNIQUE (team_id, tile_id) that would
+  // once have caught that was dropped when tiles gained required_count, so
+  // nothing was backstopping it.
+  //
+  // Both statements now run in one transaction: SELECT … FOR UPDATE takes a
+  // row lock on the tile, so a second submission for the same tile waits and
+  // then sees the first one committed. The INSERT … SELECT … WHERE re-checks
+  // the count as part of the write itself rather than trusting an earlier read.
+  const [tileRows, insertedRows] = await sql.transaction([
+    sql`SELECT id FROM tiles WHERE id = ${tileId} FOR UPDATE`,
+    sql`
+      INSERT INTO submissions (team_id, tile_id, status, proof_url, submitted_by)
+      SELECT ${user.teamId}, ${tileId}, 'pending', ${proofUrl}, ${user.id}
+      WHERE (
+        SELECT COUNT(*) FROM submissions
+        WHERE team_id = ${user.teamId} AND tile_id = ${tileId}
+          AND status IN ('approved', 'pending')
+      ) < (SELECT required_count FROM tiles WHERE id = ${tileId})
+      RETURNING id`,
+  ]);
+
   if (tileRows.length === 0) {
     res.status(404).json({ error: "Tile not found" });
     return;
   }
-
-  const currentCompleteRows = await sql`
-    SELECT
-      COUNT(*) FILTER (WHERE status = 'approved')::int AS approved_count,
-      COUNT(*) FILTER (WHERE status IN ('approved', 'pending'))::int AS active_count
-    FROM submissions
-    WHERE team_id = ${user.teamId} AND tile_id = ${tileId}`;
-  const activeCount = currentCompleteRows[0]?.active_count ?? 0;
-  const requiredCount = tileRows[0].required_count;
-  if (activeCount >= requiredCount) {
+  if (insertedRows.length === 0) {
     res.status(409).json({ error: "That tile is already complete" });
     return;
   }
-
-  await sql`
-    INSERT INTO submissions (team_id, tile_id, status, proof_url, submitted_by)
-    VALUES (${user.teamId}, ${tileId}, 'pending', ${proofUrl}, ${user.id})`;
 
   res.status(200).json({ ok: true });
 }

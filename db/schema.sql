@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS submissions (
 ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_team_id_tile_id_key;
 CREATE INDEX IF NOT EXISTS idx_submissions_team_id ON submissions(team_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+-- The "is this tile already complete for this team" count filters on both
+-- columns together (see submitTile in api/board.ts).
+CREATE INDEX IF NOT EXISTS idx_submissions_team_tile ON submissions(team_id, tile_id);
 
 -- One row per clan-event trophy, keyed by the lowercased RSN it belongs to
 -- rather than a user id — a profile can be looked up (and thus hold
