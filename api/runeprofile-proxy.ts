@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { sql } from "./_lib/db.js";
 import ranks from "../src/data/ranks-data.js";
 import { computeClanRankProgress } from "../src/services/rank-checker.js";
 import {
@@ -64,31 +65,55 @@ interface LeaderboardEntry {
   nextRankPct: number;
 }
 
-// Fans out to RuneProfile for every clan member (a handful at a time) and
-// runs the exact same rank-progress logic as the per-user "My Progress"
-// view, so the leaderboard can never drift from what a self-lookup shows.
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Reads the last cron-computed snapshot (see refreshLeaderboard below) —
+// no RuneProfile calls on the request path at all, so page views are cheap
+// and RuneProfile only ever hears from us once a day, in a controlled batch.
 async function getLeaderboard(res: VercelResponse) {
+  const rows = await sql`SELECT entries, updated_at FROM leaderboard_cache WHERE id = 1`;
+  const entries = (rows[0]?.entries as LeaderboardEntry[] | undefined) ?? [];
+  const updatedAt = rows[0]?.updated_at ?? null;
+
+  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+  res.status(200).json({ entries, updatedAt });
+}
+
+// Fans out to RuneProfile for every clan member (a handful at a time, with a
+// small stagger to keep the burst gentle) and runs the exact same
+// rank-progress logic as the per-user "My Progress" view, so the leaderboard
+// can never drift from what a self-lookup shows. Only ever invoked by the
+// daily Vercel Cron defined in vercel.json (see the auth check in `handler`)
+// — never on a visitor's request path.
+async function refreshLeaderboard(res: VercelResponse) {
   const rolesRes = await fetch(`https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`, {
     headers: WOM_HEADERS,
   });
   if (!rolesRes.ok) {
+    // Leave the existing cached snapshot in place rather than wiping it.
     res.status(502).json({ error: "Failed to load clan member list." });
     return;
   }
   const group = (await rolesRes.json()) as {
-    memberships?: Array<{ player: { username: string } }>;
+    memberships?: Array<{ player: { displayName: string } }>;
   };
+  // RuneProfile needs the real, properly-cased in-game name — WOM's `username`
+  // field is a lowercased/sanitized lookup key (fine for internal maps, wrong
+  // account or a 404 if used against an external API), same distinction the
+  // rest of the app already respects (see hiscores-page.tsx, profile-page.tsx).
   const usernames = Array.from(
-    new Set((group.memberships ?? []).map((m) => m.player.username).filter(Boolean)),
+    new Set((group.memberships ?? []).map((m) => m.player.displayName).filter(Boolean)),
   );
 
   const entries: LeaderboardEntry[] = [];
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 4;
+  const STAGGER_MS = 150;
   let cursor = 0;
 
   async function worker() {
     while (cursor < usernames.length) {
       const username = usernames[cursor++];
+      if (cursor > 1) await sleep(STAGGER_MS);
       try {
         const encoded = encodeURIComponent(username);
         const [fullRes, tasksRes] = await Promise.all([
@@ -134,8 +159,12 @@ async function getLeaderboard(res: VercelResponse) {
 
   entries.sort((a, b) => b.totalSatisfied - a.totalSatisfied || a.name.localeCompare(b.name));
 
-  res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=900");
-  res.status(200).json({ entries });
+  await sql`
+    INSERT INTO leaderboard_cache (id, entries, updated_at)
+    VALUES (1, ${JSON.stringify(entries)}::jsonb, now())
+    ON CONFLICT (id) DO UPDATE SET entries = EXCLUDED.entries, updated_at = EXCLUDED.updated_at`;
+
+  res.status(200).json({ ok: true, count: entries.length });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -146,6 +175,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.query.resource === "leaderboard") {
     await getLeaderboard(res);
+    return;
+  }
+
+  if (req.query.resource === "leaderboard-refresh") {
+    // Vercel automatically sends this header on cron-triggered invocations
+    // when CRON_SECRET is set on the project — see vercel.json's `crons`.
+    const expected = process.env.CRON_SECRET;
+    if (!expected || req.headers.authorization !== `Bearer ${expected}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    await refreshLeaderboard(res);
     return;
   }
 

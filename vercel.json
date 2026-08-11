@@ -7,5 +7,11 @@
       "src": "/.*",
       "dest": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/runeprofile-proxy?resource=leaderboard-refresh",
+      "schedule": "0 3 * * *"
+    }
   ]
 }

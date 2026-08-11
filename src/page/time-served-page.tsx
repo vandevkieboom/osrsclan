@@ -128,8 +128,11 @@ export const ClanRankings = () => {
     () => computeClanRankProgress(ranks, profile),
     [profile],
   );
-  const { eligibleByRank, priorRanksMetByRank, highestEligibleRankIndex: highestEligibleRank } =
-    clanProgress;
+  const {
+    eligibleByRank,
+    priorRanksMetByRank,
+    highestEligibleRankIndex: highestEligibleRank,
+  } = clanProgress;
 
   const overallStats = useMemo(
     () => ({
@@ -187,155 +190,161 @@ export const ClanRankings = () => {
         {view === "leaderboard" ? (
           <ClanLeaderboard />
         ) : (
-        <>
-        <div className="badge-legend">
-          <span className="legend-item">
-            <span className="legend-badge api-verified">✓</span>
-            Verified
-          </span>
-          <span className="legend-item">
-            <span className="legend-badge api-alt">~</span>
-            Alternative Item
-          </span>
-        </div>
-        <div className="overall-progress">
-          <div className="overall-progress-row">
-            <div className="overall-progress-label">
-              Current highest eligible rank:{" "}
-              <strong
-                style={{
-                  color:
-                    highestEligibleRank >= 0
-                      ? ranks[highestEligibleRank].textColor
-                      : "#f0e8e6",
-                  fontFamily: "MedievalSharp, Arial, Helvetica, sans-serif",
-                  fontWeight: 700,
-                }}
-              >
-                {highestEligibleRank >= 0
-                  ? ranks[highestEligibleRank].name
-                  : "None yet"}
-              </strong>
+          <>
+            <div className="badge-legend">
+              <span className="legend-item">
+                <span className="legend-badge api-verified">✓</span>
+                Verified
+              </span>
+              <span className="legend-item">
+                <span className="legend-badge api-alt">~</span>
+                Alternative Item
+              </span>
             </div>
-            <div className="overall-progress-count">
-              {overallStats.satisfied} / {overallStats.total} items collected
-            </div>
-          </div>
-          <div className="overall-progress-track">
-            <div
-              className="overall-progress-fill"
-              style={{ width: `${overallStats.pct}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="tracker-controls">
-          <div className="tracker-toolbar">
-            <button type="button" className="tracker-btn" onClick={resetAll}>
-              Reset Progress
-            </button>
-            <button
-              type="button"
-              className={`tracker-btn ${hideCompleted ? "active" : ""}`}
-              onClick={() => setHideCompleted((prev) => !prev)}
-            >
-              {hideCompleted ? "Show Completed" : "Hide Completed"}
-            </button>
-          </div>
-          <div className="profile-lookup">
-            <div className="profile-lookup-row">
-              {profile && !profileError && (
-                <div className="profile-lookup-success">
-                  Clan Req:{" "}
-                  {(() => {
-                    const enhancedSeedCount =
-                      profile.itemMap.get("enhanced crystal weapon seed") ?? 0;
-                    const armourSeeds = Math.max(
-                      profile.itemMap.get("crystal armour seed") ?? 0,
-                      profile.itemMap.get("crystal armor seed") ?? 0,
-                    );
-                    if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
-                      return (
-                        <span
-                          style={{ color: "var(--green)", fontWeight: 600 }}
-                        >
-                          ✓ {enhancedSeedCount} Enhanced Crystal Weapon Seed
-                          {enhancedSeedCount > 1 ? "s" : ""} + {armourSeeds}{" "}
-                          Crystal Armour Seed
-                          {armourSeeds > 1 ? "s" : ""}
-                        </span>
-                      );
-                    }
-                    const cgKc = getBossKc(profile.bossKcMap, [
-                      "corrupted gauntlet",
-                      "the corrupted gauntlet",
-                    ]);
-                    if (cgKc >= 800) {
-                      return (
-                        <span
-                          style={{ color: "var(--green)", fontWeight: 600 }}
-                        >
-                          ✓ Corrupted Gauntlet ({cgKc} kc)
-                        </span>
-                      );
-                    }
-                    if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
-                      return (
-                        <span
-                          style={{ color: "var(--green)", fontWeight: 600 }}
-                        >
-                          ✓ Twisted Bow
-                        </span>
-                      );
-                    }
-                    return (
-                      <span style={{ color: "#ff5364", fontWeight: 600 }}>
-                        ✗ Not met (or RuneProfile outdated)
-                      </span>
-                    );
-                  })()}
+            <div className="overall-progress">
+              <div className="overall-progress-row">
+                <div className="overall-progress-label">
+                  Current highest eligible rank:{" "}
+                  <strong
+                    style={{
+                      color:
+                        highestEligibleRank >= 0
+                          ? ranks[highestEligibleRank].textColor
+                          : "#f0e8e6",
+                      fontFamily: "MedievalSharp, Arial, Helvetica, sans-serif",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {highestEligibleRank >= 0
+                      ? ranks[highestEligibleRank].name
+                      : "None yet"}
+                  </strong>
                 </div>
-              )}
-              <input
-                className="profile-lookup-input"
-                type="text"
-                placeholder="Solo Nostalg"
-                value={username}
-                maxLength={12}
-                onChange={(e) => setUsername(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && loadProfile()}
-                aria-label="Solo Nostalg"
-              />
-              <button
-                type="button"
-                className="tracker-btn profile-lookup-btn"
-                onClick={() => loadProfile()}
-                disabled={profileLoading || !username.trim()}
-              >
-                {profileLoading ? "Loading..." : "Auto-Verify"}
-              </button>
+                <div className="overall-progress-count">
+                  {overallStats.satisfied} / {overallStats.total} items
+                  collected
+                </div>
+              </div>
+              <div className="overall-progress-track">
+                <div
+                  className="overall-progress-fill"
+                  style={{ width: `${overallStats.pct}%` }}
+                />
+              </div>
             </div>
-            {profileError && (
-              <div className="profile-lookup-error">{profileError}</div>
-            )}
-          </div>
-        </div>
-        <div className="ranks-grid">
-          {ranks.map((rank, rankIndex) => (
-            <RankCard
-              key={rank.name}
-              {...rank}
-              rankIndex={rankIndex}
-              apiVerified={apiVerified}
-              apiProgress={apiProgress}
-              hideCompleted={hideCompleted}
-              eligible={eligibleByRank[rankIndex]}
-              priorRanksMet={priorRanksMetByRank[rankIndex]}
-              stats={clanProgress.rankStats[rankIndex]}
-            />
-          ))}
-        </div>
-        </>
+
+            <div className="tracker-controls">
+              <div className="tracker-toolbar">
+                <button
+                  type="button"
+                  className="tracker-btn"
+                  onClick={resetAll}
+                >
+                  Reset Progress
+                </button>
+                <button
+                  type="button"
+                  className={`tracker-btn ${hideCompleted ? "active" : ""}`}
+                  onClick={() => setHideCompleted((prev) => !prev)}
+                >
+                  {hideCompleted ? "Show Completed" : "Hide Completed"}
+                </button>
+              </div>
+              <div className="profile-lookup">
+                <div className="profile-lookup-row">
+                  {profile && !profileError && (
+                    <div className="profile-lookup-success">
+                      Clan Req:{" "}
+                      {(() => {
+                        const enhancedSeedCount =
+                          profile.itemMap.get("enhanced crystal weapon seed") ??
+                          0;
+                        const armourSeeds = Math.max(
+                          profile.itemMap.get("crystal armour seed") ?? 0,
+                          profile.itemMap.get("crystal armor seed") ?? 0,
+                        );
+                        if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
+                          return (
+                            <span
+                              style={{ color: "var(--green)", fontWeight: 600 }}
+                            >
+                              ✓ {enhancedSeedCount} Enhanced Crystal Weapon Seed
+                              {enhancedSeedCount > 1 ? "s" : ""} + {armourSeeds}{" "}
+                              Crystal Armour Seed
+                              {armourSeeds > 1 ? "s" : ""}
+                            </span>
+                          );
+                        }
+                        const cgKc = getBossKc(profile.bossKcMap, [
+                          "corrupted gauntlet",
+                          "the corrupted gauntlet",
+                        ]);
+                        if (cgKc >= 800) {
+                          return (
+                            <span
+                              style={{ color: "var(--green)", fontWeight: 600 }}
+                            >
+                              ✓ Corrupted Gauntlet ({cgKc} kc)
+                            </span>
+                          );
+                        }
+                        if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
+                          return (
+                            <span
+                              style={{ color: "var(--green)", fontWeight: 600 }}
+                            >
+                              ✓ Twisted Bow
+                            </span>
+                          );
+                        }
+                        return (
+                          <span style={{ color: "#ff5364", fontWeight: 600 }}>
+                            ✗ Not met (or RuneProfile outdated)
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  <input
+                    className="profile-lookup-input"
+                    type="text"
+                    placeholder="OSRS name"
+                    value={username}
+                    maxLength={12}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && loadProfile()}
+                    aria-label="OSRS name"
+                  />
+                  <button
+                    type="button"
+                    className="tracker-btn profile-lookup-btn"
+                    onClick={() => loadProfile()}
+                    disabled={profileLoading || !username.trim()}
+                  >
+                    {profileLoading ? "Loading..." : "Auto-Verify"}
+                  </button>
+                </div>
+                {profileError && (
+                  <div className="profile-lookup-error">{profileError}</div>
+                )}
+              </div>
+            </div>
+            <div className="ranks-grid">
+              {ranks.map((rank, rankIndex) => (
+                <RankCard
+                  key={rank.name}
+                  {...rank}
+                  rankIndex={rankIndex}
+                  apiVerified={apiVerified}
+                  apiProgress={apiProgress}
+                  hideCompleted={hideCompleted}
+                  eligible={eligibleByRank[rankIndex]}
+                  priorRanksMet={priorRanksMetByRank[rankIndex]}
+                  stats={clanProgress.rankStats[rankIndex]}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 

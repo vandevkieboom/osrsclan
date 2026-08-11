@@ -71,6 +71,14 @@
   padding: 0;
 }
 
+/* Always reserve the vertical scrollbar's width, even on pages short
+   enough not to need one — otherwise every centered container (page
+   content, header, footer) shifts a few pixels between pages depending
+   on whether that page happens to scroll. */
+html {
+  overflow-y: scroll;
+}
+
 body {
   background: var(--bg);
   font-family: "Manrope", "Roboto", Arial, Helvetica, sans-serif;
@@ -1355,6 +1363,7 @@ body {
 
 .site-footer-nav {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.6rem 1.4rem;
   text-align: right;
@@ -1371,6 +1380,32 @@ body {
 
 .site-footer-nav a:hover {
   color: #f0e8e6;
+}
+
+.site-footer-nav .site-footer-support {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #d4b158;
+  border: 1px solid #3a2a12;
+  background: #1a1208;
+  padding: 6px 14px;
+  border-radius: 20px;
+  transition: border-color 0.15s ease;
+}
+
+.site-footer-nav .site-footer-support:hover {
+  border-color: #6a4f22;
+  color: #d4b158;
+}
+
+.site-footer-support-icon {
+  width: 12px;
+  height: 12px;
+  fill: #d4b158;
+  flex-shrink: 0;
+  position: relative;
+  top: 1px;
 }
 
 .site-footer-credit {

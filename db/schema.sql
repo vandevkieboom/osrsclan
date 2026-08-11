@@ -112,3 +112,15 @@ CREATE TABLE IF NOT EXISTS donations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE users DROP COLUMN IF EXISTS donated_gp;
+
+-- Cached output of the clan-wide collection-log leaderboard. Computed by a
+-- daily cron (api/runeprofile-proxy.ts, resource=leaderboard-refresh) that
+-- fans out to RuneProfile for every clan member, rather than doing that fan
+-- out on every page view — collection log progress doesn't change minute to
+-- minute, and RuneProfile shouldn't get hit with ~500 requests per visitor.
+CREATE TABLE IF NOT EXISTS leaderboard_cache (
+  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  entries JSONB NOT NULL DEFAULT '[]',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO leaderboard_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

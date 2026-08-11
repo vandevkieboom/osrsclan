@@ -334,13 +334,17 @@ export interface ClanLeaderboardEntry {
   nextRankPct: number;
 }
 
-export async function fetchClanLeaderboard(): Promise<ClanLeaderboardEntry[]> {
+export interface ClanLeaderboardResult {
+  entries: ClanLeaderboardEntry[];
+  updatedAt: string | null;
+}
+
+export async function fetchClanLeaderboard(): Promise<ClanLeaderboardResult> {
   const res = await fetch("/api/runeprofile-proxy?resource=leaderboard", {
     headers: { Accept: "application/json" },
   });
   if (!res.ok) {
     throw new Error(`Failed to load leaderboard (${res.status}).`);
   }
-  const data = (await res.json()) as { entries: ClanLeaderboardEntry[] };
-  return data.entries;
+  return (await res.json()) as ClanLeaderboardResult;
 }

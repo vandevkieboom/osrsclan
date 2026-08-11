@@ -1,5 +1,5 @@
 import React from "react";
-import ItemCard, { type Item, type CheckResult } from "./item-card";
+import ItemCard, { type Item, type CheckResult } from "./item-card.js";
 
 export type Rank = {
   name: string;

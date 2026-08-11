@@ -2,20 +2,20 @@ import { useEffect, useState } from "react";
 import ranks from "../data/ranks-data";
 import {
   fetchClanLeaderboard,
-  type ClanLeaderboardEntry,
+  type ClanLeaderboardResult,
 } from "../services/runeprofile";
 
 const UNRANKED_COLOR = "#7a655f";
 
 export default function ClanLeaderboard() {
-  const [entries, setEntries] = useState<ClanLeaderboardEntry[] | null>(null);
+  const [result, setResult] = useState<ClanLeaderboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetchClanLeaderboard()
       .then((data) => {
-        if (!cancelled) setEntries(data);
+        if (!cancelled) setResult(data);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -29,16 +29,23 @@ export default function ClanLeaderboard() {
     };
   }, []);
 
+  const entries = result?.entries ?? null;
+
   return (
     <div>
       <p className="leaderboard-intro">
         Ranked by total collection log items checked off, across all tiers.
+        {result?.updatedAt && ` Last updated ${new Date(result.updatedAt).toLocaleString()}.`}
       </p>
 
       {error && <div className="admin-empty">{error}</div>}
       {!error && !entries && <div className="admin-empty">Loading leaderboard…</div>}
       {!error && entries && entries.length === 0 && (
-        <div className="admin-empty">No members found.</div>
+        <div className="admin-empty">
+          {result?.updatedAt
+            ? "No members found."
+            : "Leaderboard hasn't run yet — check back soon."}
+        </div>
       )}
 
       {entries && entries.length > 0 && (
