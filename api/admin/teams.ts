@@ -229,6 +229,66 @@ async function assignTeam(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ userId: rows[0].id, teamId: rows[0].team_id });
 }
 
+const MAX_RUNESCAPE_NAME_LENGTH = 30;
+
+// lower(runescape_name) is UNIQUE, so the first member to claim a name holds
+// it. Without a way for an admin to take it back, a typo or a wrong claim
+// could only be undone with direct database access — members can set their
+// own RSN but nobody can set anyone else's. Passing an empty name clears it,
+// which is how you free a name up for its rightful owner.
+//
+// Mirrors the carry-over in api/auth/me.ts: trophies and manual item
+// verifications key on lowercased RSN, so moving a name has to move those too
+// or an admin correction silently orphans the member's trophy case and every
+// verified rank item.
+async function setUserRsn(req: VercelRequest, res: VercelResponse) {
+  const userId = Number(req.body?.userId);
+  const raw = typeof req.body?.runescapeName === "string" ? req.body.runescapeName.trim() : "";
+
+  if (!Number.isInteger(userId)) {
+    res.status(400).json({ error: "Invalid userId" });
+    return;
+  }
+  if (raw.length > MAX_RUNESCAPE_NAME_LENGTH) {
+    res.status(400).json({ error: `RuneScape name must be ${MAX_RUNESCAPE_NAME_LENGTH} characters or fewer` });
+    return;
+  }
+
+  const currentRows = await sql`SELECT runescape_name FROM users WHERE id = ${userId}`;
+  if (currentRows.length === 0) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const oldKey = (currentRows[0].runescape_name as string | null)?.trim().toLowerCase() ?? "";
+  const newKey = raw.toLowerCase();
+
+  try {
+    await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${userId}`;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("duplicate key")) {
+      res.status(409).json({ error: "Another member already holds that RuneScape name. Clear theirs first." });
+      return;
+    }
+    throw err;
+  }
+
+  if (oldKey && newKey && oldKey !== newKey) {
+    await sql.transaction([
+      sql`UPDATE trophies SET rsn_key = ${newKey} WHERE rsn_key = ${oldKey}`,
+      sql`DELETE FROM manual_item_verifications
+          WHERE rsn_key = ${newKey}
+            AND item_name IN (
+              SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${oldKey}
+            )`,
+      sql`UPDATE manual_item_verifications SET rsn_key = ${newKey} WHERE rsn_key = ${oldKey}`,
+    ]);
+  }
+
+  res.status(200).json({ userId, runescapeName: raw || null });
+}
+
 // Donations are tracked by free-text name rather than a users.id FK — not
 // every clan member has ever logged into the site, so tying a donation to a
 // registered account would hide anyone who hasn't.
@@ -309,6 +369,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "POST") {
     if (resource === "assign") {
       await assignTeam(req, res);
+      return;
+    }
+    if (resource === "user-rsn") {
+      await setUserRsn(req, res);
       return;
     }
     if (resource === "donations") {

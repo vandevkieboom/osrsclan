@@ -169,6 +169,16 @@ export async function assignTeam(
   await json(res);
 }
 
+/** Admin override for a member's RSN. Pass an empty string to clear it. */
+export async function setUserRsn(userId: number, runescapeName: string): Promise<void> {
+  const res = await fetch("/api/admin/teams?resource=user-rsn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, runescapeName }),
+  });
+  await json(res);
+}
+
 export async function fetchBoardConfig(): Promise<BoardConfig> {
   const res = await fetch("/api/admin/board");
   const data = await json<{ config: BoardConfig }>(res);
