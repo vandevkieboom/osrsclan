@@ -40,6 +40,25 @@ export interface RankInfo {
   icon: string;
 }
 
+// Wise Old Man ships a small badge icon for every group role it supports —
+// not just the achievement tiers and staff titles this clan actually uses,
+// but also cosmetic/event ones (e.g. "champion") that leadership sometimes
+// assigns instead of a tier. Those fall through both lookups below, so
+// rather than reporting the member as rank-less, render whatever icon WOM
+// itself shows next to their name. Pinned to a commit-ish ref rather than
+// a moving branch so the URL can't change under us.
+const WOM_ROLE_ICON_BASE =
+  "https://cdn.jsdelivr.net/gh/wise-old-man/wise-old-man@master/app/public/img/group_roles";
+const WOM_ROLE_FALLBACK_COLOR = "#a99089";
+
+function titleCaseRole(role: string): string {
+  return role
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 /** Derives a member's clan rank tier from their live Wise Old Man group role — there's no persisted rank column in our own database. */
 export function getRankForRole(role: string | undefined): RankInfo | null {
   if (!role) return null;
@@ -49,13 +68,21 @@ export function getRankForRole(role: string | undefined): RankInfo | null {
   if (staff) return { name: staff.name, color: staff.color, icon: staff.icon };
 
   const icon = rankIconByRole[roleKey];
-  if (!icon) return null;
-  const rank = ranks.find((r) => r.icon === icon);
-  if (!rank) return null;
-  // Use textColor, not color — the Rankings page renders rank names with
-  // textColor (`.rank-name`'s `--rank-text-color`); `color` is a darker
-  // variant meant for borders/backgrounds there, not text.
-  return { name: rank.name, color: rank.textColor, icon: rank.icon };
+  if (icon) {
+    const rank = ranks.find((r) => r.icon === icon);
+    if (rank) {
+      // Use textColor, not color — the Rankings page renders rank names with
+      // textColor (`.rank-name`'s `--rank-text-color`); `color` is a darker
+      // variant meant for borders/backgrounds there, not text.
+      return { name: rank.name, color: rank.textColor, icon: rank.icon };
+    }
+  }
+
+  return {
+    name: titleCaseRole(roleKey),
+    color: WOM_ROLE_FALLBACK_COLOR,
+    icon: `${WOM_ROLE_ICON_BASE}/${roleKey}.png`,
+  };
 }
 
 export interface Trophy {

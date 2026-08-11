@@ -333,7 +333,7 @@ export interface ClanLeaderboardEntry {
   rankName: string | null;
   rankColor: string | null;
   rankIcon: string | null;
-  nextRankPct: number;
+  progressPct: number;
 }
 
 export interface ClanLeaderboardResult {

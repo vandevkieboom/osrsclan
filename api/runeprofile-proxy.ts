@@ -65,7 +65,7 @@ interface LeaderboardEntry {
   rankName: string | null;
   rankColor: string | null;
   rankIcon: string | null;
-  nextRankPct: number;
+  progressPct: number;
 }
 
 // The clan's admin-assigned WOM group role is the source of truth for a
@@ -124,12 +124,14 @@ async function refreshLeaderboard(res: VercelResponse) {
   // field is a lowercased/sanitized lookup key (fine for internal maps, wrong
   // account or a 404 if used against an external API), same distinction the
   // rest of the app already respects (see hiscores-page.tsx, profile-page.tsx).
+  const membershipCount = group.memberships?.length ?? 0;
   const roleByName = new Map(
     (group.memberships ?? [])
       .filter((m) => m.player.displayName)
       .map((m) => [m.player.displayName, m.role]),
   );
   const usernames = Array.from(roleByName.keys());
+  const noDisplayNameCount = membershipCount - usernames.length;
 
   // One bulk query up front rather than one per member — feeds the same
   // manually-verified-item data the Rankings page's admin toggle writes to.
@@ -144,7 +146,27 @@ async function refreshLeaderboard(res: VercelResponse) {
   const entries: LeaderboardEntry[] = [];
   const CONCURRENCY = 4;
   const STAGGER_MS = 150;
+  const MAX_RETRIES = 3;
   let cursor = 0;
+
+  // Counts of why a member never made it into `entries`, surfaced in the
+  // response below — without this, a silent drop (RuneProfile rate limit,
+  // never synced, malformed payload) is indistinguishable from "the clan
+  // only has this many members."
+  const skipCounts = { fetchFailed: 0, rateLimited: 0, error: 0 };
+
+  // RuneProfile 429s under the concurrent fan-out below are retried with
+  // backoff instead of being treated as a permanent skip — a member simply
+  // being unlucky in the queue order shouldn't cost them their leaderboard
+  // spot every single day.
+  async function fetchWithRetry(url: string): Promise<Response> {
+    let res = await fetch(url, { headers: RP_HEADERS });
+    for (let attempt = 0; res.status === 429 && attempt < MAX_RETRIES; attempt++) {
+      await sleep(STAGGER_MS * 2 ** attempt);
+      res = await fetch(url, { headers: RP_HEADERS });
+    }
+    return res;
+  }
 
   async function worker() {
     while (cursor < usernames.length) {
@@ -153,12 +175,16 @@ async function refreshLeaderboard(res: VercelResponse) {
       try {
         const encoded = encodeURIComponent(username);
         const [fullRes, tasksRes] = await Promise.all([
-          fetch(`${RP_BASE}/accounts/${encoded}/full`, { headers: RP_HEADERS }),
-          fetch(`${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`, {
-            headers: RP_HEADERS,
-          }),
+          fetchWithRetry(`${RP_BASE}/accounts/${encoded}/full`),
+          fetchWithRetry(`${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`),
         ]);
-        if (!fullRes.ok) continue; // not on RuneProfile, private, or never synced
+        if (!fullRes.ok) {
+          // not on RuneProfile, private, or never synced — or still rate
+          // limited after retries.
+          if (fullRes.status === 429) skipCounts.rateLimited++;
+          else skipCounts.fetchFailed++;
+          continue;
+        }
 
         const data = (await fullRes.json()) as FullAccountResponse;
         const tasksData = tasksRes.ok
@@ -177,14 +203,15 @@ async function refreshLeaderboard(res: VercelResponse) {
         const rankInfo = getRankForRole(role);
         const currentRankIndex = resolveMemberRankIndex(role);
 
-        const nextRankIndex = currentRankIndex + 1;
-        const nextRankStats = progress.rankStats[nextRankIndex];
-        const nextRankPct =
-          nextRankIndex >= ranks.length
-            ? 100
-            : nextRankStats.total
-              ? Math.round((nextRankStats.satisfiedCount / nextRankStats.total) * 100)
-              : 0;
+        // Share of the ENTIRE achievement ladder completed so far, not just
+        // whichever single tier the member happens to be working on next —
+        // tiers vary hugely in item-list size (see ranks-data.ts), so a
+        // per-tier ratio made members with far more items done show an
+        // emptier bar than members on a small early tier. This is the same
+        // fixed denominator for every row, so bars are actually comparable.
+        const progressPct = progress.overallTotal
+          ? Math.round((progress.overallSatisfied / progress.overallTotal) * 100)
+          : 0;
 
         // Being verified into a tier only proves "all but one item" was
         // satisfied — never that every untrackable item was owned, since one
@@ -212,10 +239,11 @@ async function refreshLeaderboard(res: VercelResponse) {
           rankName: rankInfo?.name ?? null,
           rankColor: rankInfo?.color ?? null,
           rankIcon: rankInfo?.icon ?? null,
-          nextRankPct,
+          progressPct,
         });
       } catch {
-        // Skip members whose RuneProfile data fails to fetch or parse.
+        // Member's RuneProfile data failed to fetch or parse.
+        skipCounts.error++;
       }
     }
   }
@@ -231,7 +259,12 @@ async function refreshLeaderboard(res: VercelResponse) {
     VALUES (1, ${JSON.stringify(entries)}::jsonb, now())
     ON CONFLICT (id) DO UPDATE SET entries = EXCLUDED.entries, updated_at = EXCLUDED.updated_at`;
 
-  res.status(200).json({ ok: true, count: entries.length });
+  res.status(200).json({
+    ok: true,
+    count: entries.length,
+    membershipCount,
+    skipped: { noDisplayName: noDisplayNameCount, ...skipCounts },
+  });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

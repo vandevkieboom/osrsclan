@@ -653,8 +653,10 @@ button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
 }
 
 /* Styled tooltip for the manual-verify toggle — appears fast and matches
-   the site instead of relying on the browser's slow native `title` box. */
-[data-tooltip] {
+   the site instead of relying on the browser's slow native `title` box.
+   Excludes .item-manual-toggle, which is already position: absolute for
+   its full-tile overlay; forcing it to relative broke that layout. */
+[data-tooltip]:not(.item-manual-toggle) {
   position: relative;
 }
 

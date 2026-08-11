@@ -11,6 +11,24 @@ const CA_POINTS_REQUIRED: Record<string, number> = {
   grandmaster: 2630,
 };
 
+// "Ancient blood ornament kit" ("Blorva") isn't a collection-log item, so it
+// can never appear in profile.itemMap — the only way to detect it is via the
+// combat achievements that gate it: all four Awakened-DT2-boss "Sleeper"
+// tasks.
+const BLORVA_SLEEPER_TASKS = [
+  "vardorvis sleeper",
+  "whispered",
+  "leviathan sleeper",
+  "duke sucellus sleeper",
+];
+
+function ownsCollectionItem(name: string, profile: RuneProfile): boolean {
+  if (name.toLowerCase() === "ancient blood ornament kit") {
+    return BLORVA_SLEEPER_TASKS.every((t) => profile.caTaskSet.has(t));
+  }
+  return (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0;
+}
+
 export function checkRequirement(
   check: ApiCheck,
   profile: RuneProfile,
@@ -63,15 +81,13 @@ export function checkRequirement(
     }
 
     case "collection-item": {
-      const passed = check.names.some(
-        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
-      );
+      const passed = check.names.some((n) => ownsCollectionItem(n, profile));
       return passed ? "pass" : "fail";
     }
 
     case "collection-count": {
-      let found = check.names.filter(
-        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+      let found = check.names.filter((n) =>
+        ownsCollectionItem(n, profile),
       ).length;
 
       const oathplateSlots = [
@@ -266,14 +282,14 @@ export function getRequirementProgress(
 ): { found: number; required: number } | null {
   switch (check.type) {
     case "collection-item": {
-      const found = check.names.filter(
-        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+      const found = check.names.filter((n) =>
+        ownsCollectionItem(n, profile),
       ).length;
       return { found, required: check.names.length };
     }
     case "collection-count": {
-      let found = check.names.filter(
-        (n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0,
+      let found = check.names.filter((n) =>
+        ownsCollectionItem(n, profile),
       ).length;
       const oathplateSlots = ["oathplate helm", "oathplate chest", "oathplate legs"];
       const oathplateSlotsInCheck = check.names.filter((n) =>
