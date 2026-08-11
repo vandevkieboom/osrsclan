@@ -372,14 +372,16 @@ function PrizePotChip({ total }: { total: string }) {
   if (!total) return null;
   return (
     <div className="bingo-prizepot-chip">
-      <span className="bingo-prizepot-chip-label">PRIZE POT</span>
       <img
         className="bingo-prizepot-chip-icon"
-        src="https://oldschool.runescape.wiki/images/Coins_10000.png?7fa38"
+        src="https://oldschool.runescape.wiki/images/Coins_detail.png"
         alt=""
         aria-hidden="true"
       />
-      <span className="bingo-prizepot-chip-amount">{total} GP</span>
+      <div className="bingo-prizepot-chip-text">
+        <span className="bingo-prizepot-chip-label">PRIZE POT</span>
+        <span className="bingo-prizepot-chip-amount">{total} GP</span>
+      </div>
     </div>
   );
 }

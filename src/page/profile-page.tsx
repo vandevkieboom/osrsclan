@@ -25,6 +25,19 @@ const BOSS_METRICS = METRIC_GROUPS.find(
   (g) => g.groupLabel === "Bosses",
 )!.metrics;
 
+// Raid bosses are split into their own section — a raw top-KC sort buries
+// them under whichever easy boss the player happens to grind the most,
+// even though raids are the actual difficulty benchmark clan members care
+// about.
+const RAID_METRIC_VALUES = [
+  "theatre_of_blood",
+  "theatre_of_blood_hard_mode",
+  "tombs_of_amascut",
+  "tombs_of_amascut_expert",
+  "chambers_of_xeric",
+  "chambers_of_xeric_challenge_mode",
+];
+
 const DEFAULT_RING_COLOR = "#3a2224";
 const COMBAT_LEVEL_ICON =
   "https://oldschool.runescape.wiki/images/Combat_icon.png";
@@ -147,16 +160,29 @@ export function ProfilePage() {
       }))
     : [];
 
+  const raids = player?.latestSnapshot
+    ? RAID_METRIC_VALUES.map((value) => {
+        const m = BOSS_METRICS.find((metric) => metric.value === value)!;
+        return {
+          key: m.value,
+          name: m.label,
+          icon: getWomMetricIcon(m.value),
+          kc: player.latestSnapshot!.data.bosses[m.value]?.kills ?? 0,
+        };
+      }).sort((a, b) => b.kc - a.kc)
+    : [];
+
   const bosses = player?.latestSnapshot
-    ? BOSS_METRICS.map((m) => ({
-        key: m.value,
-        name: m.label,
-        icon: getWomMetricIcon(m.value),
-        kc: player.latestSnapshot!.data.bosses[m.value]?.kills ?? 0,
-      }))
+    ? BOSS_METRICS.filter((m) => !RAID_METRIC_VALUES.includes(m.value))
+        .map((m) => ({
+          key: m.value,
+          name: m.label,
+          icon: getWomMetricIcon(m.value),
+          kc: player.latestSnapshot!.data.bosses[m.value]?.kills ?? 0,
+        }))
         .filter((b) => b.kc > 0)
         .sort((a, b) => b.kc - a.kc)
-        .slice(0, 9)
+        .slice(0, 12)
     : [];
 
   const totalLevel = player?.latestSnapshot?.data.skills.overall?.level;
@@ -171,8 +197,11 @@ export function ProfilePage() {
             <div className="page-head-text">
               <div className="page-eyebrow">Clan Member</div>
               <h1 className="page-title">Member Profile</h1>
-              <p className="page-sub">Look up any player's stats, rank, and trophy case by RuneScape name.
-              See XP gains, boss kills, and every trophy they've earned.</p>
+              <p className="page-sub">
+                Look up any player's stats, rank, and trophy case by Old School
+                Runescape name. See XP gains, boss kills, and every trophy
+                they've earned.
+              </p>
             </div>
             <div className="profile-search">
               <input
@@ -376,7 +405,28 @@ export function ProfilePage() {
                 </div>
 
                 <div className="profile-card">
-                  <div className="profile-card-title">Notable boss kills</div>
+                  <div className="profile-card-title">Raids</div>
+                  <div className="profile-bosses-grid">
+                    {raids.map((r) => (
+                      <div key={r.key} className="profile-boss-row">
+                        <img
+                          src={r.icon}
+                          alt=""
+                          className="profile-boss-icon"
+                        />
+                        <div className="profile-boss-info">
+                          <div className="profile-boss-name">{r.name}</div>
+                          <div className="profile-boss-kc">
+                            {r.kc.toLocaleString()} KC
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="profile-card">
+                  <div className="profile-card-title">Bosses</div>
                   {bosses.length > 0 ? (
                     <div className="profile-bosses-grid">
                       {bosses.map((b) => (

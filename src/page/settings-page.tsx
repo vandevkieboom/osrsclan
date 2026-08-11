@@ -22,7 +22,9 @@ export function SettingsPage() {
       setTimeout(() => setSaved(false), 1500);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to save RuneScape name",
+        err instanceof Error
+          ? err.message
+          : "Failed to save Old School Runescape name",
       );
     } finally {
       setSaving(false);
@@ -49,8 +51,11 @@ export function SettingsPage() {
           <div className="page-head">
             <div className="page-eyebrow">Account</div>
             <h1 className="page-title">Settings</h1>
-            <p className="page-sub">Manage your account and site preferences. Link your RuneScape name and
-            choose whether the leaderboard remembers your search.</p>
+            <p className="page-sub">
+              Manage your account and site preferences. Link your Old School
+              Runescape name and choose whether the leaderboard remembers your
+              search.
+            </p>
           </div>
           <div className="bingo-admin-empty">
             Log in with Discord to manage your settings.
@@ -80,8 +85,11 @@ export function SettingsPage() {
         <div className="page-head">
           <div className="page-eyebrow">Account</div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-sub">Manage your account and site preferences. Link your RuneScape name and
-            choose whether the leaderboard remembers your search.</p>
+          <p className="page-sub">
+            Manage your account and site preferences. Link your Old School
+            Runescape name and choose whether the leaderboard remembers your
+            search.
+          </p>
         </div>
 
         <div className="profile-card">
