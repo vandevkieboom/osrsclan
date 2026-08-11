@@ -62,12 +62,21 @@ ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,
-  position INT NOT NULL UNIQUE,
+  position INT NOT NULL,
   name TEXT NOT NULL,
   icon_url TEXT NOT NULL,
   required_count INT NOT NULL DEFAULT 1 CHECK (required_count >= 1),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Positions stay unique, but the check is DEFERRABLE so a reorder can write
+-- the whole permutation inside one transaction. A non-deferrable UNIQUE fails
+-- the moment two rows collide part-way through the rewrite, which is why
+-- drag-to-reorder had no way to persist. Dropping both the old inline
+-- constraint name and this one first keeps the statement replayable, since
+-- Postgres has no ADD CONSTRAINT IF NOT EXISTS.
+ALTER TABLE tiles DROP CONSTRAINT IF EXISTS tiles_position_key;
+ALTER TABLE tiles DROP CONSTRAINT IF EXISTS tiles_position_unique;
+ALTER TABLE tiles ADD CONSTRAINT tiles_position_unique UNIQUE (position) DEFERRABLE INITIALLY DEFERRED;
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS required_count INT NOT NULL DEFAULT 1 CHECK (required_count >= 1);
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';

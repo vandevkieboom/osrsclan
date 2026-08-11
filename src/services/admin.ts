@@ -258,6 +258,17 @@ export async function moveTile(
   return data.tile;
 }
 
+/** Sends the full ordered id list; positions are rewritten to match. */
+export async function reorderTiles(ids: number[]): Promise<AdminTile[]> {
+  const res = await fetch("/api/admin/board?resource=tiles", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  const data = await json<{ tiles: AdminTile[] }>(res);
+  return data.tiles;
+}
+
 export async function deleteTile(id: number): Promise<void> {
   const res = await fetch(`/api/admin/board?resource=tiles&id=${id}`, {
     method: "DELETE",

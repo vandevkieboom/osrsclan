@@ -180,6 +180,53 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
     });
 }
 
+// Takes the full ordered list of tile ids and rewrites every position to its
+// index. Requiring the complete set (rather than a from/to pair) means the
+// result can't leave gaps or duplicates no matter how the UI dragged things.
+//
+// All the writes go in one transaction so the DEFERRABLE unique constraint on
+// tiles.position is only checked at COMMIT — mid-permutation collisions are
+// expected and fine, the end state is what has to be unique.
+async function reorderTiles(req: VercelRequest, res: VercelResponse) {
+  const ids = req.body?.ids;
+  if (!Array.isArray(ids) || ids.some((id) => !Number.isInteger(id))) {
+    res.status(400).json({ error: "ids must be an array of tile ids" });
+    return;
+  }
+
+  const existingRows = await sql`SELECT id FROM tiles`;
+  const existing = new Set(existingRows.map((r) => Number(r.id)));
+  const submitted = new Set(ids.map(Number));
+
+  if (submitted.size !== ids.length) {
+    res.status(400).json({ error: "ids contains duplicates" });
+    return;
+  }
+  if (submitted.size !== existing.size || [...submitted].some((id) => !existing.has(id))) {
+    res.status(400).json({ error: "ids must list every tile exactly once" });
+    return;
+  }
+
+  await sql.transaction(
+    ids.map((id, index) => sql`UPDATE tiles SET position = ${index} WHERE id = ${id}`),
+  );
+
+  const rows = await sql`
+    SELECT id, position, name, icon_url, required_count, category, description
+    FROM tiles ORDER BY position`;
+  res.status(200).json({
+    tiles: rows.map((r) => ({
+      id: r.id,
+      position: r.position,
+      name: r.name,
+      iconUrl: r.icon_url,
+      requiredCount: r.required_count,
+      category: r.category,
+      description: r.description,
+    })),
+  });
+}
+
 async function deleteTile(req: VercelRequest, res: VercelResponse) {
   const id = Number(req.query.id);
   if (!Number.isInteger(id)) {
@@ -208,6 +255,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "PUT") {
     if (isTiles) await updateTile(req, res);
     else await updateConfig(req, res);
+    return;
+  }
+
+  if (req.method === "PATCH" && isTiles) {
+    await reorderTiles(req, res);
     return;
   }
 
