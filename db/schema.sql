@@ -20,7 +20,16 @@ CREATE TABLE IF NOT EXISTS users (
   last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE users ADD COLUMN IF NOT EXISTS runescape_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_rankings BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS donated_gp BIGINT NOT NULL DEFAULT 0;
+-- The bingo draft feature (and the entrant flag that fed its pick pool) was
+-- removed — drop the columns it left behind.
+ALTER TABLE users DROP COLUMN IF EXISTS bingo_entrant;
 CREATE INDEX IF NOT EXISTS idx_users_team_id ON users(team_id);
+
+-- Added after users so the FK target already exists when this file is
+-- re-run in full from a fresh database.
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS captain_id BIGINT REFERENCES users(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id BIGSERIAL PRIMARY KEY,
@@ -35,11 +44,21 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE TABLE IF NOT EXISTS board_config (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   name TEXT NOT NULL DEFAULT 'Bingo',
-  date_range TEXT NOT NULL DEFAULT '',
   size INT NOT NULL DEFAULT 5 CHECK (size BETWEEN 2 AND 10),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO board_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_active;
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_order;
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;
+ALTER TABLE board_config DROP COLUMN IF EXISTS draft_log;
+-- The Board Config admin form's Date Range field was removed as clutter.
+ALTER TABLE board_config DROP COLUMN IF EXISTS date_range;
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":""}';
+-- The prize pot admin form was simplified down to just the total GP amount —
+-- buy-in, donated, and the per-donor entries list were never shown anywhere
+-- on the public site and are dropped from new rows and future saves.
+ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,
@@ -50,6 +69,8 @@ CREATE TABLE IF NOT EXISTS tiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS required_count INT NOT NULL DEFAULT 1 CHECK (required_count >= 1);
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS submissions (
   id BIGSERIAL PRIMARY KEY,
@@ -66,3 +87,28 @@ CREATE TABLE IF NOT EXISTS submissions (
 ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_team_id_tile_id_key;
 CREATE INDEX IF NOT EXISTS idx_submissions_team_id ON submissions(team_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
+
+-- One row per clan-event trophy, keyed by the lowercased RSN it belongs to
+-- rather than a user id — a profile can be looked up (and thus hold
+-- trophies) for any RSN in the WOM group, not just ones with a linked
+-- Discord/site account.
+CREATE TABLE IF NOT EXISTS trophies (
+  id BIGSERIAL PRIMARY KEY,
+  rsn_key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  date_label TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_trophies_rsn_key ON trophies(rsn_key);
+
+-- Donations used to live as a `donated_gp` number on a `users` row, which
+-- meant a donor had to have logged into the site at least once with Discord
+-- before their donation would show up anywhere. Tracking them independently
+-- by name lets an admin record a donation for any clan member.
+CREATE TABLE IF NOT EXISTS donations (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  amount_gp BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE users DROP COLUMN IF EXISTS donated_gp;

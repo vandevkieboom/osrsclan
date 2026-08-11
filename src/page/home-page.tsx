@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { Hero } from "../components/hero";
 import { SiteFooter } from "../components/site-footer";
 import { SiteHeader } from "../components/site-header";
+import { fetchDonors, type Donor } from "../services/board";
+
+const MEDALS = ["🥇", "🥈", "🥉"];
 
 const WOM_GROUP_ID = 22206;
 const WOM_BASE = "https://api.wiseoldman.net/v2";
@@ -87,6 +90,7 @@ export function HomePage() {
   const [streamsLoading, setStreamsLoading] = useState(true);
 
   const [clanStats, setClanStats] = useState<ClanStats | null>(null);
+  const [donors, setDonors] = useState<Donor[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +109,14 @@ export function HomePage() {
     fetchClanStats()
       .then((data) => {
         if (!cancelled) setClanStats(data);
+      })
+      .catch(() => {
+        /* silently fail */
+      });
+
+    fetchDonors()
+      .then((data) => {
+        if (!cancelled) setDonors(data);
       })
       .catch(() => {
         /* silently fail */
@@ -153,6 +165,21 @@ export function HomePage() {
               </div>
             </div>
           </Link>
+
+          <Link to="/bingo" className="home-card">
+            <img
+              src="https://oldschool.runescape.wiki/images/Puzzle_box_castle_detail.png"
+              className="home-card-icon"
+              alt=""
+            />
+            <div className="home-card-body">
+              <div className="home-card-title">Bingo</div>
+              <div className="home-card-desc">
+                Complete tiles on your team's board to win a share of the prize
+                pot. Track every team's progress and submit proof as you go.
+              </div>
+            </div>
+          </Link>
           <Link to="/activity" className="home-card">
             <img
               src="https://oldschool.runescape.wiki/images/Chronicle_detail.png"
@@ -168,6 +195,28 @@ export function HomePage() {
             </div>
           </Link>
         </div>
+
+        {donors.length > 0 && (
+          <>
+            <h2 className="home-section-title">Top donators</h2>
+            <div className="home-donors-grid">
+              {donors.map((donor, i) => (
+                <div
+                  key={donor.name}
+                  className={`home-donor-card${i < 3 ? ` home-donor-card--rank${i + 1}` : ""}`}
+                >
+                  <div className="home-donor-rank">
+                    {MEDALS[i] ?? `#${i + 1}`}
+                  </div>
+                  <div className="home-donor-name">{donor.name}</div>
+                  <div className="home-donor-amount">
+                    {donor.donatedGp.toLocaleString()} GP
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <h2 className="home-section-title">Right now</h2>
 

@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
-import { AdminPanelTabs } from "../components/admin-panel-tabs";
 import { useAuth } from "../context/auth-context";
 import {
   fetchBoard,
   submitTileProof,
   type BoardData,
-  type MyTeamTile,
+  type BoardTeam,
+  type BoardTile,
 } from "../services/board";
 import {
   fetchAdminSubmissions,
@@ -15,7 +15,7 @@ import {
   type AdminSubmission,
 } from "../services/admin";
 
-type View = "leaderboard" | "board" | "admin" | "panel";
+type View = "leaderboard" | "board" | "admin";
 
 // Dev-only fallback so the page has something to render under plain
 // `npm run dev`, which has no backend at all. Never used in production —
@@ -29,88 +29,90 @@ const PLACEHOLDER_STATUSES = [
   "none",
   "rejected",
 ] as const;
+function placeholderTiles(teamId: number): BoardTile[] {
+  return Array.from({ length: 25 }, (_, i) => {
+    const status = PLACEHOLDER_STATUSES[(i + teamId) % PLACEHOLDER_STATUSES.length];
+    return {
+      tileId: i,
+      name: `Tile ${i + 1}`,
+      iconUrl: PLACEHOLDER_ICON,
+      requiredCount: i % 5 === 0 ? 3 : 1,
+      category: "ITEM DROP",
+      description: "Submit a screenshot once you've received this item.",
+      approvedCount: status === "approved" ? 1 : 0,
+      pendingCount: status === "pending" ? 1 : 0,
+      rejectedCount: status === "rejected" ? 1 : 0,
+      status,
+      latestProofUrl: null,
+      latestSubmittedBy: status === "none" ? null : "izJordy",
+      proofs:
+        status === "none"
+          ? []
+          : [
+              {
+                id: i,
+                status: status === "rejected" ? "rejected" : status === "pending" ? "pending" : "approved",
+                proofUrl: PLACEHOLDER_ICON,
+                submittedBy: "izJordy",
+                createdAt: "2026-08-02T00:00:00.000Z",
+              },
+            ],
+    };
+  });
+}
 const PLACEHOLDER_BOARD: BoardData = {
   config: {
     name: "Summer Blackout Bingo",
-    dateRange: "Aug 2 – Aug 16, 2026",
     size: 5,
+    prizePot: {
+      total: "51.50M",
+    },
   },
   teams: [
     {
       id: 1,
       name: "Crimson Fang",
       memberCount: 6,
-      members: [
-        "izJordy",
-        "AtomicKilo",
-        "BreauxChacho",
-        "BHops",
-        "Lamboat",
-        "YoonA",
-      ],
+      members: ["izJordy", "AtomicKilo", "BreauxChacho", "BHops", "Lamboat", "YoonA"],
+      captainId: 1,
+      captainName: "izJordy",
       completeCount: 18,
       totalTiles: 25,
       pct: 72,
       accentColor: "#e8574a",
       isLeading: true,
+      tiles: placeholderTiles(1),
     },
     {
       id: 2,
       name: "Onyx Talon",
       memberCount: 5,
-      members: [
-        "Indaco",
-        "Treecio",
-        "AnotherPlayer",
-        "SomePlayer",
-        "Solo Nostalg",
-      ],
+      members: ["Indaco", "Treecio", "AnotherPlayer", "SomePlayer", "Solo Nostalg"],
+      captainId: null,
+      captainName: null,
       completeCount: 9,
       totalTiles: 25,
       pct: 36,
       accentColor: "#c9c9c9",
       isLeading: false,
+      tiles: placeholderTiles(2),
     },
     {
       id: 3,
       name: "Zenyte Vanguard",
       memberCount: 7,
-      members: [
-        "ABearCat",
-        "Helesta",
-        "Wafas",
-        "Eskett",
-        "Mevvz",
-        "Player7",
-        "Player8",
-      ],
+      members: ["ABearCat", "Helesta", "Wafas", "Eskett", "Mevvz", "Player7", "Player8"],
+      captainId: null,
+      captainName: null,
       completeCount: 14,
       totalTiles: 25,
       pct: 56,
       accentColor: "#ffb340",
       isLeading: false,
+      tiles: placeholderTiles(3),
     },
   ],
-  myTeam: {
-    id: 1,
-    name: "Crimson Fang",
-    tiles: Array.from({ length: 25 }, (_, i) => ({
-      tileId: i,
-      name: `Tile ${i + 1}`,
-      iconUrl: PLACEHOLDER_ICON,
-      requiredCount: 1,
-      approvedCount: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "approved" ? 1 : 0,
-      pendingCount: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "pending" ? 1 : 0,
-      rejectedCount: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "rejected" ? 1 : 0,
-      status: PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length],
-      latestProofUrl: null,
-      latestSubmittedBy:
-        PLACEHOLDER_STATUSES[i % PLACEHOLDER_STATUSES.length] === "none"
-          ? null
-          : "izJordy",
-      proofs: [],
-    })),
-  },
+  myTeamId: 1,
 };
 const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
   {
@@ -135,26 +137,28 @@ const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
   },
 ];
 
-function TeamCard({ team }: { team: BoardData["teams"][number] }) {
+function initialsOf(name: string): string {
+  return name.charAt(0).toUpperCase();
+}
+
+function TeamCard({ team }: { team: BoardTeam }) {
   return (
     <div
       className="bingo-team-card"
       style={{ "--team-accent": team.accentColor } as React.CSSProperties}
     >
       {team.isLeading && (
-        <div className="bingo-team-leading-badge">LEADING</div>
+        <div className="bingo-team-leading-badge">
+          {team.completeCount === team.totalTiles ? "WINNER" : "LEADING"}
+        </div>
       )}
       <div className="bingo-team-name">{team.name}</div>
       <div className="bingo-team-members">
-        {team.members.length > 0
-          ? team.members.join(", ")
-          : `${team.memberCount} members`}
+        {team.memberCount} members
+        {team.captainName ? ` · captain ${team.captainName}` : ""}
       </div>
       <div className="bingo-team-progress-track">
-        <div
-          className="bingo-team-progress-fill"
-          style={{ width: `${team.pct}%` }}
-        />
+        <div className="bingo-team-progress-fill" style={{ width: `${team.pct}%` }} />
       </div>
       <div className="bingo-team-count">
         {team.completeCount} / {team.totalTiles} tiles complete
@@ -163,116 +167,229 @@ function TeamCard({ team }: { team: BoardData["teams"][number] }) {
   );
 }
 
-function BoardTile({
+function TileFace({
   tile,
+  isSelected,
   isUploading,
-  onViewProofs,
   onClick,
 }: {
-  tile: MyTeamTile;
+  tile: BoardTile;
+  isSelected: boolean;
   isUploading: boolean;
-  onViewProofs: (() => void) | null;
   onClick: () => void;
 }) {
-  const clickable = tile.approvedCount < tile.requiredCount;
-  const title =
-    tile.requiredCount > 1
-      ? `${tile.approvedCount} / ${tile.requiredCount} proofs approved${tile.pendingCount > 0 ? `, ${tile.pendingCount} pending` : ""}`
-      : tile.latestSubmittedBy
-        ? `${tile.status === "approved" ? "Completed" : "Submitted"} by ${tile.latestSubmittedBy}`
-        : undefined;
+  const contributorNames = Array.from(
+    new Set(tile.proofs.map((p) => p.submittedBy).filter((n): n is string => !!n)),
+  );
+
   return (
-    <div className={`bingo-tile bingo-tile--${tile.status}`}>
+    <button
+      type="button"
+      className={`bingo-tile bingo-tile--${tile.status}${isSelected ? " bingo-tile--selected" : ""}`}
+      onClick={onClick}
+      title={tile.name}
+    >
       {tile.status === "approved" && (
         <span className="bingo-tile-status bingo-tile-status--approved">✓</span>
       )}
       {tile.status === "pending" && (
         <span className="bingo-tile-status bingo-tile-status--pending">⏳</span>
       )}
-      {tile.status === "rejected" && (
-        <span className="bingo-tile-status bingo-tile-status--rejected">✕</span>
-      )}
-      {onViewProofs && tile.proofs.length > 0 && (
-        <button
-          type="button"
-          className="bingo-tile-proof-link bingo-tile-proofs-button"
-          title="View proofs"
-          onClick={(e) => {
-            e.stopPropagation();
-            onViewProofs();
-          }}
-        >
-          {tile.proofs.length}
-        </button>
-      )}
-      <button
-        type="button"
-        className="bingo-tile-body"
-        onClick={onClick}
-        disabled={!clickable || isUploading}
-        title={title}
-      >
-        <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
-        <div className="bingo-tile-name">
-          {isUploading ? "Uploading…" : tile.name}
+      <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
+      {contributorNames.length >= 2 && (
+        <div className="bingo-tile-avatars">
+          {contributorNames.slice(0, 3).map((name, i) => (
+            <span key={i} className="bingo-tile-avatar">
+              {initialsOf(name)}
+            </span>
+          ))}
         </div>
-        {tile.requiredCount > 1 ? (
-          <div className="bingo-tile-completed-by">
-            {tile.approvedCount} / {tile.requiredCount} proofs
+      )}
+      {tile.requiredCount > 1 && tile.status !== "approved" && (
+        <span className="bingo-tile-fraction">
+          {tile.approvedCount}/{tile.requiredCount}
+        </span>
+      )}
+      {isUploading && <span className="bingo-tile-uploading">Uploading…</span>}
+    </button>
+  );
+}
+
+function TileDetailPanel({
+  tile,
+  accentColor,
+  canSubmit,
+  viewingTeamName,
+  isUploading,
+  onSubmit,
+  onOpenLightbox,
+}: {
+  tile: BoardTile | null;
+  accentColor: string;
+  canSubmit: boolean;
+  viewingTeamName: string;
+  isUploading: boolean;
+  onSubmit: (file: File) => Promise<void>;
+  onOpenLightbox: (url: string) => void;
+}) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // A newly selected tile shouldn't carry over the previous tile's pending
+  // (unsubmitted) screenshot choice.
+  useEffect(() => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+  }, [tile?.tileId]);
+
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  if (!tile) {
+    return (
+      <div className="bingo-detail-card bingo-detail-card--empty">
+        Click any tile to see what it needs, who's contributed, and to submit proof.
+      </div>
+    );
+  }
+
+  const pct = tile.requiredCount > 1 ? Math.min(100, Math.round((tile.approvedCount / tile.requiredCount) * 100)) : 0;
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+    setPreviewUrl(file ? URL.createObjectURL(file) : null);
+  }
+
+  async function handleSubmit() {
+    if (!selectedFile) return;
+    try {
+      await onSubmit(selectedFile);
+      setSelectedFile(null);
+      setPreviewUrl(null);
+    } catch {
+      // The parent already surfaces the error — keep the selection so the
+      // user can retry without re-picking the file.
+    }
+  }
+
+  return (
+    <div className="bingo-detail-card">
+      <div className="bingo-detail-name">{tile.name}</div>
+      {tile.category && <div className="bingo-detail-category">{tile.category}</div>}
+      {tile.description && <div className="bingo-detail-description">{tile.description}</div>}
+
+      {tile.requiredCount > 1 && (
+        <>
+          <div className="bingo-detail-progress-label">
+            {tile.approvedCount} / {tile.requiredCount} contributed toward this tile
           </div>
-        ) : tile.latestSubmittedBy ? (
-          <div className="bingo-tile-completed-by">{tile.latestSubmittedBy}</div>
-        ) : null}
-      </button>
+          <div className="bingo-detail-progress-track">
+            <div
+              className="bingo-detail-progress-fill"
+              style={{ width: `${pct}%`, background: accentColor }}
+            />
+          </div>
+        </>
+      )}
+
+      <div className="bingo-detail-section-label">Contributors</div>
+      {tile.proofs.length > 0 ? (
+        <div className="bingo-detail-contributors">
+          {tile.proofs.map((p) => (
+            <div key={p.id} className="bingo-detail-contributor">
+              <span className="bingo-detail-contributor-avatar">
+                {initialsOf(p.submittedBy ?? "?")}
+              </span>
+              <div className="bingo-detail-contributor-info">
+                <div className="bingo-detail-contributor-name">{p.submittedBy ?? "Unknown"}</div>
+                <div className="bingo-detail-contributor-ts">
+                  {new Date(p.createdAt).toLocaleString()}
+                </div>
+              </div>
+              <span className={`bingo-proof-pill bingo-proof-pill--${p.status}`}>{p.status}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="admin-empty">No submissions yet.</div>
+      )}
+
+      {tile.proofs.length > 0 && (
+        <>
+          <div className="bingo-detail-section-label">Screenshots ({tile.proofs.length})</div>
+          <div className="bingo-detail-screenshots">
+            {tile.proofs.map((p) => (
+              <img
+                key={p.id}
+                src={p.proofUrl}
+                alt=""
+                className="bingo-detail-thumb"
+                onClick={() => onOpenLightbox(p.proofUrl)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {canSubmit ? (
+        <div className="bingo-detail-submit">
+          <div className="bingo-detail-section-label">SUBMIT PROOF</div>
+          <label className="bingo-detail-dropzone">
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="bingo-detail-dropzone-input"
+              onChange={handleFileChange}
+            />
+            {previewUrl ? (
+              <img src={previewUrl} alt="" className="bingo-detail-dropzone-preview" />
+            ) : (
+              <span className="bingo-detail-dropzone-empty">📷 Click to choose a screenshot</span>
+            )}
+          </label>
+          <button
+            type="button"
+            className="bingo-detail-submit-btn"
+            onClick={handleSubmit}
+            disabled={!selectedFile || isUploading || tile.approvedCount >= tile.requiredCount}
+          >
+            {isUploading ? "Uploading…" : "SUBMIT FOR REVIEW"}
+          </button>
+        </div>
+      ) : (
+        <div className="bingo-detail-readonly-note">
+          You're viewing {viewingTeamName}'s board. Switch to your own team above to submit proof.
+        </div>
+      )}
     </div>
   );
 }
 
-function ProofGalleryModal({
-  tile,
-  onClose,
-}: {
-  tile: MyTeamTile;
-  onClose: () => void;
-}) {
+function PrizePotChip({ total }: { total: string }) {
+  if (!total) return null;
   return (
-    <div className="bingo-proof-modal-backdrop" onClick={onClose}>
-      <div className="bingo-proof-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="bingo-proof-modal-head">
-          <div>
-            <div className="bingo-proof-modal-title">{tile.name}</div>
-            <div className="bingo-proof-modal-subtitle">
-              {tile.approvedCount} / {tile.requiredCount} approved
-            </div>
-          </div>
-          <button type="button" className="admin-btn-ghost" onClick={onClose}>
-            Close
-          </button>
-        </div>
-        <div className="bingo-proof-list">
-          {tile.proofs.map((proof) => (
-            <a
-              key={proof.id}
-              href={proof.proofUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="bingo-proof-item"
-            >
-              <div className="bingo-proof-item-meta">
-                <span className={`bingo-proof-pill bingo-proof-pill--${proof.status}`}>
-                  {proof.status}
-                </span>
-                <span>{proof.submittedBy ?? "Unknown"}</span>
-                <span>{new Date(proof.createdAt).toLocaleString()}</span>
-              </div>
-              <div className="bingo-proof-item-url">Open proof</div>
-            </a>
-          ))}
-          {tile.proofs.length === 0 && (
-            <div className="admin-empty">No proofs uploaded yet.</div>
-          )}
-        </div>
+    <div className="bingo-prizepot-chip">
+      <img
+        className="bingo-prizepot-chip-icon"
+        src="https://oldschool.runescape.wiki/images/Coins_detail.png"
+        alt=""
+        aria-hidden="true"
+      />
+      <div className="bingo-prizepot-chip-text">
+        <span className="bingo-prizepot-chip-label">PRIZE POT</span>
+        <span className="bingo-prizepot-chip-amount">{total} GP</span>
       </div>
+    </div>
+  );
+}
+
+function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div className="bingo-lightbox-backdrop" onClick={onClose}>
+      <img src={url} alt="" className="bingo-lightbox-img" />
     </div>
   );
 }
@@ -283,19 +400,21 @@ export function BingoPage() {
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadingTileId, setUploadingTileId] = useState<number | null>(null);
-  const [selectedProofTile, setSelectedProofTile] = useState<MyTeamTile | null>(null);
-  const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(
-    null,
-  );
-  const pendingTileId = useRef<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [boardTeamId, setBoardTeamId] = useState<number | null>(null);
+  const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(null);
 
   function reloadBoard() {
     fetchBoard()
-      .then(setBoard)
+      .then((data) => {
+        setBoard(data);
+        setBoardTeamId((prev) => prev ?? data.myTeamId ?? data.teams[0]?.id ?? null);
+      })
       .catch((err: unknown) => {
         if (import.meta.env.DEV) {
           setBoard(PLACEHOLDER_BOARD);
+          setBoardTeamId((prev) => prev ?? PLACEHOLDER_BOARD.myTeamId);
           return;
         }
         setError(err instanceof Error ? err.message : "Failed to load board");
@@ -303,8 +422,8 @@ export function BingoPage() {
   }
 
   // Re-fetch whenever the active tab changes, not just on first load — the
-  // Admin Panel tab mutates teams/members/tiles in its own local state, so
-  // switching back to Leaderboard/My Team Board needs a fresh fetch to see it.
+  // Admin Panel tab mutates teams/members/tiles state, so switching back to
+  // Leaderboard/Board needs a fresh fetch to see it.
   useEffect(reloadBoard, [view]);
 
   function reloadSubmissions() {
@@ -314,24 +433,12 @@ export function BingoPage() {
     }
     fetchAdminSubmissions("pending")
       .then(setSubmissions)
-      .catch(() =>
-        setSubmissions(import.meta.env.DEV ? PLACEHOLDER_SUBMISSIONS : null),
-      );
+      .catch(() => setSubmissions(import.meta.env.DEV ? PLACEHOLDER_SUBMISSIONS : null));
   }
 
   useEffect(reloadSubmissions, [isAdmin, view]);
 
-  function handleTileClick(tileId: number) {
-    pendingTileId.current = tileId;
-    fileInputRef.current?.click();
-  }
-
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    const tileId = pendingTileId.current;
-    e.target.value = "";
-    if (!file || tileId === null) return;
-
+  async function handleSubmitProof(tileId: number, file: File) {
     setUploadingTileId(tileId);
     setError(null);
     try {
@@ -339,6 +446,7 @@ export function BingoPage() {
       reloadBoard();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit proof");
+      throw err;
     } finally {
       setUploadingTileId(null);
     }
@@ -350,9 +458,7 @@ export function BingoPage() {
       reloadSubmissions();
       reloadBoard();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to review submission",
-      );
+      setError(err instanceof Error ? err.message : "Failed to review submission");
     }
   }
 
@@ -364,6 +470,7 @@ export function BingoPage() {
           <div className="page-head">
             <div className="page-eyebrow">Clan Event</div>
             <h1 className="page-title">Bingo</h1>
+            <p className="page-sub">There was a problem loading the bingo board.</p>
           </div>
           <div className="admin-error">{error}</div>
         </div>
@@ -388,6 +495,10 @@ export function BingoPage() {
     );
   }
 
+  const boardTeam = board.teams.find((t) => t.id === boardTeamId) ?? board.teams[0] ?? null;
+  const selectedTile = boardTeam?.tiles.find((t) => t.tileId === selectedTileId) ?? null;
+  const canSubmitToBoardTeam = !!boardTeam && boardTeam.id === board.myTeamId;
+
   return (
     <>
       <SiteHeader />
@@ -399,14 +510,11 @@ export function BingoPage() {
               <div className="page-eyebrow">Clan Event</div>
               <h1 className="page-title">{board.config.name}</h1>
               <p className="page-sub">
-                First team to complete every tile on their board wins. Submit a
-                screenshot for each required proof. Some tiles need multiple
-                screenshots, and they can come from different team members.
+                First team to complete every tile on their board wins. Click a tile to see exactly
+                what it needs, who's contributed, and to submit proof.
               </p>
             </div>
-            {board.config.dateRange && (
-              <div className="bingo-date-range">{board.config.dateRange}</div>
-            )}
+            <PrizePotChip total={board.config.prizePot.total} />
           </div>
         </div>
 
@@ -423,105 +531,113 @@ export function BingoPage() {
             className={`bingo-tab${view === "board" ? " active" : ""}`}
             onClick={() => setView("board")}
           >
-            MY TEAM BOARD
+            BOARD
           </button>
           {isAdmin && (
-            <>
-              <button
-                type="button"
-                className={`bingo-tab${view === "admin" ? " active" : ""}`}
-                onClick={() => setView("admin")}
-              >
-                ADMIN REVIEW
-                {submissions && submissions.length > 0 && (
-                  <span className="bingo-tab-badge">{submissions.length}</span>
-                )}
-              </button>
-              <button
-                type="button"
-                className={`bingo-tab${view === "panel" ? " active" : ""}`}
-                onClick={() => setView("panel")}
-              >
-                ADMIN PANEL
-              </button>
-            </>
+            <button
+              type="button"
+              className={`bingo-tab${view === "admin" ? " active" : ""}`}
+              onClick={() => setView("admin")}
+            >
+              ADMIN REVIEW
+              {submissions && submissions.length > 0 && (
+                <span className="bingo-tab-badge">{submissions.length}</span>
+              )}
+            </button>
           )}
         </div>
 
         {error && <div className="admin-error">{error}</div>}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          style={{ display: "none" }}
-          onChange={handleFileSelected}
-        />
 
         {view === "leaderboard" && (
           <div className="bingo-teams-grid">
             {board.teams.map((team) => (
               <TeamCard key={team.id} team={team} />
             ))}
-            {board.teams.length === 0 && (
-              <div className="admin-empty">No teams yet.</div>
-            )}
+            {board.teams.length === 0 && <div className="admin-empty">No teams yet.</div>}
           </div>
         )}
 
-        {view === "board" && (
+        {view === "board" && !boardTeam && (
+          <div className="bingo-admin-empty">No teams have been created yet.</div>
+        )}
+
+        {view === "board" && boardTeam && (
           <>
-            {!user && (
-              <div className="bingo-admin-empty">
-                Log in with Discord to view your team's board.
-                <div className="bingo-login-prompt">
-                  <button
-                    type="button"
-                    className="site-header-login"
-                    onClick={() => login()}
-                  >
-                    Log in with Discord
-                  </button>
-                </div>
+            <div className="bingo-board-head">
+              <div>
+                <div className="bingo-board-title">{boardTeam.name}'s Board</div>
               </div>
-            )}
-            {user && !board.myTeam && (
-              <div className="bingo-admin-empty">
-                You haven't been assigned to a team yet.
-              </div>
-            )}
-            {user && board.myTeam && (
-              <>
-                <div className="bingo-board-head">
-                  <div className="bingo-board-title">
-                    {board.myTeam.name}'s Board
-                  </div>
-                  <div className="bingo-board-count">
-                    {
-                      board.myTeam.tiles.filter((t) => t.status === "approved")
-                        .length
-                    }{" "}
-                    / {board.myTeam.tiles.length} complete
-                  </div>
+              <div className="bingo-board-head-stat">
+                <div className="bingo-board-head-track">
+                  <div
+                    className="bingo-board-head-fill"
+                    style={{ width: `${boardTeam.pct}%`, background: boardTeam.accentColor }}
+                  />
                 </div>
-                <div
-                  className="bingo-tiles-grid"
-                  style={{
-                    gridTemplateColumns: `repeat(${board.config.size}, 1fr)`,
+                <div className="bingo-board-head-count" style={{ color: boardTeam.accentColor }}>
+                  {boardTeam.completeCount} / {boardTeam.totalTiles}
+                </div>
+                <div className="bingo-board-head-label">TILES COMPLETE</div>
+              </div>
+            </div>
+
+            <div className="bingo-team-switcher">
+              {board.teams.map((team) => (
+                <button
+                  key={team.id}
+                  type="button"
+                  className={`bingo-team-pill${team.id === boardTeam.id ? " active" : ""}`}
+                  onClick={() => {
+                    setBoardTeamId(team.id);
+                    setSelectedTileId(null);
                   }}
                 >
-                  {board.myTeam.tiles.map((tile) => (
-                    <BoardTile
-                      key={tile.tileId}
-                      tile={tile}
-                      isUploading={uploadingTileId === tile.tileId}
-                      onViewProofs={tile.proofs.length > 0 ? () => setSelectedProofTile(tile) : null}
-                      onClick={() => handleTileClick(tile.tileId)}
-                    />
-                  ))}
-                </div>
-              </>
+                  <span className="bingo-team-pill-dot" style={{ background: team.accentColor }} />
+                  {team.name}
+                </button>
+              ))}
+            </div>
+
+            {!user && (
+              <div className="bingo-login-prompt">
+                <button type="button" className="site-header-login" onClick={() => login()}>
+                  Log in with Discord to submit proof
+                </button>
+              </div>
             )}
+
+            <div className="bingo-board-layout">
+              <div
+                className="bingo-tiles-grid"
+                style={{ gridTemplateColumns: `repeat(${board.config.size}, 1fr)` }}
+              >
+                {boardTeam.tiles.map((tile) => (
+                  <TileFace
+                    key={tile.tileId}
+                    tile={tile}
+                    isSelected={tile.tileId === selectedTileId}
+                    isUploading={uploadingTileId === tile.tileId}
+                    onClick={() => setSelectedTileId(tile.tileId)}
+                  />
+                ))}
+              </div>
+
+              <div className="bingo-sidebar">
+                <TileDetailPanel
+                  tile={selectedTile}
+                  accentColor={boardTeam.accentColor}
+                  canSubmit={canSubmitToBoardTeam}
+                  viewingTeamName={boardTeam.name}
+                  isUploading={uploadingTileId === selectedTile?.tileId}
+                  onSubmit={async (file) => {
+                    if (!selectedTile) return;
+                    await handleSubmitProof(selectedTile.tileId, file);
+                  }}
+                  onOpenLightbox={setLightboxUrl}
+                />
+              </div>
+            </div>
           </>
         )}
 
@@ -543,12 +659,7 @@ export function BingoPage() {
                   </div>
                 </div>
                 {sub.proofUrl && (
-                  <a
-                    href={sub.proofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bingo-admin-proof-link"
-                  >
+                  <a href={sub.proofUrl} target="_blank" rel="noreferrer" className="bingo-admin-proof-link">
                     View proof
                   </a>
                 )}
@@ -570,16 +681,9 @@ export function BingoPage() {
             ))}
           </div>
         )}
-
-        {view === "panel" && isAdmin && <AdminPanelTabs />}
       </div>
 
-      {selectedProofTile && (
-        <ProofGalleryModal
-          tile={selectedProofTile}
-          onClose={() => setSelectedProofTile(null)}
-        />
-      )}
+      {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
 
       <SiteFooter />
     </>

@@ -1,19 +1,25 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
-import { getOrCreateBoardConfig } from "../_lib/board.js";
+import { getOrCreateBoardConfig, type PrizePot } from "../_lib/board.js";
 
 async function getConfig(res: VercelResponse) {
   const c = await getOrCreateBoardConfig();
-  res
-    .status(200)
-    .json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });
+  res.status(200).json({
+    config: { name: c.name, size: c.size, prizePot: c.prize_pot },
+  });
+}
+
+function parsePrizePot(raw: unknown): PrizePot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  return {
+    total: typeof r.total === "string" ? r.total.trim() : "",
+  };
 }
 
 async function updateConfig(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const dateRange =
-    typeof req.body?.dateRange === "string" ? req.body.dateRange.trim() : "";
   const size = Number(req.body?.size);
 
   if (!name) {
@@ -25,24 +31,33 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  const prizePot = req.body?.prizePot !== undefined ? parsePrizePot(req.body.prizePot) : null;
+  if (req.body?.prizePot !== undefined && !prizePot) {
+    res.status(400).json({ error: "Invalid prizePot" });
+    return;
+  }
+
   // Upsert rather than a plain UPDATE — board_config is a singleton, but if
   // it was ever deleted by hand, a plain "WHERE id = 1" would silently touch
   // zero rows instead of recreating it.
+  const current = await getOrCreateBoardConfig();
+  const nextPrizePot = prizePot ?? current.prize_pot;
   const rows = await sql`
-    INSERT INTO board_config (id, name, date_range, size)
-    VALUES (1, ${name}, ${dateRange}, ${size})
+    INSERT INTO board_config (id, name, size, prize_pot)
+    VALUES (1, ${name}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb)
     ON CONFLICT (id) DO UPDATE SET
-      name = EXCLUDED.name, date_range = EXCLUDED.date_range, size = EXCLUDED.size, updated_at = now()
-    RETURNING name, date_range, size`;
+      name = EXCLUDED.name, size = EXCLUDED.size,
+      prize_pot = EXCLUDED.prize_pot, updated_at = now()
+    RETURNING name, size, prize_pot`;
   const c = rows[0];
-  res
-    .status(200)
-    .json({ config: { name: c.name, dateRange: c.date_range, size: c.size } });
+  res.status(200).json({
+    config: { name: c.name, size: c.size, prizePot: c.prize_pot },
+  });
 }
 
 async function listTiles(res: VercelResponse) {
   const rows =
-    await sql`SELECT id, position, name, icon_url, required_count FROM tiles ORDER BY position`;
+    await sql`SELECT id, position, name, icon_url, required_count, category, description FROM tiles ORDER BY position`;
   res.status(200).json({
     tiles: rows.map((r) => ({
       id: r.id,
@@ -50,6 +65,8 @@ async function listTiles(res: VercelResponse) {
       name: r.name,
       iconUrl: r.icon_url,
       requiredCount: r.required_count,
+      category: r.category,
+      description: r.description,
     })),
   });
 }
@@ -66,6 +83,8 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
   const requiredCount = Number(
     req.body?.requiredCount ?? req.body?.required_count ?? 1,
   );
+  const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
+  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
   if (
     !Number.isInteger(position) ||
     position < 0 ||
@@ -83,9 +102,9 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
   }
   try {
     const rows = await sql`
-      INSERT INTO tiles (position, name, icon_url, required_count)
-      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount})
-      RETURNING id, position, name, icon_url, required_count`;
+      INSERT INTO tiles (position, name, icon_url, required_count, category, description)
+      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description})
+      RETURNING id, position, name, icon_url, required_count, category, description`;
     const t = rows[0];
     res
       .status(201)
@@ -96,6 +115,8 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
           name: t.name,
           iconUrl: t.icon_url,
           requiredCount: t.required_count,
+          category: t.category,
+          description: t.description,
         },
       });
   } catch (err) {
@@ -120,6 +141,8 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
   const requiredCount = Number(
     req.body?.requiredCount ?? req.body?.required_count ?? 1,
   );
+  const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
+  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
   if (
     !Number.isInteger(id) ||
     !name ||
@@ -133,8 +156,10 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
     return;
   }
   const rows = await sql`
-    UPDATE tiles SET name = ${name}, icon_url = ${iconUrl}, required_count = ${requiredCount} WHERE id = ${id}
-    RETURNING id, position, name, icon_url, required_count`;
+    UPDATE tiles SET name = ${name}, icon_url = ${iconUrl}, required_count = ${requiredCount},
+      category = ${category}, description = ${description}
+    WHERE id = ${id}
+    RETURNING id, position, name, icon_url, required_count, category, description`;
   if (rows.length === 0) {
     res.status(404).json({ error: "Tile not found" });
     return;
@@ -149,6 +174,8 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
         name: t.name,
         iconUrl: t.icon_url,
         requiredCount: t.required_count,
+        category: t.category,
+        description: t.description,
       },
     });
 }
@@ -169,7 +196,8 @@ async function deleteTile(req: VercelRequest, res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!(await requireAdmin(req, res))) return;
 
-  const isTiles = req.query.resource === "tiles";
+  const resource = req.query.resource;
+  const isTiles = resource === "tiles";
 
   if (req.method === "GET") {
     if (isTiles) await listTiles(res);

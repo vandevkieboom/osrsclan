@@ -4,6 +4,8 @@ export interface AdminTeam {
   slug: string;
   accentColor: string;
   memberCount: number;
+  captainId: number | null;
+  captainName: string | null;
 }
 
 export interface AdminUser {
@@ -16,10 +18,20 @@ export interface AdminUser {
   team: { id: number; name: string } | null;
 }
 
+export interface Donation {
+  id: number;
+  name: string;
+  amountGp: number;
+}
+
+export interface PrizePot {
+  total: string;
+}
+
 export interface BoardConfig {
   name: string;
-  dateRange: string;
   size: number;
+  prizePot: PrizePot;
 }
 
 export interface AdminTile {
@@ -28,6 +40,8 @@ export interface AdminTile {
   name: string;
   iconUrl: string;
   requiredCount: number;
+  category: string;
+  description: string;
 }
 
 export interface AdminSubmission {
@@ -88,8 +102,52 @@ export async function recolorTeam(
   return data.team;
 }
 
+export async function setCaptain(
+  teamId: number,
+  captainId: number | null,
+): Promise<AdminTeam> {
+  const res = await fetch("/api/admin/teams", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: teamId, captainId }),
+  });
+  const data = await json<{ team: AdminTeam }>(res);
+  return data.team;
+}
+
 export async function deleteTeam(id: number): Promise<void> {
   const res = await fetch(`/api/admin/teams?id=${id}`, { method: "DELETE" });
+  await json(res);
+}
+
+export async function fetchDonations(): Promise<Donation[]> {
+  const res = await fetch("/api/admin/teams?resource=donations");
+  const data = await json<{ donations: Donation[] }>(res);
+  return data.donations;
+}
+
+export async function addDonation(name: string, amountGp: number): Promise<Donation> {
+  const res = await fetch("/api/admin/teams?resource=donations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, amountGp }),
+  });
+  const data = await json<{ donation: Donation }>(res);
+  return data.donation;
+}
+
+export async function updateDonation(id: number, name: string, amountGp: number): Promise<Donation> {
+  const res = await fetch("/api/admin/teams?resource=donations", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, name, amountGp }),
+  });
+  const data = await json<{ donation: Donation }>(res);
+  return data.donation;
+}
+
+export async function deleteDonation(id: number): Promise<void> {
+  const res = await fetch(`/api/admin/teams?resource=donations&id=${id}`, { method: "DELETE" });
   await json(res);
 }
 
@@ -140,6 +198,8 @@ export async function createTile(
   name: string,
   iconUrl: string,
   requiredCount = 1,
+  category = "",
+  description = "",
 ): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
@@ -149,6 +209,8 @@ export async function createTile(
       name,
       iconUrl,
       requiredCount,
+      category,
+      description,
       icon_url: iconUrl,
       required_count: requiredCount,
     }),
@@ -162,6 +224,8 @@ export async function updateTile(
   name: string,
   iconUrl: string,
   requiredCount = 1,
+  category = "",
+  description = "",
 ): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
@@ -171,6 +235,8 @@ export async function updateTile(
       name,
       iconUrl,
       requiredCount,
+      category,
+      description,
       icon_url: iconUrl,
       required_count: requiredCount,
     }),
