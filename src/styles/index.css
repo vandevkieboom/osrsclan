@@ -106,6 +106,22 @@ body {
   padding-bottom: 0;
 }
 
+.page-head--rankings .page-head-text {
+  gap: 0;
+}
+
+.page-head--rankings .page-eyebrow {
+  margin-bottom: 0.7rem;
+}
+
+.page-head--rankings .page-title {
+  margin-bottom: 16px;
+}
+
+.page-head--rankings .page-sub {
+  margin-bottom: 20px;
+}
+
 .page-head-row {
   display: flex;
   align-items: flex-end;
@@ -239,6 +255,116 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.25rem;
+}
+
+/* Rankings page view tabs (My Progress / Leaderboard) */
+.rankings-view-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.rankings-view-tab {
+  background: none;
+  border: 1px solid #3a2224;
+  color: #f0e8e6;
+  padding: 10px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rankings-view-tab.active {
+  background: #a3241a;
+  border-color: #a3241a;
+  color: #fff;
+}
+
+/* Leaderboard view */
+.leaderboard-intro {
+  font-size: 13px;
+  color: #a08c89;
+  margin-bottom: 22px;
+}
+
+.leaderboard-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 12px 18px;
+}
+
+.leaderboard-row-position {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  color: #7a655f;
+  width: 28px;
+}
+
+.leaderboard-row-icon {
+  width: 22px;
+  height: 22px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.leaderboard-row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.leaderboard-row-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f0e8e6;
+}
+
+.leaderboard-row-rank {
+  font-size: 11px;
+}
+
+.leaderboard-row-track {
+  width: 160px;
+  flex-shrink: 0;
+  height: 6px;
+  background: #241d1d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.leaderboard-row-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a3241a, #e8574a);
+}
+
+.leaderboard-row-count {
+  width: 110px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 15px;
+  color: #f0e8e6;
+}
+
+.leaderboard-row-count-label {
+  font-size: 10px;
+  color: #7a655f;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-weight: 400;
+  margin-left: 3px;
 }
 
 .rank-card {
@@ -3189,6 +3315,7 @@ body {
   align-items: center;
   justify-content: center;
   margin-left: -4px;
+  object-fit: cover;
 }
 
 .bingo-tile-avatar:first-child {
@@ -3887,6 +4014,7 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  object-fit: cover;
 }
 
 .bingo-detail-contributor-info {

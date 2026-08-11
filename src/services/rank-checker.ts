@@ -1,4 +1,5 @@
-import type { ApiCheck, CheckResult } from "../components/item-card";
+import type { ApiCheck, CheckResult, Item } from "../components/item-card";
+import type { Rank } from "../components/rank-card";
 import { getBossKc, type RuneProfile } from "./runeprofile";
 
 const CA_POINTS_REQUIRED: Record<string, number> = {
@@ -386,4 +387,117 @@ export function checkEntryRequirement(profile: RuneProfile): {
   }
 
   return { met: false };
+}
+
+// Ranks allow skipping exactly one item — except a "hard fail" on a
+// multi-item requirement, which can't be papered over by the skip because it
+// represents missing more than one of the alternatives it covers.
+export function isMultiItemHardFail(
+  item: Item,
+  result: CheckResult | undefined,
+): boolean {
+  if (!item.multiItem || result !== "fail" || !item.apiCheck) return false;
+  switch (item.apiCheck.type) {
+    case "collection-count":
+    case "collection-quantity":
+    case "collection-piece-types":
+    case "collection-full-groups":
+    case "collection-any-group":
+      return item.apiCheck.required >= 2;
+    case "collection-masori-f":
+      return true;
+    default:
+      return false;
+  }
+}
+
+export interface RankStats {
+  total: number;
+  requiredCount: number;
+  satisfiedCount: number;
+  isSatisfied: boolean;
+}
+
+// `profile` is nullable so this also covers the "haven't looked anyone up
+// yet" state of the per-user progress view: no checks are evaluated, so
+// only ranks with zero required items (after the one-item skip) show as
+// satisfied.
+export function getRankStats(rank: Rank, profile: RuneProfile | null): RankStats {
+  const total = rank.items.length;
+  const requiredCount = Math.max(total - 1, 0);
+  let satisfiedCount = 0;
+  let hardFailCount = 0;
+
+  if (profile) {
+    rank.items.forEach((item) => {
+      if (!item.apiCheck) return;
+      const result = checkRequirement(item.apiCheck, profile);
+      if (result === "pass" || result === "pass-alt") {
+        satisfiedCount += 1;
+      } else if (isMultiItemHardFail(item, result)) {
+        hardFailCount += 1;
+      }
+    });
+  }
+
+  return {
+    total,
+    requiredCount,
+    satisfiedCount,
+    isSatisfied: satisfiedCount >= requiredCount && hardFailCount === 0,
+  };
+}
+
+export interface ClanRankProgress {
+  rankStats: RankStats[];
+  eligibleByRank: boolean[];
+  priorRanksMetByRank: boolean[];
+  highestEligibleRankIndex: number;
+  overallTotal: number;
+  overallSatisfied: number;
+}
+
+// Ranks are cumulative — a rank only counts as eligible once every rank
+// below it (including itself) is satisfied — so this is the single source
+// of truth for both the per-user progress view and the clan leaderboard.
+export function computeClanRankProgress(
+  ranks: Rank[],
+  profile: RuneProfile | null,
+): ClanRankProgress {
+  const rankStats = ranks.map((rank) => getRankStats(rank, profile));
+
+  const eligibleByRank = ranks.map((_, rankIndex) => {
+    for (let i = 0; i <= rankIndex; i += 1) {
+      if (!rankStats[i].isSatisfied) return false;
+    }
+    return true;
+  });
+
+  const priorRanksMetByRank = ranks.map((_, rankIndex) => {
+    for (let i = 0; i < rankIndex; i += 1) {
+      if (!rankStats[i].isSatisfied) return false;
+    }
+    return true;
+  });
+
+  let highestEligibleRankIndex = -1;
+  eligibleByRank.forEach((isEligible, rankIndex) => {
+    if (isEligible) highestEligibleRankIndex = rankIndex;
+  });
+
+  let overallTotal = 0;
+  let overallSatisfied = 0;
+  rankStats.forEach((stats) => {
+    overallTotal += stats.total;
+    overallSatisfied += stats.satisfiedCount;
+  });
+
+  return {
+    rankStats,
+    eligibleByRank,
+    priorRanksMetByRank,
+    highestEligibleRankIndex,
+    overallTotal,
+    overallSatisfied,
+  };
 }

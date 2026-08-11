@@ -53,7 +53,8 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
 
   const submissionRows = await sql`
     SELECT s.id, s.team_id, s.tile_id, s.status, s.proof_url, s.created_at,
-           u.discord_global_name, u.discord_username, u.runescape_name
+           u.discord_global_name, u.discord_username, u.runescape_name,
+           u.discord_id, u.discord_avatar_hash
     FROM submissions s
     LEFT JOIN users u ON u.id = s.submitted_by
     WHERE s.team_id IN (SELECT id FROM teams)
@@ -70,6 +71,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       status: "pending" | "approved" | "rejected";
       proofUrl: string;
       submittedBy: string | null;
+      submittedByAvatarUrl: string | null;
       createdAt: string;
     }[];
   };
@@ -97,6 +99,10 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       status: row.status,
       proofUrl: row.proof_url,
       submittedBy: row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? null,
+      submittedByAvatarUrl:
+        row.discord_id && row.discord_avatar_hash
+          ? `https://cdn.discordapp.com/avatars/${row.discord_id}/${row.discord_avatar_hash}.png?size=64`
+          : null,
       createdAt: row.created_at,
     });
 

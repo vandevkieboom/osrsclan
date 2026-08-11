@@ -5,6 +5,7 @@ export interface BoardProof {
   status: "pending" | "approved" | "rejected";
   proofUrl: string;
   submittedBy: string | null;
+  submittedByAvatarUrl: string | null;
   createdAt: string;
 }
 

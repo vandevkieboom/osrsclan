@@ -52,7 +52,7 @@ export interface CollectionLog {
   }>;
 }
 
-interface FullAccountResponse {
+export interface FullAccountResponse {
   username: string;
   skills: SkillData[];
   quests: QuestData[];
@@ -66,7 +66,7 @@ interface WomBossEntry {
   kills?: number;
 }
 
-interface WomPlayerResponse {
+export interface WomPlayerResponse {
   latestSnapshot?: {
     data?: {
       bosses?: Record<string, WomBossEntry>;
@@ -81,7 +81,7 @@ interface CaTaskEntry {
   completed: boolean;
 }
 
-interface CombatAchievementTasksResponse {
+export interface CombatAchievementTasksResponse {
   totalPoints?: number;
   data: CaTaskEntry[];
 }
@@ -266,6 +266,37 @@ export function buildItemMap(log: CollectionLog): Map<string, number> {
   return map;
 }
 
+// Shared with the server-side clan leaderboard aggregation (api/runeprofile-proxy.ts),
+// which fetches the same three upstream payloads directly (no browser, no proxy hop)
+// for every clan member and needs the identical normalization logic.
+export function buildRuneProfile(
+  data: FullAccountResponse,
+  tasksData: CombatAchievementTasksResponse | null,
+  womData: WomPlayerResponse | null,
+): RuneProfile {
+  const bossKcMap = buildBossKcMap(womData);
+  const fullPayloadBossKcMap = buildBossKcMap(data as unknown);
+  for (const [name, kc] of fullPayloadBossKcMap) {
+    bossKcMap.set(name, Math.max(bossKcMap.get(name) ?? 0, kc));
+  }
+
+  const caTaskSet = buildCaTaskSet(tasksData);
+  const caTotalPoints =
+    tasksData?.totalPoints ?? Array.from(caTaskSet).reduce((sum) => sum, 0); // fallback: count only (no tier info)
+
+  return {
+    username: data.username,
+    skills: data.skills ?? [],
+    quests: data.quests ?? [],
+    achievementDiaries: data.achievementDiaries ?? [],
+    combatAchievements: data.combatAchievements ?? [],
+    itemMap: buildItemMap(data.collectionLog),
+    caTaskSet,
+    caTotalPoints,
+    bossKcMap,
+  };
+}
+
 export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
   const encoded = encodeURIComponent(username.trim());
   const [data, tasksData, womData] = await Promise.all([
@@ -293,25 +324,23 @@ export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
       .catch(() => null),
   ]);
 
-  const bossKcMap = buildBossKcMap(womData);
-  const fullPayloadBossKcMap = buildBossKcMap(data as unknown);
-  for (const [name, kc] of fullPayloadBossKcMap) {
-    bossKcMap.set(name, Math.max(bossKcMap.get(name) ?? 0, kc));
+  return buildRuneProfile(data, tasksData, womData);
+}
+
+export interface ClanLeaderboardEntry {
+  name: string;
+  totalSatisfied: number;
+  highestEligibleRankIndex: number;
+  nextRankPct: number;
+}
+
+export async function fetchClanLeaderboard(): Promise<ClanLeaderboardEntry[]> {
+  const res = await fetch("/api/runeprofile-proxy?resource=leaderboard", {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to load leaderboard (${res.status}).`);
   }
-
-  const caTaskSet = buildCaTaskSet(tasksData);
-  const caTotalPoints =
-    tasksData?.totalPoints ?? Array.from(caTaskSet).reduce((sum) => sum, 0); // fallback: count only (no tier info)
-
-  return {
-    username: data.username,
-    skills: data.skills ?? [],
-    quests: data.quests ?? [],
-    achievementDiaries: data.achievementDiaries ?? [],
-    combatAchievements: data.combatAchievements ?? [],
-    itemMap: buildItemMap(data.collectionLog),
-    caTaskSet,
-    caTotalPoints,
-    bossKcMap,
-  };
+  const data = (await res.json()) as { entries: ClanLeaderboardEntry[] };
+  return data.entries;
 }

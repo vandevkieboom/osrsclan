@@ -31,7 +31,8 @@ const PLACEHOLDER_STATUSES = [
 ] as const;
 function placeholderTiles(teamId: number): BoardTile[] {
   return Array.from({ length: 25 }, (_, i) => {
-    const status = PLACEHOLDER_STATUSES[(i + teamId) % PLACEHOLDER_STATUSES.length];
+    const status =
+      PLACEHOLDER_STATUSES[(i + teamId) % PLACEHOLDER_STATUSES.length];
     return {
       tileId: i,
       name: `Tile ${i + 1}`,
@@ -51,9 +52,15 @@ function placeholderTiles(teamId: number): BoardTile[] {
           : [
               {
                 id: i,
-                status: status === "rejected" ? "rejected" : status === "pending" ? "pending" : "approved",
+                status:
+                  status === "rejected"
+                    ? "rejected"
+                    : status === "pending"
+                      ? "pending"
+                      : "approved",
                 proofUrl: PLACEHOLDER_ICON,
                 submittedBy: "izJordy",
+                submittedByAvatarUrl: null,
                 createdAt: "2026-08-02T00:00:00.000Z",
               },
             ],
@@ -73,7 +80,14 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 1,
       name: "Crimson Fang",
       memberCount: 6,
-      members: ["izJordy", "AtomicKilo", "BreauxChacho", "BHops", "Lamboat", "YoonA"],
+      members: [
+        "izJordy",
+        "AtomicKilo",
+        "BreauxChacho",
+        "BHops",
+        "Lamboat",
+        "YoonA",
+      ],
       captainId: 1,
       captainName: "izJordy",
       completeCount: 18,
@@ -87,7 +101,13 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 2,
       name: "Onyx Talon",
       memberCount: 5,
-      members: ["Indaco", "Treecio", "AnotherPlayer", "SomePlayer", "Solo Nostalg"],
+      members: [
+        "Indaco",
+        "Treecio",
+        "AnotherPlayer",
+        "SomePlayer",
+        "Solo Nostalg",
+      ],
       captainId: null,
       captainName: null,
       completeCount: 9,
@@ -101,7 +121,15 @@ const PLACEHOLDER_BOARD: BoardData = {
       id: 3,
       name: "Zenyte Vanguard",
       memberCount: 7,
-      members: ["ABearCat", "Helesta", "Wafas", "Eskett", "Mevvz", "Player7", "Player8"],
+      members: [
+        "ABearCat",
+        "Helesta",
+        "Wafas",
+        "Eskett",
+        "Mevvz",
+        "Player7",
+        "Player8",
+      ],
       captainId: null,
       captainName: null,
       completeCount: 14,
@@ -158,7 +186,10 @@ function TeamCard({ team }: { team: BoardTeam }) {
         {team.captainName ? ` · captain ${team.captainName}` : ""}
       </div>
       <div className="bingo-team-progress-track">
-        <div className="bingo-team-progress-fill" style={{ width: `${team.pct}%` }} />
+        <div
+          className="bingo-team-progress-fill"
+          style={{ width: `${team.pct}%` }}
+        />
       </div>
       <div className="bingo-team-count">
         {team.completeCount} / {team.totalTiles} tiles complete
@@ -178,8 +209,13 @@ function TileFace({
   isUploading: boolean;
   onClick: () => void;
 }) {
-  const contributorNames = Array.from(
-    new Set(tile.proofs.map((p) => p.submittedBy).filter((n): n is string => !!n)),
+  const contributors = Array.from(
+    tile.proofs
+      .filter((p): p is typeof p & { submittedBy: string } => !!p.submittedBy)
+      .reduce((map, p) => {
+        if (!map.has(p.submittedBy)) map.set(p.submittedBy, p.submittedByAvatarUrl);
+        return map;
+      }, new Map<string, string | null>()),
   );
 
   return (
@@ -196,13 +232,17 @@ function TileFace({
         <span className="bingo-tile-status bingo-tile-status--pending">⏳</span>
       )}
       <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
-      {contributorNames.length >= 2 && (
+      {contributors.length >= 2 && (
         <div className="bingo-tile-avatars">
-          {contributorNames.slice(0, 3).map((name, i) => (
-            <span key={i} className="bingo-tile-avatar">
-              {initialsOf(name)}
-            </span>
-          ))}
+          {contributors.slice(0, 3).map(([name, avatarUrl]) =>
+            avatarUrl ? (
+              <img key={name} src={avatarUrl} alt="" className="bingo-tile-avatar" />
+            ) : (
+              <span key={name} className="bingo-tile-avatar">
+                {initialsOf(name)}
+              </span>
+            ),
+          )}
         </div>
       )}
       {tile.requiredCount > 1 && tile.status !== "approved" && (
@@ -219,6 +259,7 @@ function TileDetailPanel({
   tile,
   accentColor,
   canSubmit,
+  isLoggedIn,
   viewingTeamName,
   isUploading,
   onSubmit,
@@ -227,6 +268,7 @@ function TileDetailPanel({
   tile: BoardTile | null;
   accentColor: string;
   canSubmit: boolean;
+  isLoggedIn: boolean;
   viewingTeamName: string;
   isUploading: boolean;
   onSubmit: (file: File) => Promise<void>;
@@ -250,12 +292,19 @@ function TileDetailPanel({
   if (!tile) {
     return (
       <div className="bingo-detail-card bingo-detail-card--empty">
-        Click any tile to see what it needs, who's contributed, and to submit proof.
+        Click any tile to see what it needs, who's contributed, and to submit
+        proof.
       </div>
     );
   }
 
-  const pct = tile.requiredCount > 1 ? Math.min(100, Math.round((tile.approvedCount / tile.requiredCount) * 100)) : 0;
+  const pct =
+    tile.requiredCount > 1
+      ? Math.min(
+          100,
+          Math.round((tile.approvedCount / tile.requiredCount) * 100),
+        )
+      : 0;
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -278,13 +327,18 @@ function TileDetailPanel({
   return (
     <div className="bingo-detail-card">
       <div className="bingo-detail-name">{tile.name}</div>
-      {tile.category && <div className="bingo-detail-category">{tile.category}</div>}
-      {tile.description && <div className="bingo-detail-description">{tile.description}</div>}
+      {tile.category && (
+        <div className="bingo-detail-category">{tile.category}</div>
+      )}
+      {tile.description && (
+        <div className="bingo-detail-description">{tile.description}</div>
+      )}
 
       {tile.requiredCount > 1 && (
         <>
           <div className="bingo-detail-progress-label">
-            {tile.approvedCount} / {tile.requiredCount} contributed toward this tile
+            {tile.approvedCount} / {tile.requiredCount} contributed toward this
+            tile
           </div>
           <div className="bingo-detail-progress-track">
             <div
@@ -300,16 +354,30 @@ function TileDetailPanel({
         <div className="bingo-detail-contributors">
           {tile.proofs.map((p) => (
             <div key={p.id} className="bingo-detail-contributor">
-              <span className="bingo-detail-contributor-avatar">
-                {initialsOf(p.submittedBy ?? "?")}
-              </span>
+              {p.submittedByAvatarUrl ? (
+                <img
+                  src={p.submittedByAvatarUrl}
+                  alt=""
+                  className="bingo-detail-contributor-avatar"
+                />
+              ) : (
+                <span className="bingo-detail-contributor-avatar">
+                  {initialsOf(p.submittedBy ?? "?")}
+                </span>
+              )}
               <div className="bingo-detail-contributor-info">
-                <div className="bingo-detail-contributor-name">{p.submittedBy ?? "Unknown"}</div>
+                <div className="bingo-detail-contributor-name">
+                  {p.submittedBy ?? "Unknown"}
+                </div>
                 <div className="bingo-detail-contributor-ts">
                   {new Date(p.createdAt).toLocaleString()}
                 </div>
               </div>
-              <span className={`bingo-proof-pill bingo-proof-pill--${p.status}`}>{p.status}</span>
+              <span
+                className={`bingo-proof-pill bingo-proof-pill--${p.status}`}
+              >
+                {p.status}
+              </span>
             </div>
           ))}
         </div>
@@ -319,7 +387,9 @@ function TileDetailPanel({
 
       {tile.proofs.length > 0 && (
         <>
-          <div className="bingo-detail-section-label">Screenshots ({tile.proofs.length})</div>
+          <div className="bingo-detail-section-label">
+            Screenshots ({tile.proofs.length})
+          </div>
           <div className="bingo-detail-screenshots">
             {tile.proofs.map((p) => (
               <img
@@ -345,23 +415,43 @@ function TileDetailPanel({
               onChange={handleFileChange}
             />
             {previewUrl ? (
-              <img src={previewUrl} alt="" className="bingo-detail-dropzone-preview" />
+              <img
+                src={previewUrl}
+                alt=""
+                className="bingo-detail-dropzone-preview"
+              />
             ) : (
-              <span className="bingo-detail-dropzone-empty">📷 Click to choose a screenshot</span>
+              <span className="bingo-detail-dropzone-empty">
+                📷 Click to choose a screenshot
+              </span>
             )}
           </label>
           <button
             type="button"
             className="bingo-detail-submit-btn"
             onClick={handleSubmit}
-            disabled={!selectedFile || isUploading || tile.approvedCount >= tile.requiredCount}
+            disabled={
+              !selectedFile ||
+              isUploading ||
+              tile.approvedCount >= tile.requiredCount
+            }
           >
             {isUploading ? "Uploading…" : "SUBMIT FOR REVIEW"}
           </button>
         </div>
       ) : (
         <div className="bingo-detail-readonly-note">
-          You're viewing {viewingTeamName}'s board. Switch to your own team above to submit proof.
+          {isLoggedIn ? (
+            <>
+              You're viewing {viewingTeamName}'s board. Switch to your own team
+              above to submit proof.
+            </>
+          ) : (
+            <>
+              You're viewing {viewingTeamName}'s board. Log in with Discord to
+              submit proof.
+            </>
+          )}
         </div>
       )}
     </div>
@@ -395,7 +485,7 @@ function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
 }
 
 export function BingoPage() {
-  const { user, isAdmin, login } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [view, setView] = useState<View>("leaderboard");
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -403,13 +493,17 @@ export function BingoPage() {
   const [boardTeamId, setBoardTeamId] = useState<number | null>(null);
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(null);
+  const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(
+    null,
+  );
 
   function reloadBoard() {
     fetchBoard()
       .then((data) => {
         setBoard(data);
-        setBoardTeamId((prev) => prev ?? data.myTeamId ?? data.teams[0]?.id ?? null);
+        setBoardTeamId(
+          (prev) => prev ?? data.myTeamId ?? data.teams[0]?.id ?? null,
+        );
       })
       .catch((err: unknown) => {
         if (import.meta.env.DEV) {
@@ -433,7 +527,9 @@ export function BingoPage() {
     }
     fetchAdminSubmissions("pending")
       .then(setSubmissions)
-      .catch(() => setSubmissions(import.meta.env.DEV ? PLACEHOLDER_SUBMISSIONS : null));
+      .catch(() =>
+        setSubmissions(import.meta.env.DEV ? PLACEHOLDER_SUBMISSIONS : null),
+      );
   }
 
   useEffect(reloadSubmissions, [isAdmin, view]);
@@ -458,7 +554,9 @@ export function BingoPage() {
       reloadSubmissions();
       reloadBoard();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to review submission");
+      setError(
+        err instanceof Error ? err.message : "Failed to review submission",
+      );
     }
   }
 
@@ -470,7 +568,9 @@ export function BingoPage() {
           <div className="page-head">
             <div className="page-eyebrow">Clan Event</div>
             <h1 className="page-title">Bingo</h1>
-            <p className="page-sub">There was a problem loading the bingo board.</p>
+            <p className="page-sub">
+              There was a problem loading the bingo board.
+            </p>
           </div>
           <div className="admin-error">{error}</div>
         </div>
@@ -495,8 +595,10 @@ export function BingoPage() {
     );
   }
 
-  const boardTeam = board.teams.find((t) => t.id === boardTeamId) ?? board.teams[0] ?? null;
-  const selectedTile = boardTeam?.tiles.find((t) => t.tileId === selectedTileId) ?? null;
+  const boardTeam =
+    board.teams.find((t) => t.id === boardTeamId) ?? board.teams[0] ?? null;
+  const selectedTile =
+    boardTeam?.tiles.find((t) => t.tileId === selectedTileId) ?? null;
   const canSubmitToBoardTeam = !!boardTeam && boardTeam.id === board.myTeamId;
 
   return (
@@ -510,8 +612,9 @@ export function BingoPage() {
               <div className="page-eyebrow">Clan Event</div>
               <h1 className="page-title">{board.config.name}</h1>
               <p className="page-sub">
-                First team to complete every tile on their board wins. Click a tile to see exactly
-                what it needs, who's contributed, and to submit proof.
+                First team to complete every tile on their board wins. Click a
+                tile to see exactly what it needs, who's contributed, and to
+                submit proof.
               </p>
             </div>
             <PrizePotChip total={board.config.prizePot.total} />
@@ -554,28 +657,40 @@ export function BingoPage() {
             {board.teams.map((team) => (
               <TeamCard key={team.id} team={team} />
             ))}
-            {board.teams.length === 0 && <div className="admin-empty">No teams yet.</div>}
+            {board.teams.length === 0 && (
+              <div className="admin-empty">No teams yet.</div>
+            )}
           </div>
         )}
 
         {view === "board" && !boardTeam && (
-          <div className="bingo-admin-empty">No teams have been created yet.</div>
+          <div className="bingo-admin-empty">
+            No teams have been created yet.
+          </div>
         )}
 
         {view === "board" && boardTeam && (
           <>
             <div className="bingo-board-head">
               <div>
-                <div className="bingo-board-title">{boardTeam.name}'s Board</div>
+                <div className="bingo-board-title">
+                  {boardTeam.name}'s Board
+                </div>
               </div>
               <div className="bingo-board-head-stat">
                 <div className="bingo-board-head-track">
                   <div
                     className="bingo-board-head-fill"
-                    style={{ width: `${boardTeam.pct}%`, background: boardTeam.accentColor }}
+                    style={{
+                      width: `${boardTeam.pct}%`,
+                      background: boardTeam.accentColor,
+                    }}
                   />
                 </div>
-                <div className="bingo-board-head-count" style={{ color: boardTeam.accentColor }}>
+                <div
+                  className="bingo-board-head-count"
+                  style={{ color: boardTeam.accentColor }}
+                >
                   {boardTeam.completeCount} / {boardTeam.totalTiles}
                 </div>
                 <div className="bingo-board-head-label">TILES COMPLETE</div>
@@ -593,24 +708,21 @@ export function BingoPage() {
                     setSelectedTileId(null);
                   }}
                 >
-                  <span className="bingo-team-pill-dot" style={{ background: team.accentColor }} />
+                  <span
+                    className="bingo-team-pill-dot"
+                    style={{ background: team.accentColor }}
+                  />
                   {team.name}
                 </button>
               ))}
             </div>
 
-            {!user && (
-              <div className="bingo-login-prompt">
-                <button type="button" className="site-header-login" onClick={() => login()}>
-                  Log in with Discord to submit proof
-                </button>
-              </div>
-            )}
-
             <div className="bingo-board-layout">
               <div
                 className="bingo-tiles-grid"
-                style={{ gridTemplateColumns: `repeat(${board.config.size}, 1fr)` }}
+                style={{
+                  gridTemplateColumns: `repeat(${board.config.size}, 1fr)`,
+                }}
               >
                 {boardTeam.tiles.map((tile) => (
                   <TileFace
@@ -628,6 +740,7 @@ export function BingoPage() {
                   tile={selectedTile}
                   accentColor={boardTeam.accentColor}
                   canSubmit={canSubmitToBoardTeam}
+                  isLoggedIn={!!user}
                   viewingTeamName={boardTeam.name}
                   isUploading={uploadingTileId === selectedTile?.tileId}
                   onSubmit={async (file) => {
@@ -659,7 +772,12 @@ export function BingoPage() {
                   </div>
                 </div>
                 {sub.proofUrl && (
-                  <a href={sub.proofUrl} target="_blank" rel="noreferrer" className="bingo-admin-proof-link">
+                  <a
+                    href={sub.proofUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bingo-admin-proof-link"
+                  >
                     View proof
                   </a>
                 )}
@@ -683,7 +801,9 @@ export function BingoPage() {
         )}
       </div>
 
-      {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {lightboxUrl && (
+        <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      )}
 
       <SiteFooter />
     </>

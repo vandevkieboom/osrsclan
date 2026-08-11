@@ -12,9 +12,11 @@ import {
 } from "../services/runeprofile";
 import {
   checkRequirement,
+  computeClanRankProgress,
   getRequirementProgress,
 } from "../services/rank-checker";
-import type { Item, CheckResult } from "../components/item-card";
+import type { CheckResult } from "../components/item-card";
+import ClanLeaderboard from "../components/clan-leaderboard";
 
 const STORAGE_KEY = "clan-rankings-hide-completed-v1";
 
@@ -24,6 +26,7 @@ const getKey = (rankIndex: number, itemIndex: number) =>
 export const ClanRankings = () => {
   const { user, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [view, setView] = useState<"progress" | "leaderboard">("progress");
   const [hideCompleted, setHideCompleted] = useState(false);
 
   const [username, setUsername] = useState("");
@@ -121,97 +124,25 @@ export const ClanRankings = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading]);
 
-  const isMultiItemHardFail = (
-    item: Item,
-    apiKey: CheckResult | undefined,
-  ): boolean => {
-    if (!item.multiItem || apiKey !== "fail" || !item.apiCheck) return false;
-    switch (item.apiCheck.type) {
-      case "collection-count":
-      case "collection-quantity":
-      case "collection-piece-types":
-      case "collection-full-groups":
-      case "collection-any-group":
-        return item.apiCheck.required >= 2;
-      case "collection-masori-f":
-        return true;
-      default:
-        return false;
-    }
-  };
+  const clanProgress = useMemo(
+    () => computeClanRankProgress(ranks, profile),
+    [profile],
+  );
+  const { eligibleByRank, priorRanksMetByRank, highestEligibleRankIndex: highestEligibleRank } =
+    clanProgress;
 
-  const getRankStats = (rankIndex: number) => {
-    const total = ranks[rankIndex].items.length;
-    const requiredCount = Math.max(total - 1, 0);
-    let satisfiedCount = 0;
-    let hardFailCount = 0;
-
-    ranks[rankIndex].items.forEach((item, itemIndex) => {
-      const key = getKey(rankIndex, itemIndex);
-      const apiKey = apiVerified[key];
-      if (apiKey === "pass" || apiKey === "pass-alt") {
-        satisfiedCount += 1;
-      } else if (isMultiItemHardFail(item, apiKey)) {
-        hardFailCount += 1;
-      }
-      // "partial" = has required-1 items, eligible for the rank-level skip (not counted as satisfied)
-      // "fail" on single-item check = also eligible for the rank-level skip
-    });
-
-    return {
-      total,
-      requiredCount,
-      satisfiedCount,
-      isSatisfied: satisfiedCount >= requiredCount && hardFailCount === 0,
-    };
-  };
-
-  const eligibleByRank = useMemo(() => {
-    return ranks.map((_, rankIndex) => {
-      for (let i = 0; i <= rankIndex; i += 1) {
-        if (!getRankStats(i).isSatisfied) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [apiVerified]);
-
-  const priorRanksMetByRank = useMemo(() => {
-    return ranks.map((_, rankIndex) => {
-      for (let i = 0; i < rankIndex; i += 1) {
-        if (!getRankStats(i).isSatisfied) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [apiVerified]);
-
-  const highestEligibleRank = useMemo(() => {
-    let lastEligible = -1;
-    eligibleByRank.forEach((isEligible, rankIndex) => {
-      if (isEligible) {
-        lastEligible = rankIndex;
-      }
-    });
-    return lastEligible;
-  }, [eligibleByRank]);
-
-  const overallStats = useMemo(() => {
-    let total = 0;
-    let satisfied = 0;
-    ranks.forEach((_, rankIndex) => {
-      const stats = getRankStats(rankIndex);
-      total += stats.total;
-      satisfied += stats.satisfiedCount;
-    });
-    return {
-      total,
-      satisfied,
-      pct: total ? Math.round((satisfied / total) * 100) : 0,
-    };
-  }, [apiVerified]);
+  const overallStats = useMemo(
+    () => ({
+      total: clanProgress.overallTotal,
+      satisfied: clanProgress.overallSatisfied,
+      pct: clanProgress.overallTotal
+        ? Math.round(
+            (clanProgress.overallSatisfied / clanProgress.overallTotal) * 100,
+          )
+        : 0,
+    }),
+    [clanProgress],
+  );
 
   const resetAll = () => {
     setUsername("");
@@ -234,18 +165,39 @@ export const ClanRankings = () => {
               through the collection log.
             </p>
           </div>
-          <div className="badge-legend">
-            <span className="legend-item">
-              <span className="legend-badge api-verified">✓</span>
-              Verified
-            </span>
-            <span className="legend-item">
-              <span className="legend-badge api-alt">~</span>
-              Alternative Item
-            </span>
-          </div>
         </div>
 
+        <div className="rankings-view-tabs">
+          <button
+            type="button"
+            className={`rankings-view-tab${view === "progress" ? " active" : ""}`}
+            onClick={() => setView("progress")}
+          >
+            MY PROGRESS
+          </button>
+          <button
+            type="button"
+            className={`rankings-view-tab${view === "leaderboard" ? " active" : ""}`}
+            onClick={() => setView("leaderboard")}
+          >
+            LEADERBOARD
+          </button>
+        </div>
+
+        {view === "leaderboard" ? (
+          <ClanLeaderboard />
+        ) : (
+        <>
+        <div className="badge-legend">
+          <span className="legend-item">
+            <span className="legend-badge api-verified">✓</span>
+            Verified
+          </span>
+          <span className="legend-item">
+            <span className="legend-badge api-alt">~</span>
+            Alternative Item
+          </span>
+        </div>
         <div className="overall-progress">
           <div className="overall-progress-row">
             <div className="overall-progress-label">
@@ -379,10 +331,12 @@ export const ClanRankings = () => {
               hideCompleted={hideCompleted}
               eligible={eligibleByRank[rankIndex]}
               priorRanksMet={priorRanksMetByRank[rankIndex]}
-              stats={getRankStats(rankIndex)}
+              stats={clanProgress.rankStats[rankIndex]}
             />
           ))}
         </div>
+        </>
+        )}
       </div>
 
       <SiteFooter />
