@@ -39,7 +39,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(400).json({ error: `RuneScape name must be ${MAX_RUNESCAPE_NAME_LENGTH} characters or fewer` });
         return;
       }
+      // Trophies and manual item verifications are keyed by lowercased RSN,
+      // not user id, so renaming would otherwise silently orphan them — the
+      // member loses their trophy case and every admin sign-off on rank items
+      // that can't be auto-verified stops counting, with no error anywhere.
+      // Carry those rows across so an ordinary name change doesn't cost an
+      // admin their work. Clearing the RSN leaves the rows at the old key,
+      // where re-setting the same name will pick them up again.
+      const oldKey = user.runescapeName?.trim().toLowerCase() ?? "";
+      const newKey = raw.toLowerCase();
+
       await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${user.id}`;
+
+      if (oldKey && newKey && oldKey !== newKey) {
+        await sql.transaction([
+          sql`UPDATE trophies SET rsn_key = ${newKey} WHERE rsn_key = ${oldKey}`,
+          // manual_item_verifications is UNIQUE (rsn_key, item_name), so any
+          // row already sitting at the new key would collide — drop those
+          // first and let the ones being carried over win.
+          sql`DELETE FROM manual_item_verifications
+              WHERE rsn_key = ${newKey}
+                AND item_name IN (
+                  SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${oldKey}
+                )`,
+          sql`UPDATE manual_item_verifications SET rsn_key = ${newKey} WHERE rsn_key = ${oldKey}`,
+        ]);
+      }
+
       next = { ...next, runescapeName: raw || null };
     }
 
