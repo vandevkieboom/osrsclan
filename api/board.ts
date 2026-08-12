@@ -337,27 +337,45 @@ async function submitPluginProof(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Resolve the tile before uploading: a bad tileId that only got caught by
+  // insertProofSubmission afterwards would leave an orphaned blob behind.
+  const tileRows = await sql`SELECT item_ids FROM tiles WHERE id = ${tileId}`;
+  if (tileRows.length === 0) {
+    res.status(404).json({ error: "Tile not found" });
+    return;
+  }
+
   // Defence in depth: if the tile declares which item ids satisfy it and the
   // plugin reports one, it has to match. Admins still review every submission,
   // so this only catches a misbehaving/outdated client, not a determined one.
   const reportedItemId = Number(req.query.itemId);
-  if (Number.isInteger(reportedItemId)) {
-    const tileRows =
-      await sql`SELECT item_ids FROM tiles WHERE id = ${tileId}`;
-    const itemIds = (tileRows[0]?.item_ids ?? []) as number[];
-    if (itemIds.length > 0 && !itemIds.includes(reportedItemId)) {
-      res
-        .status(400)
-        .json({ error: "That item does not satisfy the requested tile" });
-      return;
-    }
+  const itemIds = (tileRows[0].item_ids ?? []) as number[];
+  if (
+    Number.isInteger(reportedItemId) &&
+    itemIds.length > 0 &&
+    !itemIds.includes(reportedItemId)
+  ) {
+    res
+      .status(400)
+      .json({ error: "That item does not satisfy the requested tile" });
+    return;
   }
 
-  const blob = await put(`proofs/plugin-${tileId}.${extension}`, body, {
-    access: "public",
-    contentType,
-    addRandomSuffix: true,
-  });
+  let blob: Awaited<ReturnType<typeof put>>;
+  try {
+    blob = await put(`proofs/plugin-${tileId}.${extension}`, body, {
+      access: "public",
+      contentType,
+      addRandomSuffix: true,
+    });
+  } catch (err) {
+    // Without this the plugin gets an opaque FUNCTION_INVOCATION_FAILED 500
+    // and no way to tell a transient storage failure from a bad request.
+    res.status(502).json({
+      error: err instanceof Error ? err.message : "Failed to store screenshot",
+    });
+    return;
+  }
 
   const result = await insertProofSubmission({
     teamId: user.teamId,
