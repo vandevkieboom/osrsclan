@@ -1,4 +1,4 @@
-import type { Rank } from "../types/rank";
+import type { Rank } from "../types/rank.js";
 
 export const ranks: Rank[] = [
   {

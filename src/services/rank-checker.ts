@@ -1,6 +1,6 @@
-import type { ApiCheck, CheckResult, Item } from "../types/item";
-import type { Rank } from "../types/rank";
-import type { RuneProfile } from "./runeprofile";
+import type { ApiCheck, CheckResult, Item } from "../types/item.js";
+import type { Rank } from "../types/rank.js";
+import type { RuneProfile } from "./runeprofile.js";
 
 const CA_POINTS_REQUIRED: Record<string, number> = {
   easy: 41,

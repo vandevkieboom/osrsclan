@@ -3,14 +3,19 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
-    "module": "esnext",
+    "module": "nodenext",
     "types": ["node"],
     "skipLibCheck": true,
     "allowJs": true,
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    /* Node's actual ESM resolution — deliberately stricter than the
+       "bundler" mode used by tsconfig.app.json/tsconfig.node.json.
+       This is what Vercel's Node runtime enforces at deploy time, so
+       it must be caught here too: a relative import missing its .js
+       extension is invalid under this mode and fails tsc -b, instead
+       of silently working locally (Vite tolerates it) and only
+       crashing in production. */
+    "moduleResolution": "nodenext",
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
