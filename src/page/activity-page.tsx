@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import { fetchGroupRoles } from "../services/wom";
-import { rankIconByRole } from "../data/ranks-data";
+import { getRankForRole } from "../services/profile";
 
 const CLAN = "Time Served";
 const LIMIT = 20;
@@ -139,7 +139,7 @@ function ActivityRow({
   const { type, data, enriched, createdAt, account } = activity;
   const typeIcon = getAccountIcon(account.accountType.key);
   const role = roleMap?.get(account.username.toLowerCase());
-  const rankIcon = role ? rankIconByRole[role] : undefined;
+  const rankInfo = getRankForRole(role);
   const womUrl = `https://wiseoldman.net/players/${encodeURIComponent(account.username)}`;
   const highlightColor = HIGHLIGHT_COLORS[type] ?? "#f0e8e6";
 
@@ -293,11 +293,11 @@ function ActivityRow({
                 className="player-badge"
               />
             )}
-            {rankIcon && (
+            {rankInfo && (
               <img
-                src={rankIcon}
-                alt={role}
-                title={role}
+                src={rankInfo.icon}
+                alt={rankInfo.name}
+                title={rankInfo.name}
                 className="player-rank-icon"
                 referrerPolicy="no-referrer"
               />

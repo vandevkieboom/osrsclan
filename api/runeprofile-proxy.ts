@@ -144,8 +144,15 @@ async function refreshLeaderboard(res: VercelResponse) {
   }
 
   const entries: LeaderboardEntry[] = [];
-  const CONCURRENCY = 4;
-  const STAGGER_MS = 150;
+  // RuneProfile enforces a token-bucket-style rate limit that an
+  // authenticated key raises but doesn't remove: 4 workers firing 2 parallel
+  // requests each every 150ms burns through the bucket in ~15s and then
+  // bleeds 429s for the rest of the run, even with a key. 2 workers, one
+  // request at a time, 400ms apart sustained hundreds of requests with zero
+  // 429s in testing — so the fan-out below fetches full/tasks sequentially
+  // per member instead of in parallel, at lower concurrency.
+  const CONCURRENCY = 2;
+  const STAGGER_MS = 400;
   const MAX_RETRIES = 3;
   let cursor = 0;
 
@@ -155,10 +162,10 @@ async function refreshLeaderboard(res: VercelResponse) {
   // only has this many members."
   const skipCounts = { fetchFailed: 0, rateLimited: 0, error: 0 };
 
-  // RuneProfile 429s under the concurrent fan-out below are retried with
-  // backoff instead of being treated as a permanent skip — a member simply
-  // being unlucky in the queue order shouldn't cost them their leaderboard
-  // spot every single day.
+  // RuneProfile 429s under the fan-out below are retried with backoff
+  // instead of being treated as a permanent skip — a member simply being
+  // unlucky in the queue order shouldn't cost them their leaderboard spot
+  // every single day.
   async function fetchWithRetry(url: string): Promise<Response> {
     let res = await fetch(url, { headers: RP_HEADERS });
     for (let attempt = 0; res.status === 429 && attempt < MAX_RETRIES; attempt++) {
@@ -174,10 +181,7 @@ async function refreshLeaderboard(res: VercelResponse) {
       if (cursor > 1) await sleep(STAGGER_MS);
       try {
         const encoded = encodeURIComponent(username);
-        const [fullRes, tasksRes] = await Promise.all([
-          fetchWithRetry(`${RP_BASE}/accounts/${encoded}/full`),
-          fetchWithRetry(`${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`),
-        ]);
+        const fullRes = await fetchWithRetry(`${RP_BASE}/accounts/${encoded}/full`);
         if (!fullRes.ok) {
           // not on RuneProfile, private, or never synced — or still rate
           // limited after retries.
@@ -187,6 +191,11 @@ async function refreshLeaderboard(res: VercelResponse) {
         }
 
         const data = (await fullRes.json()) as FullAccountResponse;
+
+        await sleep(STAGGER_MS);
+        const tasksRes = await fetchWithRetry(
+          `${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`,
+        );
         const tasksData = tasksRes.ok
           ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
           : null;

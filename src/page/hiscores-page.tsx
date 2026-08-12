@@ -16,7 +16,7 @@ import {
   type WomBulkHiscoresEntry,
   type WomHiscoresEntry,
 } from "../services/wom";
-import { rankIconByRole } from "../data/ranks-data";
+import { getRankForRole } from "../services/profile";
 
 const IRONMAN_ICON =
   "https://oldschool.runescape.wiki/images/Ironman_chat_badge.png";
@@ -574,9 +574,7 @@ export function HiscoresPage() {
                         const role = roleMap?.get(
                           entry.player.username.toLowerCase(),
                         );
-                        const rankIcon = role
-                          ? rankIconByRole[role]
-                          : undefined;
+                        const rankInfo = getRankForRole(role);
                         const trophyIcon = getTrophyIcon(clanRank);
                         const gained = gainedMap?.get(
                           entry.player.username.toLowerCase(),
@@ -610,11 +608,11 @@ export function HiscoresPage() {
                                   className="player-badge"
                                 />
                               )}
-                              {rankIcon && (
+                              {rankInfo && (
                                 <img
-                                  src={rankIcon}
-                                  alt={role}
-                                  title={role}
+                                  src={rankInfo.icon}
+                                  alt={rankInfo.name}
+                                  title={rankInfo.name}
                                   className="player-rank-icon"
                                   referrerPolicy="no-referrer"
                                 />
@@ -848,9 +846,7 @@ export function HiscoresPage() {
                                 const role = roleMap?.get(
                                   p.player.username.toLowerCase(),
                                 );
-                                const rankIcon = role
-                                  ? rankIconByRole[role]
-                                  : undefined;
+                                const rankInfo = getRankForRole(role);
                                 const trophyIcon = getTrophyIcon(rank);
                                 return (
                                   <tr
@@ -876,11 +872,11 @@ export function HiscoresPage() {
                                           className="player-badge"
                                         />
                                       )}
-                                      {rankIcon && (
+                                      {rankInfo && (
                                         <img
-                                          src={rankIcon}
-                                          alt={role}
-                                          title={role}
+                                          src={rankInfo.icon}
+                                          alt={rankInfo.name}
+                                          title={rankInfo.name}
                                           className="player-rank-icon"
                                           referrerPolicy="no-referrer"
                                         />
