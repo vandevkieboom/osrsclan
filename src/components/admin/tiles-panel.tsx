@@ -10,6 +10,23 @@ import {
 } from "../../services/admin";
 import { PLACEHOLDER_BOARD_CONFIG, PLACEHOLDER_TILES } from "./placeholders";
 
+// Item ids are edited as a free-text comma-separated list ("1234, 5678"),
+// which keeps the form as light as the category/description fields next to it.
+// Anything that isn't a positive integer is dropped rather than rejected, so a
+// trailing comma or stray space while typing doesn't block saving.
+function parseItemIdsInput(text: string): number[] {
+  return Array.from(
+    new Set(
+      text
+        .split(",")
+        .map((part) => Number(part.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  );
+}
+
+const ITEM_IDS_PLACEHOLDER = "Item IDs for auto-detect (e.g. 20997, 21015)";
+
 function TileAddRow({
   onSave,
   onCancel,
@@ -20,6 +37,7 @@ function TileAddRow({
     requiredCount: number,
     category: string,
     description: string,
+    itemIds: number[],
   ) => void;
   onCancel: () => void;
 }) {
@@ -28,6 +46,7 @@ function TileAddRow({
   const [requiredCount, setRequiredCount] = useState(1);
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
+  const [itemIdsText, setItemIdsText] = useState("");
   return (
     <div className="admin-row admin-tile-row--adding admin-tile-card">
       <div className="admin-tile-card-top">
@@ -71,6 +90,13 @@ function TileAddRow({
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
+      <input
+        type="text"
+        className="admin-input admin-tile-description-input"
+        placeholder={ITEM_IDS_PLACEHOLDER}
+        value={itemIdsText}
+        onChange={(e) => setItemIdsText(e.target.value)}
+      />
       <div className="admin-tile-card-actions">
         <button
           type="button"
@@ -84,6 +110,7 @@ function TileAddRow({
               requiredCount,
               category.trim(),
               description.trim(),
+              parseItemIdsInput(itemIdsText),
             )
           }
         >
@@ -109,6 +136,7 @@ function TileRow({
     requiredCount: number,
     category: string,
     description: string,
+    itemIds: number[],
   ) => void;
   onDelete: () => void;
 }) {
@@ -117,13 +145,15 @@ function TileRow({
   const [requiredCount, setRequiredCount] = useState(tile.requiredCount);
   const [category, setCategory] = useState(tile.category);
   const [description, setDescription] = useState(tile.description);
+  const [itemIdsText, setItemIdsText] = useState(tile.itemIds.join(", "));
   const [prevTile, setPrevTile] = useState(tile);
   if (
     tile.name !== prevTile.name ||
     tile.iconUrl !== prevTile.iconUrl ||
     tile.requiredCount !== prevTile.requiredCount ||
     tile.category !== prevTile.category ||
-    tile.description !== prevTile.description
+    tile.description !== prevTile.description ||
+    tile.itemIds.join(",") !== prevTile.itemIds.join(",")
   ) {
     setPrevTile(tile);
     setName(tile.name);
@@ -131,6 +161,7 @@ function TileRow({
     setRequiredCount(tile.requiredCount);
     setCategory(tile.category);
     setDescription(tile.description);
+    setItemIdsText(tile.itemIds.join(", "));
   }
 
   function commit() {
@@ -139,6 +170,7 @@ function TileRow({
     const c = Math.max(1, Math.floor(requiredCount) || 1);
     const cat = category.trim();
     const desc = description.trim();
+    const ids = parseItemIdsInput(itemIdsText);
     if (
       n &&
       u &&
@@ -146,15 +178,17 @@ function TileRow({
         u !== tile.iconUrl ||
         c !== tile.requiredCount ||
         cat !== tile.category ||
-        desc !== tile.description)
+        desc !== tile.description ||
+        ids.join(",") !== tile.itemIds.join(","))
     ) {
-      onSave(n, u, c, cat, desc);
+      onSave(n, u, c, cat, desc, ids);
     } else {
       setName(tile.name);
       setIconUrl(tile.iconUrl);
       setRequiredCount(tile.requiredCount);
       setCategory(tile.category);
       setDescription(tile.description);
+      setItemIdsText(tile.itemIds.join(", "));
     }
   }
 
@@ -206,6 +240,14 @@ function TileRow({
         onChange={(e) => setDescription(e.target.value)}
         onBlur={commit}
       />
+      <input
+        type="text"
+        className="admin-input admin-tile-description-input"
+        placeholder={ITEM_IDS_PLACEHOLDER}
+        value={itemIdsText}
+        onChange={(e) => setItemIdsText(e.target.value)}
+        onBlur={commit}
+      />
     </div>
   );
 }
@@ -241,6 +283,7 @@ export function TilesPanel() {
     requiredCount: number,
     category: string,
     description: string,
+    itemIds: number[],
   ) {
     try {
       await createTile(
@@ -250,6 +293,7 @@ export function TilesPanel() {
         requiredCount,
         category,
         description,
+        itemIds,
       );
       setAddingPosition(null);
       reload();
@@ -265,9 +309,18 @@ export function TilesPanel() {
     requiredCount: number,
     category: string,
     description: string,
+    itemIds: number[],
   ) {
     try {
-      await updateTile(id, name, iconUrl, requiredCount, category, description);
+      await updateTile(
+        id,
+        name,
+        iconUrl,
+        requiredCount,
+        category,
+        description,
+        itemIds,
+      );
       reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update tile");
@@ -312,7 +365,14 @@ export function TilesPanel() {
             <TileRow
               key={tile.position}
               tile={tile}
-              onSave={(name, iconUrl, requiredCount, category, description) =>
+              onSave={(
+                name,
+                iconUrl,
+                requiredCount,
+                category,
+                description,
+                itemIds,
+              ) =>
                 handleSaveTile(
                   tile.id,
                   name,
@@ -320,6 +380,7 @@ export function TilesPanel() {
                   requiredCount,
                   category,
                   description,
+                  itemIds,
                 )
               }
               onDelete={() => handleDeleteTile(tile.id)}
@@ -327,7 +388,14 @@ export function TilesPanel() {
           ))}
         {addingPosition !== null && (
           <TileAddRow
-            onSave={(name, iconUrl, requiredCount, category, description) =>
+            onSave={(
+              name,
+              iconUrl,
+              requiredCount,
+              category,
+              description,
+              itemIds,
+            ) =>
               handleAddTile(
                 addingPosition,
                 name,
@@ -335,6 +403,7 @@ export function TilesPanel() {
                 requiredCount,
                 category,
                 description,
+                itemIds,
               )
             }
             onCancel={() => setAddingPosition(null)}

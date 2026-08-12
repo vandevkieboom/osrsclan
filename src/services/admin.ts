@@ -42,6 +42,8 @@ export interface AdminTile {
   requiredCount: number;
   category: string;
   description: string;
+  /** OSRS item ids the RuneLite plugin watches for. Empty = manual only. */
+  itemIds: number[];
 }
 
 export interface AdminSubmission {
@@ -209,6 +211,7 @@ export async function createTile(
   requiredCount = 1,
   category = "",
   description = "",
+  itemIds: number[] = [],
 ): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
@@ -220,6 +223,7 @@ export async function createTile(
       requiredCount,
       category,
       description,
+      itemIds,
       icon_url: iconUrl,
       required_count: requiredCount,
     }),
@@ -235,6 +239,7 @@ export async function updateTile(
   requiredCount = 1,
   category = "",
   description = "",
+  itemIds: number[] = [],
 ): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
@@ -246,6 +251,7 @@ export async function updateTile(
       requiredCount,
       category,
       description,
+      itemIds,
       icon_url: iconUrl,
       required_count: requiredCount,
     }),

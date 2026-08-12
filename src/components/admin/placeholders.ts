@@ -76,6 +76,7 @@ export const PLACEHOLDER_TILES: AdminTile[] = [
     requiredCount: 1,
     category: "ITEM DROP",
     description: "",
+    itemIds: [20997],
   },
   {
     id: 2,
@@ -86,5 +87,6 @@ export const PLACEHOLDER_TILES: AdminTile[] = [
     requiredCount: 1,
     category: "ITEM DROP",
     description: "",
+    itemIds: [22325],
   },
 ];
