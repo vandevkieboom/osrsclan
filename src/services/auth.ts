@@ -50,3 +50,52 @@ export async function updateSettings(patch: {
   const data = (await res.json()) as { user: AuthUser };
   return data.user;
 }
+
+const PLUGIN_TOKENS_URL = "/api/auth/me?resource=plugin-tokens";
+
+/** A RuneLite plugin token. The secret itself is only ever returned once, at
+ *  creation — afterwards only this metadata is retrievable. */
+export interface PluginToken {
+  id: number;
+  label: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+async function pluginTokenJson<T>(res: Response, fallback: string): Promise<T> {
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `${fallback} (${res.status})`);
+  }
+  return (await res.json()) as T;
+}
+
+export async function fetchPluginTokens(): Promise<PluginToken[]> {
+  const res = await fetch(PLUGIN_TOKENS_URL);
+  const data = await pluginTokenJson<{ tokens: PluginToken[] }>(
+    res,
+    "Failed to load plugin keys",
+  );
+  return data.tokens;
+}
+
+export async function createPluginToken(
+  label: string,
+): Promise<PluginToken & { token: string }> {
+  const res = await fetch(PLUGIN_TOKENS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label }),
+  });
+  return pluginTokenJson<PluginToken & { token: string }>(
+    res,
+    "Failed to create plugin key",
+  );
+}
+
+export async function revokePluginToken(id: number): Promise<void> {
+  const res = await fetch(`${PLUGIN_TOKENS_URL}&id=${id}`, {
+    method: "DELETE",
+  });
+  await pluginTokenJson<{ ok: true }>(res, "Failed to revoke plugin key");
+}
