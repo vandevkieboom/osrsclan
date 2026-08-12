@@ -1,6 +1,6 @@
 import type { ApiCheck, CheckResult, Item } from "../types/item";
 import type { Rank } from "../types/rank";
-import { getBossKc, type RuneProfile } from "./runeprofile";
+import type { RuneProfile } from "./runeprofile";
 
 const CA_POINTS_REQUIRED: Record<string, number> = {
   easy: 41,
@@ -401,38 +401,6 @@ export function getRequirementProgress(
     default:
       return null;
   }
-}
-
-export function checkEntryRequirement(profile: RuneProfile): {
-  met: boolean;
-  which?: string;
-} {
-  const enhancedSeedCount =
-    profile.itemMap.get("enhanced crystal weapon seed") ?? 0;
-  const armourSeeds = Math.max(
-    profile.itemMap.get("crystal armour seed") ?? 0,
-    profile.itemMap.get("crystal armor seed") ?? 0,
-  );
-  if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
-    return {
-      met: true,
-      which: `1 Enhanced Crystal Weapon Seed + 6 Crystal Armour Seeds (${armourSeeds})`,
-    };
-  }
-
-  const cgKc = getBossKc(profile.bossKcMap, [
-    "corrupted gauntlet",
-    "the corrupted gauntlet",
-  ]);
-  if (cgKc >= 800) {
-    return { met: true, which: `Corrupted Gauntlet (${cgKc} kc)` };
-  }
-
-  if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
-    return { met: true, which: "Twisted Bow" };
-  }
-
-  return { met: false };
 }
 
 // Ranks allow skipping exactly one item — except a "hard fail" on a

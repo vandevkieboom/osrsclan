@@ -254,19 +254,6 @@ export async function updateTile(
   return data.tile;
 }
 
-export async function moveTile(
-  id: number,
-  position: number,
-): Promise<AdminTile> {
-  const res = await fetch("/api/admin/board?resource=tiles", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, position }),
-  });
-  const data = await json<{ tile: AdminTile }>(res);
-  return data.tile;
-}
-
 export async function deleteTile(id: number): Promise<void> {
   const res = await fetch(`/api/admin/board?resource=tiles&id=${id}`, {
     method: "DELETE",
