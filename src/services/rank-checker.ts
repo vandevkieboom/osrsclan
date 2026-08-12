@@ -1,5 +1,5 @@
-import type { ApiCheck, CheckResult, Item } from "../components/item-card.js";
-import type { Rank } from "../components/rank-card.js";
+import type { ApiCheck, CheckResult, Item } from "../types/item";
+import type { Rank } from "../types/rank";
 import { getBossKc, type RuneProfile } from "./runeprofile.js";
 
 const CA_POINTS_REQUIRED: Record<string, number> = {

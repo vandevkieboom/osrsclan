@@ -1,13 +1,7 @@
 import React from "react";
-import ItemCard, { type Item, type CheckResult } from "./item-card.js";
-
-export type Rank = {
-  name: string;
-  color: string;
-  textColor: string;
-  icon: string;
-  items: Item[];
-};
+import ItemCard from "./item-card.js";
+import type { CheckResult } from "../types/item";
+import type { Rank } from "../types/rank";
 
 type RankStats = {
   total: number;

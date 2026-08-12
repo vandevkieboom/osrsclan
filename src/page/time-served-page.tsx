@@ -15,7 +15,7 @@ import {
   computeClanRankProgress,
   getRequirementProgress,
 } from "../services/rank-checker";
-import type { CheckResult } from "../components/item-card";
+import type { CheckResult } from "../types/item";
 import ClanLeaderboard from "../components/clan-leaderboard";
 import {
   addVerifiedItem,

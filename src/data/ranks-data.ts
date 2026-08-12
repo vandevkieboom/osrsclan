@@ -1,4 +1,4 @@
-import type { Rank } from "../components/rank-card.js";
+import type { Rank } from "../types/rank";
 
 const ranks: Rank[] = [
   {
