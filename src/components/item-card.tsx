@@ -4,7 +4,6 @@ import type { Item, CheckResult } from "../types/item";
 type ItemCardProps = Item & {
   apiResult: CheckResult | null;
   progress: { found: number; required: number } | null;
-  isUntrackable: boolean;
   isManuallyVerified: boolean;
   canEditVerification: boolean;
   onToggleVerification?: () => void;
@@ -16,7 +15,6 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   alt,
   apiResult,
   progress,
-  isUntrackable,
   isManuallyVerified,
   canEditVerification,
   onToggleVerification,
@@ -26,9 +24,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 
   const manualTitle = isManuallyVerified
     ? "Click to unverify"
-    : isUntrackable
-      ? "Not trackable via RuneProfile — click to mark as manually verified"
-      : "Click to manually verify";
+    : "Click to manually verify";
 
   return (
     <div className={`item ${isDone ? "is-complete" : ""}`}>

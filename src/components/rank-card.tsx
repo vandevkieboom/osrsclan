@@ -97,7 +97,6 @@ export const RankCard: React.FC<RankCardProps> = ({
         {items.map((item, itemIndex) => {
           const key = `${rankIndex}-${itemIndex}`;
           const apiResult = apiVerified[key] ?? null;
-          const isUntrackable = !item.apiCheck;
           const isManuallyVerified = verifiedItemNames.has(
             item.name.toLowerCase(),
           );
@@ -115,7 +114,6 @@ export const RankCard: React.FC<RankCardProps> = ({
               {...item}
               apiResult={apiResult}
               progress={apiProgress[key] ?? null}
-              isUntrackable={isUntrackable}
               isManuallyVerified={isManuallyVerified}
               canEditVerification={canEditVerification}
               onToggleVerification={() => onToggleVerification(item.name)}
