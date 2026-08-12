@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
 import { withErrorHandling } from "./_lib/handler.js";
+import { requireRequestUser } from "./_lib/auth.js";
 // This backend function intentionally imports frontend domain/service
 // modules directly rather than duplicating rank-progress logic — there's no
 // shared/ package boundary between api/ and src/, so these are real
@@ -313,6 +314,108 @@ async function refreshLeaderboard(res: VercelResponse) {
   });
 }
 
+/**
+ * The RuneLite plugin's `!rank <name>` chat command — runs the exact same
+ * rank-progress computation as the site's "Auto-Verify" button on the Clan
+ * Ranks page (computeClanRankProgress over a live RuneProfile fetch), just
+ * server-side for a single RSN instead of client-side in the browser. Only
+ * ever tells the caller what rank a member is eligible for — it never
+ * changes anything (no API exists to actually promote someone in-game).
+ */
+async function lookupRank(req: VercelRequest, res: VercelResponse) {
+  const user = await requireRequestUser(req, res);
+  if (!user) return;
+
+  const rsn = typeof req.query.rsn === "string" ? req.query.rsn.trim() : "";
+  if (!rsn) {
+    res.status(400).json({ error: "rsn is required" });
+    return;
+  }
+
+  // WOM has no single-player-by-name lookup within a group, so this fetches
+  // the same full roster refreshLeaderboard() does, just once instead of in
+  // a batch loop — fine for an on-demand single lookup.
+  const rolesRes = await fetch(
+    `https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`,
+    { headers: WOM_HEADERS },
+  );
+  if (!rolesRes.ok) {
+    res.status(502).json({ error: "Failed to load the clan's member list." });
+    return;
+  }
+  const group = (await rolesRes.json()) as {
+    memberships?: Array<{
+      player: { displayName: string; username: string };
+      role: string;
+    }>;
+  };
+  const membership = (group.memberships ?? []).find(
+    (m) =>
+      m.player.username?.toLowerCase() === rsn.toLowerCase() ||
+      m.player.displayName?.toLowerCase() === rsn.toLowerCase(),
+  );
+  if (!membership) {
+    res
+      .status(404)
+      .json({ error: `${rsn} isn't in the clan's Wise Old Man group.` });
+    return;
+  }
+  // RuneProfile needs the real, properly-cased name — same distinction
+  // refreshLeaderboard() above already has to account for.
+  const displayName = membership.player.displayName;
+  const encoded = encodeURIComponent(displayName);
+
+  const fullRes = await fetch(`${RP_BASE}/accounts/${encoded}/full`, {
+    headers: RP_HEADERS,
+  });
+  if (fullRes.status === 404) {
+    res
+      .status(404)
+      .json({ error: `${displayName} isn't set up on RuneProfile.` });
+    return;
+  }
+  if (fullRes.status === 429) {
+    res
+      .status(429)
+      .json({ error: "Rate limit hit — wait a moment and try again." });
+    return;
+  }
+  if (!fullRes.ok) {
+    res.status(502).json({ error: "Failed to fetch RuneProfile data." });
+    return;
+  }
+  const data = (await fullRes.json()) as FullAccountResponse;
+
+  const tasksRes = await fetch(
+    `${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`,
+    { headers: RP_HEADERS },
+  );
+  const tasksData = tasksRes.ok
+    ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
+    : null;
+
+  const verificationRows = await sql`
+    SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${displayName.toLowerCase()}`;
+  const verifiedItemNames = new Set(
+    verificationRows.map((r) => r.item_name as string),
+  );
+
+  const profile = buildRuneProfile(data, tasksData, null);
+  const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
+  const currentRankInfo = getRankForRole(membership.role);
+
+  res.status(200).json({
+    rsn: displayName,
+    currentRank: currentRankInfo?.name ?? null,
+    eligibleRank:
+      progress.highestEligibleRankIndex >= 0
+        ? ranks[progress.highestEligibleRankIndex].name
+        : null,
+    overallSatisfied: progress.overallSatisfied,
+    overallTotal: progress.overallTotal,
+  });
+}
+
 export default withErrorHandling(async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
@@ -321,6 +424,11 @@ export default withErrorHandling(async function handler(req, res) {
 
   if (req.query.resource === "leaderboard") {
     await getLeaderboard(res);
+    return;
+  }
+
+  if (req.query.resource === "lookup-rank") {
+    await lookupRank(req, res);
     return;
   }
 
