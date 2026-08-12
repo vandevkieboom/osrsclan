@@ -27,7 +27,7 @@ export function TileFace({
       type="button"
       className={`bingo-tile bingo-tile--${tile.status}${isSelected ? " bingo-tile--selected" : ""}`}
       onClick={onClick}
-      title={tile.name}
+      data-tooltip={tile.name}
     >
       {tile.status === "approved" && (
         <span className="bingo-tile-status bingo-tile-status--approved">✓</span>

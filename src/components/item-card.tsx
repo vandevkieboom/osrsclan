@@ -25,10 +25,10 @@ export const ItemCard: React.FC<ItemCardProps> = ({
     apiResult === "pass" || apiResult === "pass-alt" || isManuallyVerified;
 
   const manualTitle = isManuallyVerified
-    ? "Manually verified — click to unverify"
+    ? "Click to unverify"
     : isUntrackable
       ? "Not trackable via RuneProfile — click to mark as manually verified"
-      : "Click to manually verify, overriding the RuneProfile result";
+      : "Click to manually verify";
 
   return (
     <div className={`item ${isDone ? "is-complete" : ""}`}>
@@ -70,7 +70,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           {apiResult === "pass" && (
             <span
               className="item-status api-verified"
-              title="Verified via RuneProfile"
+              data-tooltip="Verified via RuneProfile"
             >
               ✓
             </span>
@@ -78,7 +78,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           {apiResult === "pass-alt" && (
             <span
               className="item-status api-alt"
-              title="Passed via alternative — primary item not in collection log"
+              data-tooltip="Passed via alternative — primary item not in collection log"
             >
               ~
             </span>
@@ -86,7 +86,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           {!isDone && progress && (
             <span
               className="item-status api-partial"
-              title={`${progress.found} of ${progress.required} required`}
+              data-tooltip={`${progress.found} of ${progress.required} required`}
             >
               {progress.found}/{progress.required}
             </span>

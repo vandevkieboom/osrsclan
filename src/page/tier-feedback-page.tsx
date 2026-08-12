@@ -369,7 +369,7 @@ export function TierFeedbackPage() {
         key={id}
         className={`tier-item${isSelected ? " is-selected" : ""}${isDragging ? " is-dragging" : ""}`}
         onPointerDown={(e) => handleItemPointerDown(e, id)}
-        title={displayName(item.name)}
+        data-tooltip={displayName(item.name)}
       >
         <span className="tier-item-icon-wrap">
           <img

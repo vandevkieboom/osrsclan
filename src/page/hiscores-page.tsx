@@ -251,7 +251,7 @@ export function HiscoresPage() {
                     updateParams({ inactive: inactiveMonthOnly ? null : "1" })
                   }
                   disabled={gainedMap === null}
-                  title={
+                  data-tooltip={
                     gainedMap === null ? "Loading activity data…" : undefined
                   }
                 >
@@ -410,7 +410,7 @@ export function HiscoresPage() {
                                 target="_blank"
                                 rel="noreferrer"
                                 className="player-link"
-                                title={`Open ${entry.player.displayName} on Wise Old Man`}
+                                data-tooltip={`Open ${entry.player.displayName} on Wise Old Man`}
                               >
                                 <span
                                   className={
@@ -672,7 +672,7 @@ export function HiscoresPage() {
                                         target="_blank"
                                         rel="noreferrer"
                                         className="player-link"
-                                        title={`Open ${p.player.displayName} on Wise Old Man`}
+                                        data-tooltip={`Open ${p.player.displayName} on Wise Old Man`}
                                       >
                                         <span
                                           className={

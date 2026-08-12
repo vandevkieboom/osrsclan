@@ -307,7 +307,7 @@ function ActivityRow({
               target="_blank"
               rel="noreferrer"
               className="activity-player-link"
-              title={`Open ${account.username} on Wise Old Man`}
+              data-tooltip={`Open ${account.username} on Wise Old Man`}
             >
               {account.username}
             </a>
