@@ -1,6 +1,6 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomBytes } from "node:crypto";
 import { appendSetCookie, serializeCookie } from "../_lib/auth.js";
+import { withErrorHandling } from "../_lib/handler.js";
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? "";
 const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI ?? "";
@@ -11,7 +11,7 @@ function isSafeNextPath(path: string): boolean {
   );
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
     return;
@@ -44,4 +44,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   authorizeUrl.searchParams.set("state", state);
 
   res.redirect(302, authorizeUrl.toString());
-}
+});

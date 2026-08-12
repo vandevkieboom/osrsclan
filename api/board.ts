@@ -14,6 +14,7 @@ import {
   recordProofSubmission,
   validateProofSubmission,
 } from "./_lib/board.js";
+import { withErrorHandling } from "./_lib/handler.js";
 
 const PROOF_CONTENT_TYPES: Record<string, string> = {
   "image/png": "png",
@@ -489,7 +490,7 @@ async function uploadToken(req: VercelRequest, res: VercelResponse) {
 // that's what distinguishes those two POST actions. The plugin upload is
 // picked out first by its explicit `resource` query param, since its body is
 // raw bytes rather than JSON.
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.method === "GET") {
     if (req.query.resource === "donors") {
       await getDonors(res);
@@ -513,4 +514,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(405).json({ error: "Method not allowed" });
-}
+});

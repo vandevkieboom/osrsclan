@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
+import { withErrorHandling } from "../_lib/handler.js";
 
 // Matches api/board.ts's ACCENT_PALETTE — used only to pick a sensible
 // default color for a brand-new team; admins can recolor it afterward.
@@ -334,7 +335,7 @@ async function deleteDonation(req: VercelRequest, res: VercelResponse) {
 // the legacy WOM/RuneProfile proxies, so closely-related admin endpoints
 // share a file dispatched by `resource`/method the same way
 // api/wom-proxy.ts dispatches on `type`.
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   if (!(await requireAdmin(req, res))) return;
 
   const resource = req.query.resource;
@@ -384,4 +385,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(405).json({ error: "Method not allowed" });
-}
+});

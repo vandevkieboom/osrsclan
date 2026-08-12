@@ -46,12 +46,25 @@ interface TileFormValues {
 function GoalFields({
   goal,
   onChange,
+  onCommit,
 }: {
   goal: TileGoal;
   onChange: (goal: TileGoal) => void;
+  // Only fired when focus leaves the whole goal-fields group, not after each
+  // keystroke/selection — switching to "xp"/"kc" needs the skill and target
+  // filled in before a save is attempted, otherwise the server rejects the
+  // incomplete goal and the dropdown can never progress past that state.
+  onCommit?: () => void;
 }) {
   return (
-    <div className="admin-tile-goal-row">
+    <div
+      className="admin-tile-goal-row"
+      onBlur={(e) => {
+        if (onCommit && !e.currentTarget.contains(e.relatedTarget as Node)) {
+          onCommit();
+        }
+      }}
+    >
       <select
         className="admin-select admin-tile-goal-kind-select"
         value={goal.goalKind}
@@ -341,7 +354,8 @@ function TileRow({
       />
       <GoalFields
         goal={values.goal}
-        onChange={(goal) => commit({ ...values, goal })}
+        onChange={(goal) => setValues({ ...values, goal })}
+        onCommit={commitCurrent}
       />
       {values.goal.goalKind === "item" && (
         <input

@@ -7,6 +7,7 @@ import {
   hashToken,
   requireUser,
 } from "../_lib/auth.js";
+import { withErrorHandling } from "../_lib/handler.js";
 
 const MAX_RUNESCAPE_NAME_LENGTH = 30;
 const MAX_TOKEN_LABEL_LENGTH = 60;
@@ -101,7 +102,7 @@ async function handlePluginTokens(req: VercelRequest, res: VercelResponse) {
 // preference), and RuneLite plugin token management are combined into one
 // function to stay under the Vercel Hobby plan's 12-function-per-deployment
 // cap.
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.query.resource === "plugin-tokens") {
     await handlePluginTokens(req, res);
     return;
@@ -154,4 +155,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(200).json({ user: serializeUser(user) });
-}
+});

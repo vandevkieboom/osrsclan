@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
 import { getOrCreateBoardConfig, type PrizePot } from "../_lib/board.js";
+import { withErrorHandling } from "../_lib/handler.js";
 
 async function getConfig(res: VercelResponse) {
   const c = await getOrCreateBoardConfig();
@@ -248,7 +249,7 @@ async function deleteTile(req: VercelRequest, res: VercelResponse) {
 // Board config and tiles are combined into one function to stay under the
 // Vercel Hobby plan's 12-function-per-deployment cap — dispatched by
 // `resource`, the same pattern api/wom-proxy.ts already uses for `type`.
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   if (!(await requireAdmin(req, res))) return;
 
   const resource = req.query.resource;
@@ -277,4 +278,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(405).json({ error: "Method not allowed" });
-}
+});

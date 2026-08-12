@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
+import { withErrorHandling } from "../_lib/handler.js";
 
 async function listSubmissions(req: VercelRequest, res: VercelResponse) {
   const status =
@@ -145,7 +146,7 @@ async function reviewSubmission(
 // Listing pending submissions and reviewing them are combined into one
 // function to stay under the Vercel Hobby plan's 12-function-per-deployment
 // cap, dispatched by HTTP method.
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   const admin = await requireAdmin(req, res);
   if (!admin) return;
 
@@ -160,4 +161,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(405).json({ error: "Method not allowed" });
-}
+});

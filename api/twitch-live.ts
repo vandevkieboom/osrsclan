@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { withErrorHandling } from "./_lib/handler.js";
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET ?? "";
@@ -33,7 +33,7 @@ export interface LiveStream {
   thumbnail: string;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
     return;
@@ -90,4 +90,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch {
     res.status(200).json({ streams: [] });
   }
-}
+});

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
 import { requireAdmin } from "./_lib/auth.js";
+import { withErrorHandling } from "./_lib/handler.js";
 
 const MAX_LABEL_LENGTH = 120;
 const MAX_DATE_LABEL_LENGTH = 40;
@@ -150,7 +151,7 @@ async function removeVerifiedItem(req: VercelRequest, res: VercelResponse) {
 // Listing (public), adding, and removing trophies (and, via `?resource=`,
 // manually-verified items) are combined into one function to stay under the
 // Vercel Hobby plan's 12-function-per-deployment cap.
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.query.resource === "verified-items") {
     if (req.method === "GET") {
       await listVerifiedItems(req, res);
@@ -181,4 +182,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
   res.status(405).json({ error: "Method not allowed" });
-}
+});
