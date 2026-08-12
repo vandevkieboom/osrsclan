@@ -63,7 +63,6 @@ export const PLACEHOLDER_BOARD: BoardData = {
     prizePot: {
       total: "51.50M",
     },
-    verificationCode: "DEV-PLACEHOLDER",
   },
   teams: [
     {

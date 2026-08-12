@@ -32,9 +32,6 @@ export interface BoardConfig {
   name: string;
   size: number;
   prizePot: PrizePot;
-  /** Shown by the RuneLite plugin's overlay so a manually-taken screenshot
-   * can be tied to the live event. */
-  verificationCode: string;
 }
 
 export interface AdminTile {

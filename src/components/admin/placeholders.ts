@@ -66,7 +66,6 @@ export const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
   size: 5,
   prizePot: { total: "" },
-  verificationCode: "DEV-PLACEHOLDER",
 };
 export const PLACEHOLDER_TILES: AdminTile[] = [
   {

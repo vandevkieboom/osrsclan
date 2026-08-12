@@ -271,10 +271,6 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       name: config.name,
       size: config.size,
       prizePot: config.prize_pot,
-      // Anti-cheat watermark for manually-taken screenshots, shown by the
-      // RuneLite plugin's overlay — deliberately withheld from the fully
-      // anonymous public leaderboard view.
-      ...(user ? { verificationCode: config.verification_code } : {}),
     },
     teams,
     myTeamId: user?.teamId ?? null,

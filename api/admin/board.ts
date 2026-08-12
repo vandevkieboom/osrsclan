@@ -10,7 +10,6 @@ async function getConfig(res: VercelResponse) {
       name: c.name,
       size: c.size,
       prizePot: c.prize_pot,
-      verificationCode: c.verification_code,
     },
   });
 }
@@ -43,32 +42,25 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const verificationCode =
-    typeof req.body?.verificationCode === "string"
-      ? req.body.verificationCode.trim()
-      : null;
-
   // Upsert rather than a plain UPDATE — board_config is a singleton, but if
   // it was ever deleted by hand, a plain "WHERE id = 1" would silently touch
   // zero rows instead of recreating it.
   const current = await getOrCreateBoardConfig();
   const nextPrizePot = prizePot ?? current.prize_pot;
-  const nextVerificationCode = verificationCode ?? current.verification_code;
   const rows = await sql`
-    INSERT INTO board_config (id, name, size, prize_pot, verification_code)
-    VALUES (1, ${name}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb, ${nextVerificationCode})
+    INSERT INTO board_config (id, name, size, prize_pot)
+    VALUES (1, ${name}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb)
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name, size = EXCLUDED.size,
-      prize_pot = EXCLUDED.prize_pot, verification_code = EXCLUDED.verification_code,
+      prize_pot = EXCLUDED.prize_pot,
       updated_at = now()
-    RETURNING name, size, prize_pot, verification_code`;
+    RETURNING name, size, prize_pot`;
   const c = rows[0];
   res.status(200).json({
     config: {
       name: c.name,
       size: c.size,
       prizePot: c.prize_pot,
-      verificationCode: c.verification_code,
     },
   });
 }

@@ -57,9 +57,6 @@ export interface BoardData {
     name: string;
     size: number;
     prizePot: PrizePot;
-    /** Only present when the caller is authenticated (browser session or
-     * plugin token) — withheld from the anonymous public leaderboard view. */
-    verificationCode?: string;
   };
   teams: BoardTeam[];
   myTeamId: number | null;

@@ -59,11 +59,13 @@ ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAU
 -- buy-in, donated, and the per-donor entries list were never shown anywhere
 -- on the public site and are dropped from new rows and future saves.
 ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
--- Shown by the RuneLite plugin as a small always-on overlay (phrase + a live
--- timestamp) so a manually-taken screenshot can be tied to the live event.
--- Only ever returned to authenticated callers (see getBoard in api/board.ts)
--- — never on the fully-anonymous public leaderboard view.
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS verification_code TEXT NOT NULL DEFAULT '';
+-- A site-wide verification codephrase was tried and dropped: any
+-- authenticated member could read it via the board API (see getBoard in
+-- api/board.ts), not just members actually on a bingo team, which defeats
+-- the point of it being a shared secret. The RuneLite plugin now takes this
+-- as a manually-entered config value instead, communicated to participants
+-- directly rather than broadcast through the site.
+ALTER TABLE board_config DROP COLUMN IF EXISTS verification_code;
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,
