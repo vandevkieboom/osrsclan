@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
@@ -9,237 +9,23 @@ import {
   fetchGroupRoles,
   getMetricEntries,
   getWomMetricIcon,
-  METRIC_GROUPS,
   type EventCompetition,
-  type MetricOption,
   type WomBulkGainedEntry,
   type WomBulkHiscoresEntry,
   type WomHiscoresEntry,
 } from "../services/wom";
 import { getRankForRole } from "../services/profile";
-
-const IRONMAN_ICON =
-  "https://oldschool.runescape.wiki/images/Ironman_chat_badge.png";
-const HARDCORE_ICON =
-  "https://oldschool.runescape.wiki/images/Hardcore_ironman_chat_badge.png";
-const ULTIMATE_ICON =
-  "https://oldschool.runescape.wiki/images/Ultimate_ironman_chat_badge.png";
-const GIM_ICON =
-  "https://oldschool.runescape.wiki/images/Group_ironman_chat_badge.png";
-
-function getTypeIcon(type: string): string | null {
-  if (type === "ironman") return IRONMAN_ICON;
-  if (type === "hardcore") return HARDCORE_ICON;
-  if (type === "ultimate") return ULTIMATE_ICON;
-  if (type === "regular") return GIM_ICON;
-  return null;
-}
-
-function formatNumber(n: number | undefined): string {
-  if (n === undefined || n < 0) return "—";
-  return n.toLocaleString();
-}
-
-function getTrophyIcon(clanRank: number): string | null {
-  if (clanRank === 1) return "/trophy.png";
-  if (clanRank === 2) return "/trophy-silver.png";
-  if (clanRank === 3) return "/trophy-bronze.png";
-  return null;
-}
-
-function getMetricOption(value: string): MetricOption | undefined {
-  for (const group of METRIC_GROUPS) {
-    const found = group.metrics.find((m) => m.value === value);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-// OSRS wiki icon filenames that don't follow the `${Metric}_icon.png`
-// convention — every other skill is that pattern, capitalized.
-const SKILL_ICON_URL_OVERRIDES: Record<string, string> = {
-  overall: "https://oldschool.runescape.wiki/images/Stats_icon.png",
-  runecrafting: "https://oldschool.runescape.wiki/images/Runecraft_icon.png",
-};
-
-function getSkillIconUrl(metric: string): string {
-  if (SKILL_ICON_URL_OVERRIDES[metric]) return SKILL_ICON_URL_OVERRIDES[metric];
-  const name = metric.charAt(0).toUpperCase() + metric.slice(1);
-  return `https://oldschool.runescape.wiki/images/${name}_icon.png`;
-}
-
-function getRowIcon(metric: string, dataType: string): string {
-  return dataType === "skill"
-    ? getSkillIconUrl(metric)
-    : getWomMetricIcon(metric);
-}
-
-function getPrimaryCol(entry: WomHiscoresEntry, dataType: string): string {
-  const d = entry.data;
-  if (dataType === "skill") return formatNumber(d.level);
-  if (dataType === "boss") return formatNumber(d.kills);
-  if (dataType === "activity") return formatNumber(d.score);
-  if (dataType === "computed")
-    return d.value !== undefined ? d.value.toFixed(1) : "—";
-  return "—";
-}
+import { PlayerSearchInput } from "../components/hiscores/player-search-input";
+import { MetricSelect } from "../components/hiscores/metric-select";
+import {
+  formatNumber,
+  getMetricOption,
+  getPrimaryCol,
+  getTrophyIcon,
+  getTypeIcon,
+} from "../components/hiscores/hiscores-helpers";
 
 const PAGE_SIZE = 25;
-
-function SearchIcon() {
-  return (
-    <svg
-      className="ms-search-icon"
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
-
-function PlayerSearchInput({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="player-search-wrap">
-      <SearchIcon />
-      <input
-        type="text"
-        className="player-search-input"
-        placeholder="Search by name"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  );
-}
-
-type MetricSelectProps = {
-  value: string;
-  onChange: (v: string) => void;
-};
-
-function MetricSelect({ value, onChange }: MetricSelectProps) {
-  const [search, setSearch] = useState("");
-  const detailsRef = useRef<HTMLDetailsElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const current = getMetricOption(value);
-  const currentDataType = current?.dataType ?? "skill";
-
-  useEffect(() => {
-    const el = detailsRef.current;
-    if (!el) return;
-
-    function onToggle() {
-      if (el!.open) {
-        setTimeout(() => searchRef.current?.focus(), 0);
-      } else {
-        setSearch("");
-      }
-    }
-    function onMouseDown(e: MouseEvent) {
-      if (el && !el.contains(e.target as Node)) {
-        el.open = false;
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") el!.open = false;
-    }
-
-    el.addEventListener("toggle", onToggle);
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      el.removeEventListener("toggle", onToggle);
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, []);
-
-  const q = search.toLowerCase();
-
-  return (
-    <details className="ms-wrap" ref={detailsRef}>
-      <summary className="ms-trigger" aria-haspopup="listbox">
-        <img
-          src={getRowIcon(current?.value ?? value, currentDataType)}
-          alt=""
-          className="ms-trigger-icon"
-        />
-        <span className="ms-trigger-label">
-          {current?.label ?? "Select metric"}
-        </span>
-        <span className="ms-trigger-arrow" aria-hidden="true">
-          <img src="/dropdown-arrow.svg" alt="" className="dropdown-arrow-icon" />
-        </span>
-      </summary>
-      <div className="ms-panel" role="listbox">
-        <div className="ms-search-wrap">
-          <SearchIcon />
-          <input
-            ref={searchRef}
-            type="text"
-            className="ms-search"
-            placeholder="Search by metric"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="ms-list">
-          {(() => {
-            const visibleGroups = METRIC_GROUPS.map((group) => ({
-              group,
-              filtered: q
-                ? group.metrics.filter((m) => m.label.toLowerCase().includes(q))
-                : group.metrics,
-            })).filter(({ filtered }) => filtered.length > 0);
-
-            return visibleGroups.map(({ group, filtered }, i) => (
-              <div key={group.groupLabel}>
-                <div
-                  className={`ms-group-label${i === 0 ? " ms-group-label--first" : ""}`}
-                >
-                  {group.groupLabel}
-                </div>
-                {filtered.map((m) => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    role="option"
-                    aria-selected={m.value === value}
-                    className={`ms-item${m.value === value ? " selected" : ""}`}
-                    onClick={() => {
-                      onChange(m.value);
-                      if (detailsRef.current) detailsRef.current.open = false;
-                    }}
-                  >
-                    <img
-                      src={getRowIcon(m.value, m.dataType)}
-                      alt=""
-                      className="ms-item-icon"
-                    />
-                    <span>{m.label}</span>
-                  </button>
-                ))}
-              </div>
-            ));
-          })()}
-        </div>
-      </div>
-    </details>
-  );
-}
 
 export function HiscoresPage() {
   const [searchParams, setSearchParams] = useSearchParams();
