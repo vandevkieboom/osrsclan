@@ -119,6 +119,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
     res.status(upstream.status).json(await upstream.json());
+  } else if (type === "player") {
+    const { username } = req.query;
+    if (typeof username !== "string" || !username.trim()) {
+      res.status(400).json({ error: "Invalid username" });
+      return;
+    }
+    const upstream = await fetch(
+      `${BASE_URL}/players/${encodeURIComponent(username)}`,
+      { headers: WOM_HEADERS },
+    );
+    if (upstream.status === 429) {
+      res
+        .status(429)
+        .json({ error: "Rate limit hit — wait a moment and try again." });
+      return;
+    }
+    res.status(upstream.status).json(await upstream.json());
   } else {
     res.status(400).json({ error: "Invalid type" });
   }

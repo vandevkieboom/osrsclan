@@ -28,7 +28,7 @@ export interface WomPlayer {
 
 export async function fetchWomPlayer(username: string): Promise<WomPlayer> {
   const res = await fetch(
-    `https://api.wiseoldman.net/v2/players/${encodeURIComponent(username)}`,
+    `/api/wom-proxy?type=player&username=${encodeURIComponent(username)}`,
   );
   if (!res.ok) {
     throw new Error(

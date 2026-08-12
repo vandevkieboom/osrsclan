@@ -1,5 +1,3 @@
-const WOM_BASE = "https://api.wiseoldman.net/v2";
-
 export interface SkillData {
   name: string;
   xp: number;
@@ -312,7 +310,7 @@ export async function fetchRuneProfile(username: string): Promise<RuneProfile> {
     apiFetch<CombatAchievementTasksResponse>(
       `/accounts/${encoded}/combat-achievements/tasks`,
     ).catch(() => null),
-    fetch(`${WOM_BASE}/players/${encoded}`, {
+    fetch(`/api/wom-proxy?type=player&username=${encoded}`, {
       headers: { Accept: "application/json" },
     })
       .then(async (res) => {

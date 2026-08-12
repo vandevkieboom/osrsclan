@@ -138,6 +138,19 @@ function womProxyPlugin(apiKey: string): Plugin {
                 headers: womHeaders,
               }),
             );
+          } else if (type === "player") {
+            const username = params.get("username") ?? "";
+            if (!username.trim()) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({ error: "Invalid username" }));
+              return;
+            }
+            await send(
+              await fetch(
+                `${WOM_BASE}/players/${encodeURIComponent(username)}`,
+                { headers: womHeaders },
+              ),
+            );
           } else {
             res.statusCode = 400;
             res.end(JSON.stringify({ error: "Invalid type" }));
