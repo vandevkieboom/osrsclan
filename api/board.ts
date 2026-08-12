@@ -9,6 +9,8 @@ import {
 } from "./_lib/auth.js";
 import {
   getOrCreateBoardConfig,
+  getTeamGoalProgress,
+  recordGoalProgress,
   recordProofSubmission,
   validateProofSubmission,
 } from "./_lib/board.js";
@@ -40,7 +42,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   // board until size grows back to cover them again.
   const tileRows = await sql`
     SELECT id, position, name, icon_url, required_count, category, description,
-           item_ids
+           item_ids, goal_kind, goal_key, goal_target
     FROM tiles WHERE position < ${slotCount} ORDER BY position`;
   const tiles = tileRows.map((t) => ({
     id: t.id,
@@ -51,10 +53,23 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     category: t.category,
     description: t.description,
     itemIds: (t.item_ids ?? []) as number[],
+    goalKind: t.goal_kind as "item" | "xp" | "kc",
+    goalKey: t.goal_key as string,
+    goalTarget: t.goal_target === null ? null : Number(t.goal_target),
   }));
-  const requiredCountByTile = new Map<number, number>(
-    tiles.map((t) => [t.id, t.requiredCount]),
-  );
+
+  // Only fetched/summed when at least one tile actually needs it — most
+  // boards are item-only and this avoids the extra query and join for them.
+  const goalProgressByGoal = tiles.some((t) => t.goalKind !== "item")
+    ? await getTeamGoalProgress()
+    : new Map<string, Map<number, number>>();
+  function teamProgressFor(tile: (typeof tiles)[number], teamId: number) {
+    return (
+      goalProgressByGoal
+        .get(`${tile.goalKind}:${tile.goalKey.trim().toLowerCase()}`)
+        ?.get(teamId) ?? 0
+    );
+  }
 
   const teamRows = await sql`
     SELECT tm.id, tm.name, tm.accent_color, tm.captain_id,
@@ -149,11 +164,41 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     submissionsByTeam.set(row.team_id, teamSubmissions);
   }
 
+  // Item tiles go through the submissions/proof-review pipeline;
+  // xp/kc tiles have no proof to review and complete the instant the
+  // server-computed team total (see teamProgressFor) crosses the goal.
   function buildTiles(teamId: number) {
     const subByTile =
       submissionsByTeam.get(teamId) ??
       new Map<number, TileSubmissionAggregate>();
     return tiles.map((t) => {
+      if (t.goalKind !== "item") {
+        const teamProgress = teamProgressFor(t, teamId);
+        return {
+          tileId: t.id,
+          name: t.name,
+          iconUrl: t.iconUrl,
+          requiredCount: t.requiredCount,
+          category: t.category,
+          description: t.description,
+          itemIds: t.itemIds,
+          goalKind: t.goalKind,
+          goalKey: t.goalKey,
+          goalTarget: t.goalTarget,
+          teamProgress,
+          approvedCount: 0,
+          pendingCount: 0,
+          rejectedCount: 0,
+          status:
+            t.goalTarget !== null && teamProgress >= t.goalTarget
+              ? "approved"
+              : "none",
+          latestProofUrl: null,
+          latestSubmittedBy: null,
+          proofs: [],
+        };
+      }
+
       const agg = subByTile.get(t.id);
       const approvedCount = agg?.approvedCount ?? 0;
       const pendingCount = agg?.pendingCount ?? 0;
@@ -166,6 +211,10 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
         category: t.category,
         description: t.description,
         itemIds: t.itemIds,
+        goalKind: t.goalKind,
+        goalKey: t.goalKey,
+        goalTarget: t.goalTarget,
+        teamProgress: null,
         approvedCount,
         pendingCount,
         rejectedCount,
@@ -184,26 +233,12 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const completeByTeam = new Map<number, number>();
-  for (const team of teamRows) {
-    const teamSubmissions =
-      submissionsByTeam.get(team.id) ??
-      new Map<number, TileSubmissionAggregate>();
-    let complete = 0;
-    for (const tile of tiles) {
-      const aggregate = teamSubmissions.get(tile.id);
-      if (
-        aggregate &&
-        aggregate.approvedCount >= requiredCountByTile.get(tile.id)!
-      )
-        complete += 1;
-    }
-    completeByTeam.set(team.id, complete);
-  }
-
+  const tilesByTeam = new Map(teamRows.map((t) => [t.id, buildTiles(t.id)]));
   const totalTiles = tiles.length;
   const teamsWithPct = teamRows.map((t) => {
-    const completeCount = completeByTeam.get(t.id) ?? 0;
+    const completeCount = (tilesByTeam.get(t.id) ?? []).filter(
+      (tile) => tile.status === "approved",
+    ).length;
     const pct =
       totalTiles > 0 ? Math.round((completeCount / totalTiles) * 100) : 0;
     return {
@@ -219,7 +254,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       totalTiles,
       pct,
       accentColor: t.accent_color,
-      tiles: buildTiles(t.id),
+      tiles: tilesByTeam.get(t.id) ?? [],
     };
   });
   const leaderPct =
@@ -234,10 +269,47 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       name: config.name,
       size: config.size,
       prizePot: config.prize_pot,
+      // Anti-cheat watermark for manually-taken screenshots, shown by the
+      // RuneLite plugin's overlay — deliberately withheld from the fully
+      // anonymous public leaderboard view.
+      ...(user ? { verificationCode: config.verification_code } : {}),
     },
     teams,
     myTeamId: user?.teamId ?? null,
   });
+}
+
+/**
+ * The RuneLite plugin's periodic XP/kill-count report for team-combined
+ * goal tiles (see goal_kind in db/schema.sql) — no proof/review step, just a
+ * running reading that getBoard sums into a team total.
+ *
+ * POST /api/board?resource=goal-progress
+ *   Authorization: Bearer <plugin token>
+ *   body: { goalKind: "xp" | "kc", goalKey: string, value: number }
+ */
+async function reportGoalProgress(req: VercelRequest, res: VercelResponse) {
+  const user = await requireRequestUser(req, res);
+  if (!user) return;
+
+  const goalKind = req.body?.goalKind;
+  const goalKey =
+    typeof req.body?.goalKey === "string" ? req.body.goalKey.trim() : "";
+  const value = Number(req.body?.value);
+  if (
+    (goalKind !== "xp" && goalKind !== "kc") ||
+    !goalKey ||
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
+    res.status(400).json({
+      error: "goalKind ('xp'|'kc'), goalKey and a non-negative value are required",
+    });
+    return;
+  }
+
+  await recordGoalProgress({ userId: user.id, goalKind, goalKey, value });
+  res.status(200).json({ ok: true });
 }
 
 async function getDonors(res: VercelResponse) {
@@ -432,6 +504,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "POST") {
     if (req.query.resource === "plugin-proof") {
       await submitPluginProof(req, res);
+    } else if (req.query.resource === "goal-progress") {
+      await reportGoalProgress(req, res);
     } else if (typeof req.body?.type === "string") {
       await uploadToken(req, res);
     } else {

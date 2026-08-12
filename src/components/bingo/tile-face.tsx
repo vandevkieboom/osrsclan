@@ -54,11 +54,19 @@ export function TileFace({
           )}
         </div>
       )}
-      {tile.requiredCount > 1 && tile.status !== "approved" && (
+      {tile.goalKind !== "item" && tile.status !== "approved" && (
         <span className="bingo-tile-fraction">
-          {tile.approvedCount}/{tile.requiredCount}
+          {(tile.teamProgress ?? 0).toLocaleString()}/
+          {(tile.goalTarget ?? 0).toLocaleString()}
         </span>
       )}
+      {tile.goalKind === "item" &&
+        tile.requiredCount > 1 &&
+        tile.status !== "approved" && (
+          <span className="bingo-tile-fraction">
+            {tile.approvedCount}/{tile.requiredCount}
+          </span>
+        )}
       {isUploading && <span className="bingo-tile-uploading">Uploading…</span>}
     </button>
   );

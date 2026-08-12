@@ -8,6 +8,7 @@ export interface BoardConfigRow {
   name: string;
   size: number;
   prize_pot: PrizePot;
+  verification_code: string;
 }
 
 // board_config is a singleton (id = 1). This upserts a default row into
@@ -17,8 +18,59 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, size, prize_pot`;
+    RETURNING name, size, prize_pot, verification_code`;
   return rows[0] as BoardConfigRow;
+}
+
+/**
+ * Records a plugin's reading of a member's current XP/kill-count for a goal.
+ * The first reading for a given (user, goalKind, goalKey) becomes that
+ * member's baseline — only progress from that point on counts, same
+ * philosophy as item-drop tiles only seeing loot obtained while the plugin
+ * runs. Later readings only ever raise latest_value: both XP and kill count
+ * are monotonic in OSRS, so a lower report is a stale/out-of-order request,
+ * not real progress lost.
+ */
+export async function recordGoalProgress(opts: {
+  userId: number;
+  goalKind: "xp" | "kc";
+  goalKey: string;
+  value: number;
+}): Promise<void> {
+  const key = opts.goalKey.trim().toLowerCase();
+  await sql`
+    INSERT INTO goal_progress (user_id, goal_kind, goal_key, baseline_value, latest_value)
+    VALUES (${opts.userId}, ${opts.goalKind}, ${key}, ${opts.value}, ${opts.value})
+    ON CONFLICT (user_id, goal_kind, goal_key) DO UPDATE SET
+      latest_value = GREATEST(goal_progress.latest_value, EXCLUDED.latest_value),
+      updated_at = now()`;
+}
+
+/**
+ * Team-combined progress for every (goal_kind, goal_key) pair currently used
+ * by a tile, keyed the same way so getBoard can look up a tile's number with
+ * a single map get. Computed fresh from current team membership on every
+ * call rather than stored, so a roster change is reflected immediately.
+ */
+export async function getTeamGoalProgress(): Promise<
+  Map<string, Map<number, number>>
+> {
+  const rows = await sql`
+    SELECT u.team_id, gp.goal_kind, gp.goal_key,
+           SUM(GREATEST(gp.latest_value - gp.baseline_value, 0))::bigint AS total
+    FROM goal_progress gp
+    JOIN users u ON u.id = gp.user_id
+    WHERE u.team_id IS NOT NULL
+    GROUP BY u.team_id, gp.goal_kind, gp.goal_key`;
+
+  const byGoal = new Map<string, Map<number, number>>();
+  for (const row of rows) {
+    const goalMapKey = `${row.goal_kind}:${row.goal_key}`;
+    const byTeam = byGoal.get(goalMapKey) ?? new Map<number, number>();
+    byTeam.set(row.team_id, Number(row.total));
+    byGoal.set(goalMapKey, byTeam);
+  }
+  return byGoal;
 }
 
 export type ProofValidation =

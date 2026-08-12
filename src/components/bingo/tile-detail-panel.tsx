@@ -45,12 +45,16 @@ export function TileDetailPanel({
     );
   }
 
-  const pct =
-    tile.requiredCount > 1
+  const isItemGoal = tile.goalKind === "item";
+  const pct = isItemGoal
+    ? tile.requiredCount > 1
       ? Math.min(
           100,
           Math.round((tile.approvedCount / tile.requiredCount) * 100),
         )
+      : 0
+    : tile.goalTarget
+      ? Math.min(100, Math.round(((tile.teamProgress ?? 0) / tile.goalTarget) * 100))
       : 0;
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -81,7 +85,7 @@ export function TileDetailPanel({
         <div className="bingo-detail-description">{tile.description}</div>
       )}
 
-      {tile.requiredCount > 1 && (
+      {isItemGoal && tile.requiredCount > 1 && (
         <>
           <div className="bingo-detail-progress-label">
             {tile.approvedCount} / {tile.requiredCount} contributed toward this
@@ -96,62 +100,88 @@ export function TileDetailPanel({
         </>
       )}
 
-      <div className="bingo-detail-section-label">Contributors</div>
-      {tile.proofs.length > 0 ? (
-        <div className="bingo-detail-contributors">
-          {tile.proofs.map((p) => (
-            <div key={p.id} className="bingo-detail-contributor">
-              {p.submittedByAvatarUrl ? (
-                <img
-                  src={p.submittedByAvatarUrl}
-                  alt=""
-                  className="bingo-detail-contributor-avatar"
-                />
-              ) : (
-                <span className="bingo-detail-contributor-avatar">
-                  {initialsOf(p.submittedBy ?? "?")}
-                </span>
-              )}
-              <div className="bingo-detail-contributor-info">
-                <div className="bingo-detail-contributor-name">
-                  {p.submittedBy ?? "Unknown"}
-                </div>
-                <div className="bingo-detail-contributor-ts">
-                  {new Date(p.createdAt).toLocaleString()}
-                </div>
-              </div>
-              <span
-                className={`bingo-proof-pill bingo-proof-pill--${p.status}`}
-              >
-                {p.status}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="admin-empty">No submissions yet.</div>
-      )}
-
-      {tile.proofs.length > 0 && (
+      {!isItemGoal && (
         <>
-          <div className="bingo-detail-section-label">
-            Screenshots ({tile.proofs.length})
+          <div className="bingo-detail-progress-label">
+            {(tile.teamProgress ?? 0).toLocaleString()} /{" "}
+            {(tile.goalTarget ?? 0).toLocaleString()}{" "}
+            {tile.goalKind === "xp" ? "combined XP" : "combined kills"} — team
+            total, tracked automatically by everyone's plugin
           </div>
-          <div className="bingo-detail-screenshots">
-            {tile.proofs.map((p) => (
-              <img
-                key={p.id}
-                src={p.proofUrl}
-                alt=""
-                className="bingo-detail-thumb"
-                onClick={() => onOpenLightbox(p.proofUrl)}
-              />
-            ))}
+          <div className="bingo-detail-progress-track">
+            <div
+              className="bingo-detail-progress-fill"
+              style={{ width: `${pct}%`, background: accentColor }}
+            />
           </div>
         </>
       )}
 
-      {canSubmit ? (
+      {isItemGoal && (
+        <>
+          <div className="bingo-detail-section-label">Contributors</div>
+          {tile.proofs.length > 0 ? (
+            <div className="bingo-detail-contributors">
+              {tile.proofs.map((p) => (
+                <div key={p.id} className="bingo-detail-contributor">
+                  {p.submittedByAvatarUrl ? (
+                    <img
+                      src={p.submittedByAvatarUrl}
+                      alt=""
+                      className="bingo-detail-contributor-avatar"
+                    />
+                  ) : (
+                    <span className="bingo-detail-contributor-avatar">
+                      {initialsOf(p.submittedBy ?? "?")}
+                    </span>
+                  )}
+                  <div className="bingo-detail-contributor-info">
+                    <div className="bingo-detail-contributor-name">
+                      {p.submittedBy ?? "Unknown"}
+                    </div>
+                    <div className="bingo-detail-contributor-ts">
+                      {new Date(p.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <span
+                    className={`bingo-proof-pill bingo-proof-pill--${p.status}`}
+                  >
+                    {p.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="admin-empty">No submissions yet.</div>
+          )}
+
+          {tile.proofs.length > 0 && (
+            <>
+              <div className="bingo-detail-section-label">
+                Screenshots ({tile.proofs.length})
+              </div>
+              <div className="bingo-detail-screenshots">
+                {tile.proofs.map((p) => (
+                  <img
+                    key={p.id}
+                    src={p.proofUrl}
+                    alt=""
+                    className="bingo-detail-thumb"
+                    onClick={() => onOpenLightbox(p.proofUrl)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {!isItemGoal ? (
+        <div className="bingo-detail-readonly-note">
+          No proof needed — everyone on the team with the RuneLite plugin
+          installed contributes to this total automatically.
+        </div>
+      ) : canSubmit ? (
         <div className="bingo-detail-submit">
           <div className="bingo-detail-section-label">SUBMIT PROOF</div>
           <label className="bingo-detail-dropzone">

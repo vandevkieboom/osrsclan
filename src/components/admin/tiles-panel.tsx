@@ -7,6 +7,7 @@ import {
   updateTile,
   type AdminTile,
   type BoardConfig,
+  type TileGoal,
 } from "../../services/admin";
 import { PLACEHOLDER_BOARD_CONFIG, PLACEHOLDER_TILES } from "./placeholders";
 
@@ -27,19 +28,81 @@ function parseItemIdsInput(text: string): number[] {
 
 const ITEM_IDS_PLACEHOLDER = "Item IDs for auto-detect (e.g. 20997, 21015)";
 
+// Every field this form edits, threaded as one object rather than a long
+// positional parameter list (which is how this used to be structured, back
+// when there were only 7 fields — the xp/kc goal fields would have made an
+// 10-argument callback, so this form switches to a single object instead).
+interface TileFormValues {
+  name: string;
+  iconUrl: string;
+  requiredCount: number;
+  category: string;
+  description: string;
+  itemIds: number[];
+  requireUniqueItems: boolean;
+  goal: TileGoal;
+}
+
+function GoalFields({
+  goal,
+  onChange,
+}: {
+  goal: TileGoal;
+  onChange: (goal: TileGoal) => void;
+}) {
+  return (
+    <div className="admin-tile-goal-row">
+      <select
+        className="admin-select admin-tile-goal-kind-select"
+        value={goal.goalKind}
+        onChange={(e) => {
+          const goalKind = e.target.value as TileGoal["goalKind"];
+          onChange(
+            goalKind === "item"
+              ? { goalKind, goalKey: "", goalTarget: null }
+              : { goalKind, goalKey: goal.goalKey, goalTarget: goal.goalTarget ?? 1 },
+          );
+        }}
+      >
+        <option value="item">Item drop</option>
+        <option value="xp">Team XP</option>
+        <option value="kc">Team kill count</option>
+      </select>
+      {goal.goalKind !== "item" && (
+        <>
+          <input
+            type="text"
+            className="admin-input admin-tile-goal-input"
+            placeholder={
+              goal.goalKind === "xp" ? "Skill (e.g. Fishing)" : "Boss (e.g. Zulrah)"
+            }
+            value={goal.goalKey}
+            onChange={(e) => onChange({ ...goal, goalKey: e.target.value })}
+          />
+          <input
+            type="number"
+            min={1}
+            className="admin-input admin-tile-goal-input admin-tile-goal-target-input"
+            placeholder={goal.goalKind === "xp" ? "Target XP" : "Target kills"}
+            value={goal.goalTarget ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...goal,
+                goalTarget: Math.max(1, Number(e.target.value) || 1),
+              })
+            }
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 function TileAddRow({
   onSave,
   onCancel,
 }: {
-  onSave: (
-    name: string,
-    iconUrl: string,
-    requiredCount: number,
-    category: string,
-    description: string,
-    itemIds: number[],
-    requireUniqueItems: boolean,
-  ) => void;
+  onSave: (values: TileFormValues) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
@@ -49,6 +112,11 @@ function TileAddRow({
   const [description, setDescription] = useState("");
   const [itemIdsText, setItemIdsText] = useState("");
   const [requireUniqueItems, setRequireUniqueItems] = useState(false);
+  const [goal, setGoal] = useState<TileGoal>({
+    goalKind: "item",
+    goalKey: "",
+    goalTarget: null,
+  });
   return (
     <div className="admin-row admin-tile-row--adding admin-tile-card">
       <div className="admin-tile-card-top">
@@ -92,21 +160,26 @@ function TileAddRow({
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      <input
-        type="text"
-        className="admin-input admin-tile-description-input"
-        placeholder={ITEM_IDS_PLACEHOLDER}
-        value={itemIdsText}
-        onChange={(e) => setItemIdsText(e.target.value)}
-      />
-      <label className="admin-tile-unique-toggle">
+      <GoalFields goal={goal} onChange={setGoal} />
+      {goal.goalKind === "item" && (
         <input
-          type="checkbox"
-          checked={requireUniqueItems}
-          onChange={(e) => setRequireUniqueItems(e.target.checked)}
+          type="text"
+          className="admin-input admin-tile-description-input"
+          placeholder={ITEM_IDS_PLACEHOLDER}
+          value={itemIdsText}
+          onChange={(e) => setItemIdsText(e.target.value)}
         />
-        Require unique items (e.g. "4 different DK rings", not the same one 4x)
-      </label>
+      )}
+      {goal.goalKind === "item" && (
+        <label className="admin-tile-unique-toggle">
+          <input
+            type="checkbox"
+            checked={requireUniqueItems}
+            onChange={(e) => setRequireUniqueItems(e.target.checked)}
+          />
+          Require unique items (e.g. "4 different DK rings", not the same one 4x)
+        </label>
+      )}
       <div className="admin-tile-card-actions">
         <button
           type="button"
@@ -114,15 +187,16 @@ function TileAddRow({
           onClick={() =>
             name.trim() &&
             iconUrl.trim() &&
-            onSave(
-              name.trim(),
-              iconUrl.trim(),
+            onSave({
+              name: name.trim(),
+              iconUrl: iconUrl.trim(),
               requiredCount,
-              category.trim(),
-              description.trim(),
-              parseItemIdsInput(itemIdsText),
+              category: category.trim(),
+              description: description.trim(),
+              itemIds: parseItemIdsInput(itemIdsText),
               requireUniqueItems,
-            )
+              goal,
+            })
           }
         >
           Save
@@ -135,80 +209,83 @@ function TileAddRow({
   );
 }
 
+function valuesFromTile(tile: AdminTile): TileFormValues {
+  return {
+    name: tile.name,
+    iconUrl: tile.iconUrl,
+    requiredCount: tile.requiredCount,
+    category: tile.category,
+    description: tile.description,
+    itemIds: tile.itemIds,
+    requireUniqueItems: tile.requireUniqueItems,
+    goal: {
+      goalKind: tile.goalKind,
+      goalKey: tile.goalKey,
+      goalTarget: tile.goalTarget,
+    },
+  };
+}
+
+function valuesEqual(a: TileFormValues, b: TileFormValues): boolean {
+  return (
+    a.name === b.name &&
+    a.iconUrl === b.iconUrl &&
+    a.requiredCount === b.requiredCount &&
+    a.category === b.category &&
+    a.description === b.description &&
+    a.itemIds.join(",") === b.itemIds.join(",") &&
+    a.requireUniqueItems === b.requireUniqueItems &&
+    a.goal.goalKind === b.goal.goalKind &&
+    a.goal.goalKey === b.goal.goalKey &&
+    a.goal.goalTarget === b.goal.goalTarget
+  );
+}
+
 function TileRow({
   tile,
   onSave,
   onDelete,
 }: {
   tile: AdminTile;
-  onSave: (
-    name: string,
-    iconUrl: string,
-    requiredCount: number,
-    category: string,
-    description: string,
-    itemIds: number[],
-    requireUniqueItems: boolean,
-  ) => void;
+  onSave: (values: TileFormValues) => void;
   onDelete: () => void;
 }) {
-  const [name, setName] = useState(tile.name);
-  const [iconUrl, setIconUrl] = useState(tile.iconUrl);
-  const [requiredCount, setRequiredCount] = useState(tile.requiredCount);
-  const [category, setCategory] = useState(tile.category);
-  const [description, setDescription] = useState(tile.description);
+  const [values, setValues] = useState(valuesFromTile(tile));
   const [itemIdsText, setItemIdsText] = useState(tile.itemIds.join(", "));
-  const [requireUniqueItems, setRequireUniqueItems] = useState(
-    tile.requireUniqueItems,
-  );
   const [prevTile, setPrevTile] = useState(tile);
-  if (
-    tile.name !== prevTile.name ||
-    tile.iconUrl !== prevTile.iconUrl ||
-    tile.requiredCount !== prevTile.requiredCount ||
-    tile.category !== prevTile.category ||
-    tile.description !== prevTile.description ||
-    tile.itemIds.join(",") !== prevTile.itemIds.join(",") ||
-    tile.requireUniqueItems !== prevTile.requireUniqueItems
-  ) {
+  // Compared by field value, not by reference: `tile` is a fresh object after
+  // every reload() regardless of whether this particular tile's data actually
+  // changed, and resetting on reference alone would wipe an in-progress edit
+  // in this row whenever any other row's save triggers a reload.
+  if (!valuesEqual(valuesFromTile(tile), valuesFromTile(prevTile))) {
     setPrevTile(tile);
-    setName(tile.name);
-    setIconUrl(tile.iconUrl);
-    setRequiredCount(tile.requiredCount);
-    setCategory(tile.category);
-    setDescription(tile.description);
+    setValues(valuesFromTile(tile));
     setItemIdsText(tile.itemIds.join(", "));
-    setRequireUniqueItems(tile.requireUniqueItems);
   }
 
-  function commit() {
-    const n = name.trim();
-    const u = iconUrl.trim();
-    const c = Math.max(1, Math.floor(requiredCount) || 1);
-    const cat = category.trim();
-    const desc = description.trim();
-    const ids = parseItemIdsInput(itemIdsText);
+  function commit(next: TileFormValues) {
     if (
-      n &&
-      u &&
-      (n !== tile.name ||
-        u !== tile.iconUrl ||
-        c !== tile.requiredCount ||
-        cat !== tile.category ||
-        desc !== tile.description ||
-        ids.join(",") !== tile.itemIds.join(",") ||
-        requireUniqueItems !== tile.requireUniqueItems)
+      next.name &&
+      next.iconUrl &&
+      !valuesEqual(next, valuesFromTile(tile))
     ) {
-      onSave(n, u, c, cat, desc, ids, requireUniqueItems);
+      onSave(next);
     } else {
-      setName(tile.name);
-      setIconUrl(tile.iconUrl);
-      setRequiredCount(tile.requiredCount);
-      setCategory(tile.category);
-      setDescription(tile.description);
+      setValues(valuesFromTile(tile));
       setItemIdsText(tile.itemIds.join(", "));
-      setRequireUniqueItems(tile.requireUniqueItems);
     }
+  }
+
+  function commitCurrent() {
+    commit({
+      ...values,
+      name: values.name.trim() || tile.name,
+      iconUrl: values.iconUrl.trim() || tile.iconUrl,
+      requiredCount: Math.max(1, Math.floor(values.requiredCount) || 1),
+      category: values.category.trim(),
+      description: values.description.trim(),
+      itemIds: parseItemIdsInput(itemIdsText),
+    });
   }
 
   return (
@@ -218,34 +295,37 @@ function TileRow({
         <input
           type="text"
           className="admin-input admin-row-input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={commit}
+          value={values.name}
+          onChange={(e) => setValues({ ...values, name: e.target.value })}
+          onBlur={commitCurrent}
         />
         <input
           type="text"
           className="admin-input admin-tile-icon-input"
-          value={iconUrl}
-          onChange={(e) => setIconUrl(e.target.value)}
-          onBlur={commit}
+          value={values.iconUrl}
+          onChange={(e) => setValues({ ...values, iconUrl: e.target.value })}
+          onBlur={commitCurrent}
         />
         <input
           type="text"
           className="admin-input admin-tile-category-input"
           placeholder="Category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          onBlur={commit}
+          value={values.category}
+          onChange={(e) => setValues({ ...values, category: e.target.value })}
+          onBlur={commitCurrent}
         />
         <input
           type="number"
           min={1}
           className="admin-input admin-tile-count-input"
-          value={requiredCount}
+          value={values.requiredCount}
           onChange={(e) =>
-            setRequiredCount(Math.max(1, Number(e.target.value) || 1))
+            setValues({
+              ...values,
+              requiredCount: Math.max(1, Number(e.target.value) || 1),
+            })
           }
-          onBlur={commit}
+          onBlur={commitCurrent}
         />
         <button type="button" className="admin-btn-danger" onClick={onDelete}>
           ✕
@@ -255,38 +335,37 @@ function TileRow({
         type="text"
         className="admin-input admin-tile-description-input"
         placeholder="Explain exactly what counts for this tile…"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        onBlur={commit}
+        value={values.description}
+        onChange={(e) => setValues({ ...values, description: e.target.value })}
+        onBlur={commitCurrent}
       />
-      <input
-        type="text"
-        className="admin-input admin-tile-description-input"
-        placeholder={ITEM_IDS_PLACEHOLDER}
-        value={itemIdsText}
-        onChange={(e) => setItemIdsText(e.target.value)}
-        onBlur={commit}
+      <GoalFields
+        goal={values.goal}
+        onChange={(goal) => commit({ ...values, goal })}
       />
-      <label className="admin-tile-unique-toggle">
+      {values.goal.goalKind === "item" && (
         <input
-          type="checkbox"
-          checked={requireUniqueItems}
-          onChange={(e) => {
-            setRequireUniqueItems(e.target.checked);
-            // Not text input + onBlur here, so commit explicitly on change.
-            onSave(
-              name.trim() || tile.name,
-              iconUrl.trim() || tile.iconUrl,
-              Math.max(1, Math.floor(requiredCount) || 1),
-              category.trim(),
-              description.trim(),
-              parseItemIdsInput(itemIdsText),
-              e.target.checked,
-            );
-          }}
+          type="text"
+          className="admin-input admin-tile-description-input"
+          placeholder={ITEM_IDS_PLACEHOLDER}
+          value={itemIdsText}
+          onChange={(e) => setItemIdsText(e.target.value)}
+          onBlur={commitCurrent}
         />
-        Require unique items (e.g. "4 different DK rings", not the same one 4x)
-      </label>
+      )}
+      {values.goal.goalKind === "item" && (
+        <label className="admin-tile-unique-toggle">
+          <input
+            type="checkbox"
+            checked={values.requireUniqueItems}
+            onChange={(e) =>
+              // Not text input + onBlur here, so commit explicitly on change.
+              commit({ ...values, requireUniqueItems: e.target.checked })
+            }
+          />
+          Require unique items (e.g. "4 different DK rings", not the same one 4x)
+        </label>
+      )}
     </div>
   );
 }
@@ -315,27 +394,9 @@ export function TilesPanel() {
 
   useEffect(reload, []);
 
-  async function handleAddTile(
-    position: number,
-    name: string,
-    iconUrl: string,
-    requiredCount: number,
-    category: string,
-    description: string,
-    itemIds: number[],
-    requireUniqueItems: boolean,
-  ) {
+  async function handleAddTile(position: number, values: TileFormValues) {
     try {
-      await createTile(
-        position,
-        name,
-        iconUrl,
-        requiredCount,
-        category,
-        description,
-        itemIds,
-        requireUniqueItems,
-      );
+      await createTile({ position, ...values });
       setAddingPosition(null);
       reload();
     } catch (err) {
@@ -343,27 +404,9 @@ export function TilesPanel() {
     }
   }
 
-  async function handleSaveTile(
-    id: number,
-    name: string,
-    iconUrl: string,
-    requiredCount: number,
-    category: string,
-    description: string,
-    itemIds: number[],
-    requireUniqueItems: boolean,
-  ) {
+  async function handleSaveTile(id: number, values: TileFormValues) {
     try {
-      await updateTile(
-        id,
-        name,
-        iconUrl,
-        requiredCount,
-        category,
-        description,
-        itemIds,
-        requireUniqueItems,
-      );
+      await updateTile({ id, ...values });
       reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update tile");
@@ -408,51 +451,13 @@ export function TilesPanel() {
             <TileRow
               key={tile.position}
               tile={tile}
-              onSave={(
-                name,
-                iconUrl,
-                requiredCount,
-                category,
-                description,
-                itemIds,
-                requireUniqueItems,
-              ) =>
-                handleSaveTile(
-                  tile.id,
-                  name,
-                  iconUrl,
-                  requiredCount,
-                  category,
-                  description,
-                  itemIds,
-                  requireUniqueItems,
-                )
-              }
+              onSave={(values) => handleSaveTile(tile.id, values)}
               onDelete={() => handleDeleteTile(tile.id)}
             />
           ))}
         {addingPosition !== null && (
           <TileAddRow
-            onSave={(
-              name,
-              iconUrl,
-              requiredCount,
-              category,
-              description,
-              itemIds,
-              requireUniqueItems,
-            ) =>
-              handleAddTile(
-                addingPosition,
-                name,
-                iconUrl,
-                requiredCount,
-                category,
-                description,
-                itemIds,
-                requireUniqueItems,
-              )
-            }
+            onSave={(values) => handleAddTile(addingPosition, values)}
             onCancel={() => setAddingPosition(null)}
           />
         )}

@@ -59,6 +59,11 @@ ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAU
 -- buy-in, donated, and the per-donor entries list were never shown anywhere
 -- on the public site and are dropped from new rows and future saves.
 ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
+-- Shown by the RuneLite plugin as a small always-on overlay (phrase + a live
+-- timestamp) so a manually-taken screenshot can be tied to the live event.
+-- Only ever returned to authenticated callers (see getBoard in api/board.ts)
+-- — never on the fully-anonymous public leaderboard view.
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS verification_code TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,
@@ -82,6 +87,37 @@ ALTER TABLE tiles ADD COLUMN IF NOT EXISTS item_ids INT[] NOT NULL DEFAULT '{}';
 -- are enforced automatically instead of relying on an admin to notice a
 -- duplicate during review. Has no effect on tiles needing only one proof.
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS require_unique_items BOOLEAN NOT NULL DEFAULT FALSE;
+-- A tile's goal is either an item drop (the default — tracked via item_ids
+-- above, admin-reviewed proof) or a team-combined total the RuneLite plugin
+-- reports on directly with no proof/review step: 'xp' is total skill XP
+-- gained by the team since each member's plugin started reporting, 'kc' is
+-- total kills of a boss. goal_key is the skill or boss name exactly as it
+-- reads in-game/in kill-count chat (matched case-insensitively), not a
+-- machine id — see goal_progress below for how the per-member totals that
+-- get summed into a team total are tracked.
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_kind TEXT NOT NULL DEFAULT 'item' CHECK (goal_kind IN ('item', 'xp', 'kc'));
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_key TEXT NOT NULL DEFAULT '';
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_target BIGINT;
+
+-- Per-member progress toward a tile's team-combined xp/kc goal (see goal_kind
+-- above). baseline_value is that member's reading the first time their
+-- plugin ever reports this (goal_kind, goal_key) — so only XP/kills gained
+-- from that point on count, mirroring how item-drop tiles only see loot
+-- obtained while the plugin is running. latest_value only ever moves
+-- forward (XP and kill counts are monotonic in OSRS) — a team's total
+-- contribution is SUM(latest_value - baseline_value) across its members for
+-- a given goal_kind+goal_key, computed at read time in api/board.ts rather
+-- than stored, so it always reflects current team membership.
+CREATE TABLE IF NOT EXISTS goal_progress (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  goal_kind TEXT NOT NULL CHECK (goal_kind IN ('xp', 'kc')),
+  goal_key TEXT NOT NULL,
+  baseline_value BIGINT NOT NULL,
+  latest_value BIGINT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, goal_kind, goal_key)
+);
 
 CREATE TABLE IF NOT EXISTS submissions (
   id BIGSERIAL PRIMARY KEY,

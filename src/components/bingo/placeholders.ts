@@ -30,6 +30,10 @@ function placeholderTiles(teamId: number): BoardTile[] {
       status,
       latestProofUrl: null,
       latestSubmittedBy: status === "none" ? null : "izJordy",
+      goalKind: "item",
+      goalKey: "",
+      goalTarget: null,
+      teamProgress: null,
       proofs:
         status === "none"
           ? []
@@ -58,6 +62,7 @@ export const PLACEHOLDER_BOARD: BoardData = {
     prizePot: {
       total: "51.50M",
     },
+    verificationCode: "DEV-PLACEHOLDER",
   },
   teams: [
     {

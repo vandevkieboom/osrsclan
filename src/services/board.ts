@@ -23,6 +23,13 @@ export interface BoardTile {
   latestProofUrl: string | null;
   latestSubmittedBy: string | null;
   proofs: BoardProof[];
+  /** "item" (the default) goes through proof/review above; "xp"/"kc" are
+   * team-combined totals the RuneLite plugin reports directly — see
+   * teamProgress/goalTarget below, and never have proofs. */
+  goalKind: "item" | "xp" | "kc";
+  goalKey: string;
+  goalTarget: number | null;
+  teamProgress: number | null;
 }
 
 export interface BoardTeam {
@@ -45,7 +52,14 @@ export interface PrizePot {
 }
 
 export interface BoardData {
-  config: { name: string; size: number; prizePot: PrizePot };
+  config: {
+    name: string;
+    size: number;
+    prizePot: PrizePot;
+    /** Only present when the caller is authenticated (browser session or
+     * plugin token) — withheld from the anonymous public leaderboard view. */
+    verificationCode?: string;
+  };
   teams: BoardTeam[];
   myTeamId: number | null;
 }

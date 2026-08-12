@@ -93,6 +93,23 @@ export function BoardConfigPanel() {
               }
             />
           </label>
+          <label className="admin-field">
+            <span>Verification codephrase</span>
+            <input
+              type="text"
+              className="admin-input"
+              placeholder="e.g. GOBLIN-471"
+              value={config.verificationCode}
+              onChange={(e) =>
+                setConfig({ ...config, verificationCode: e.target.value })
+              }
+            />
+            <span className="admin-field-hint">
+              Shown on a small overlay by the RuneLite plugin, alongside a live
+              timestamp — give this to members so a manually-taken screenshot
+              can be tied to the live event.
+            </span>
+          </label>
         </div>
 
         <div className="admin-section-save">

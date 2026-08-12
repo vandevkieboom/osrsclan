@@ -66,6 +66,7 @@ export const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
   size: 5,
   prizePot: { total: "" },
+  verificationCode: "DEV-PLACEHOLDER",
 };
 export const PLACEHOLDER_TILES: AdminTile[] = [
   {
@@ -78,6 +79,9 @@ export const PLACEHOLDER_TILES: AdminTile[] = [
     description: "",
     itemIds: [20997],
     requireUniqueItems: false,
+    goalKind: "item",
+    goalKey: "",
+    goalTarget: null,
   },
   {
     id: 2,
@@ -90,5 +94,22 @@ export const PLACEHOLDER_TILES: AdminTile[] = [
     description: "",
     itemIds: [22325],
     requireUniqueItems: false,
+    goalKind: "item",
+    goalKey: "",
+    goalTarget: null,
+  },
+  {
+    id: 3,
+    position: 2,
+    name: "Team Fishing XP",
+    iconUrl: "https://oldschool.runescape.wiki/images/Fishing_icon.png",
+    requiredCount: 1,
+    category: "TEAM GOAL",
+    description: "Team gains 2,000,000 combined Fishing XP.",
+    itemIds: [],
+    requireUniqueItems: false,
+    goalKind: "xp",
+    goalKey: "Fishing",
+    goalTarget: 2_000_000,
   },
 ];

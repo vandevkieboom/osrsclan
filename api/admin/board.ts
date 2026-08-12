@@ -6,7 +6,12 @@ import { getOrCreateBoardConfig, type PrizePot } from "../_lib/board.js";
 async function getConfig(res: VercelResponse) {
   const c = await getOrCreateBoardConfig();
   res.status(200).json({
-    config: { name: c.name, size: c.size, prizePot: c.prize_pot },
+    config: {
+      name: c.name,
+      size: c.size,
+      prizePot: c.prize_pot,
+      verificationCode: c.verification_code,
+    },
   });
 }
 
@@ -38,21 +43,33 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  const verificationCode =
+    typeof req.body?.verificationCode === "string"
+      ? req.body.verificationCode.trim()
+      : null;
+
   // Upsert rather than a plain UPDATE — board_config is a singleton, but if
   // it was ever deleted by hand, a plain "WHERE id = 1" would silently touch
   // zero rows instead of recreating it.
   const current = await getOrCreateBoardConfig();
   const nextPrizePot = prizePot ?? current.prize_pot;
+  const nextVerificationCode = verificationCode ?? current.verification_code;
   const rows = await sql`
-    INSERT INTO board_config (id, name, size, prize_pot)
-    VALUES (1, ${name}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb)
+    INSERT INTO board_config (id, name, size, prize_pot, verification_code)
+    VALUES (1, ${name}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb, ${nextVerificationCode})
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name, size = EXCLUDED.size,
-      prize_pot = EXCLUDED.prize_pot, updated_at = now()
-    RETURNING name, size, prize_pot`;
+      prize_pot = EXCLUDED.prize_pot, verification_code = EXCLUDED.verification_code,
+      updated_at = now()
+    RETURNING name, size, prize_pot, verification_code`;
   const c = rows[0];
   res.status(200).json({
-    config: { name: c.name, size: c.size, prizePot: c.prize_pot },
+    config: {
+      name: c.name,
+      size: c.size,
+      prizePot: c.prize_pot,
+      verificationCode: c.verification_code,
+    },
   });
 }
 
@@ -67,7 +84,33 @@ function serializeTile(t: Record<string, unknown>) {
     description: t.description,
     itemIds: (t.item_ids ?? []) as number[],
     requireUniqueItems: Boolean(t.require_unique_items),
+    goalKind: t.goal_kind as "item" | "xp" | "kc",
+    goalKey: t.goal_key as string,
+    goalTarget: t.goal_target === null ? null : Number(t.goal_target),
   };
+}
+
+/**
+ * A tile is either an item-drop tile (goalKind absent/"item") or a
+ * team-combined xp/kc goal (see goal_kind in db/schema.sql) — the latter
+ * needs a non-empty goalKey (skill/boss name) and a positive goalTarget.
+ * Returns null on a malformed (not just empty) goal, so the caller can 400.
+ */
+function parseGoal(
+  body: unknown,
+): { goalKind: "item" | "xp" | "kc"; goalKey: string; goalTarget: number | null } | null {
+  const b = body as
+    | { goalKind?: unknown; goalKey?: unknown; goalTarget?: unknown }
+    | undefined;
+  const goalKind = b?.goalKind ?? "item";
+  if (goalKind !== "item" && goalKind !== "xp" && goalKind !== "kc") return null;
+
+  if (goalKind === "item") return { goalKind, goalKey: "", goalTarget: null };
+
+  const goalKey = typeof b?.goalKey === "string" ? b.goalKey.trim() : "";
+  const goalTarget = Number(b?.goalTarget);
+  if (!goalKey || !Number.isInteger(goalTarget) || goalTarget <= 0) return null;
+  return { goalKind, goalKey, goalTarget };
 }
 
 /**
@@ -88,7 +131,7 @@ function parseItemIds(body: unknown): number[] | null {
 async function listTiles(res: VercelResponse) {
   const rows = await sql`
     SELECT id, position, name, icon_url, required_count, category, description,
-           item_ids, require_unique_items
+           item_ids, require_unique_items, goal_kind, goal_key, goal_target
     FROM tiles ORDER BY position`;
   res.status(200).json({ tiles: rows.map(serializeTile) });
 }
@@ -115,6 +158,7 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
   const requireUniqueItems = Boolean(
     req.body?.requireUniqueItems ?? req.body?.require_unique_items,
   );
+  const goal = parseGoal(req.body);
   if (
     !Number.isInteger(position) ||
     position < 0 ||
@@ -122,18 +166,20 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
     !iconUrl ||
     !Number.isInteger(requiredCount) ||
     requiredCount < 1 ||
-    itemIds === null
+    itemIds === null ||
+    goal === null
   ) {
     res.status(400).json({
-      error: "position, name, iconUrl and requiredCount are required",
+      error:
+        "position, name, iconUrl and requiredCount are required, and an xp/kc goal needs a goalKey and positive goalTarget",
     });
     return;
   }
   try {
     const rows = await sql`
-      INSERT INTO tiles (position, name, icon_url, required_count, category, description, item_ids, require_unique_items)
-      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description}, ${itemIds}::int[], ${requireUniqueItems})
-      RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items`;
+      INSERT INTO tiles (position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target)
+      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description}, ${itemIds}::int[], ${requireUniqueItems}, ${goal.goalKind}, ${goal.goalKey}, ${goal.goalTarget})
+      RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target`;
     res.status(201).json({ tile: serializeTile(rows[0]) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
@@ -167,25 +213,29 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
   const requireUniqueItems = Boolean(
     req.body?.requireUniqueItems ?? req.body?.require_unique_items,
   );
+  const goal = parseGoal(req.body);
   if (
     !Number.isInteger(id) ||
     !name ||
     !iconUrl ||
     !Number.isInteger(requiredCount) ||
     requiredCount < 1 ||
-    itemIds === null
+    itemIds === null ||
+    goal === null
   ) {
-    res
-      .status(400)
-      .json({ error: "id, name, iconUrl and requiredCount are required" });
+    res.status(400).json({
+      error:
+        "id, name, iconUrl and requiredCount are required, and an xp/kc goal needs a goalKey and positive goalTarget",
+    });
     return;
   }
   const rows = await sql`
     UPDATE tiles SET name = ${name}, icon_url = ${iconUrl}, required_count = ${requiredCount},
       category = ${category}, description = ${description}, item_ids = ${itemIds}::int[],
-      require_unique_items = ${requireUniqueItems}
+      require_unique_items = ${requireUniqueItems}, goal_kind = ${goal.goalKind},
+      goal_key = ${goal.goalKey}, goal_target = ${goal.goalTarget}
     WHERE id = ${id}
-    RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items`;
+    RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target`;
   if (rows.length === 0) {
     res.status(404).json({ error: "Tile not found" });
     return;

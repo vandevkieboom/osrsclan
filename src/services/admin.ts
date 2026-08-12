@@ -32,6 +32,9 @@ export interface BoardConfig {
   name: string;
   size: number;
   prizePot: PrizePot;
+  /** Shown by the RuneLite plugin's overlay so a manually-taken screenshot
+   * can be tied to the live event. */
+  verificationCode: string;
 }
 
 export interface AdminTile {
@@ -46,6 +49,19 @@ export interface AdminTile {
   itemIds: number[];
   /** When true, the same item id can only be submitted once per team for this tile. */
   requireUniqueItems: boolean;
+  /** "item" (default) is the proof/review flow above; "xp"/"kc" is a
+   * team-combined total the plugin reports directly — goalKey is the exact
+   * skill/boss name (matched case-insensitively), goalTarget the threshold. */
+  goalKind: "item" | "xp" | "kc";
+  goalKey: string;
+  goalTarget: number | null;
+}
+
+/** The xp/kc-goal fields shared by createTile/updateTile's params. */
+export interface TileGoal {
+  goalKind: "item" | "xp" | "kc";
+  goalKey: string;
+  goalTarget: number | null;
 }
 
 export interface AdminSubmission {
@@ -213,16 +229,28 @@ export async function fetchAdminTiles(): Promise<AdminTile[]> {
   return data.tiles;
 }
 
-export async function createTile(
-  position: number,
-  name: string,
-  iconUrl: string,
-  requiredCount = 1,
-  category = "",
-  description = "",
-  itemIds: number[] = [],
-  requireUniqueItems = false,
-): Promise<AdminTile> {
+export async function createTile(params: {
+  position: number;
+  name: string;
+  iconUrl: string;
+  requiredCount?: number;
+  category?: string;
+  description?: string;
+  itemIds?: number[];
+  requireUniqueItems?: boolean;
+  goal?: TileGoal;
+}): Promise<AdminTile> {
+  const {
+    position,
+    name,
+    iconUrl,
+    requiredCount = 1,
+    category = "",
+    description = "",
+    itemIds = [],
+    requireUniqueItems = false,
+    goal,
+  } = params;
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -237,22 +265,35 @@ export async function createTile(
       requireUniqueItems,
       icon_url: iconUrl,
       required_count: requiredCount,
+      ...goal,
     }),
   });
   const data = await json<{ tile: AdminTile }>(res);
   return data.tile;
 }
 
-export async function updateTile(
-  id: number,
-  name: string,
-  iconUrl: string,
-  requiredCount = 1,
-  category = "",
-  description = "",
-  itemIds: number[] = [],
-  requireUniqueItems = false,
-): Promise<AdminTile> {
+export async function updateTile(params: {
+  id: number;
+  name: string;
+  iconUrl: string;
+  requiredCount?: number;
+  category?: string;
+  description?: string;
+  itemIds?: number[];
+  requireUniqueItems?: boolean;
+  goal?: TileGoal;
+}): Promise<AdminTile> {
+  const {
+    id,
+    name,
+    iconUrl,
+    requiredCount = 1,
+    category = "",
+    description = "",
+    itemIds = [],
+    requireUniqueItems = false,
+    goal,
+  } = params;
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -267,6 +308,7 @@ export async function updateTile(
       requireUniqueItems,
       icon_url: iconUrl,
       required_count: requiredCount,
+      ...goal,
     }),
   });
   const data = await json<{ tile: AdminTile }>(res);
