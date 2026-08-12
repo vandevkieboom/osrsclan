@@ -26,7 +26,6 @@ See `.env.local` (not in git) for the current values. Required:
 
 - `DATABASE_URL` — Neon Postgres connection string
 - `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI` — Discord OAuth login
-- `DISCORD_BOT_TOKEN`, `DISCORD_ANNOUNCEMENTS_CHANNEL_ID` — Discord announcements
 - `WOM_API_KEY` — Wise Old Man API (via `api/wom-proxy.ts` and `api/runeprofile-proxy.ts`)
 - `RUNEPROFILE_API_KEY` — RuneProfile API (via `api/runeprofile-proxy.ts`)
 - `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNELS` — live status of clan members
