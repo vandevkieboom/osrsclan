@@ -4,6 +4,7 @@ import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import { ranks } from "../data/ranks-data";
 import type { Item } from "../types/item";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
 
 const STORAGE_KEY = "clan-tier-feedback-v1";
 const POOL_ZONE = "pool";
@@ -154,7 +155,17 @@ export function TierFeedbackPage() {
     };
   }, []);
 
-  const [placements, setPlacements] = useState<Record<string, string>>({});
+  const [placements, setPlacements] = useLocalStorageState<
+    Record<string, string>
+  >(
+    STORAGE_KEY,
+    {},
+    {
+      parse: (raw) => (JSON.parse(raw) as SavedState).placements ?? {},
+      serialize: (placements) =>
+        JSON.stringify({ placements } satisfies SavedState),
+    },
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragGhost, setDragGhost] = useState<{
     id: string;
@@ -171,22 +182,6 @@ export function TierFeedbackPage() {
     startY: number;
     moved: boolean;
   } | null>(null);
-
-  useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as SavedState;
-      setPlacements(parsed.placements ?? {});
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    const payload: SavedState = { placements };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [placements]);
 
   useEffect(() => {
     const handleMove = (e: PointerEvent) => {
@@ -255,6 +250,9 @@ export function TierFeedbackPage() {
       window.removeEventListener("pointerup", handleUp);
       window.removeEventListener("pointercancel", handleUp);
     };
+    // setPlacements is the stable setter from useLocalStorageState (same
+    // guarantee as useState's setter), safe to omit here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleItemPointerDown = (e: React.PointerEvent, id: string) => {

@@ -22,6 +22,7 @@ import {
   fetchVerifiedItems,
   removeVerifiedItem,
 } from "../services/profile";
+import { useLocalStorageState } from "../hooks/useLocalStorageState";
 
 const STORAGE_KEY = "clan-rankings-hide-completed-v1";
 
@@ -32,7 +33,11 @@ export const ClanRankings = () => {
   const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<"progress" | "leaderboard">("progress");
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useLocalStorageState(
+    STORAGE_KEY,
+    false,
+    { parse: (raw) => Boolean(JSON.parse(raw)) },
+  );
 
   const [username, setUsername] = useState("");
   const [profile, setProfile] = useState<RuneProfile | null>(null);
@@ -42,23 +47,6 @@ export const ClanRankings = () => {
   const [verifiedItemNames, setVerifiedItemNames] = useState<Set<string>>(
     new Set(),
   );
-
-  useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return;
-    }
-
-    try {
-      setHideCompleted(Boolean(JSON.parse(raw)));
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(hideCompleted));
-  }, [hideCompleted]);
 
   const apiVerified = useMemo<Record<string, CheckResult>>(() => {
     if (!profile) {
