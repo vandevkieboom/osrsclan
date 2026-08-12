@@ -1,0 +1,357 @@
+/* =====================
+   Homepage Hero
+   ===================== */
+
+.hero {
+  width: 100%;
+  /* Upper bound raised from 600px: capping height while width keeps growing
+     forces object-fit: cover to crop an ever-smaller vertical slice on wide
+     screens, which reads as the art "zooming in". Letting height keep
+     tracking width (up to 900px, around a 2045px-wide viewport) keeps the
+     crop close to the source image's own aspect ratio instead. */
+  min-height: clamp(400px, 44vw, 900px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+  z-index: 1;
+  /* Matches body's background exactly — the .hero-media mask below fades
+     the image to transparent at the edges, revealing this color. */
+  background-color: var(--bg);
+}
+
+.hero-media {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    rgba(0, 0, 0, 0.15) 40px,
+    rgba(0, 0, 0, 0.5) 100px,
+    rgba(0, 0, 0, 0.82) 160px,
+    #000 220px,
+    #000 calc(100% - 220px),
+    rgba(0, 0, 0, 0.82) calc(100% - 160px),
+    rgba(0, 0, 0, 0.5) calc(100% - 100px),
+    rgba(0, 0, 0, 0.15) calc(100% - 40px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    rgba(0, 0, 0, 0.15) 40px,
+    rgba(0, 0, 0, 0.5) 100px,
+    rgba(0, 0, 0, 0.82) 160px,
+    #000 220px,
+    #000 calc(100% - 220px),
+    rgba(0, 0, 0, 0.82) calc(100% - 160px),
+    rgba(0, 0, 0, 0.5) calc(100% - 100px),
+    rgba(0, 0, 0, 0.15) calc(100% - 40px),
+    transparent 100%
+  );
+}
+
+.hero-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: 50% 70%;
+  transform: translateZ(0);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    #000 62%,
+    #0000008c 84%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    #000 0%,
+    #000 70%,
+    #0000008c 85%,
+    transparent 100%
+  );
+}
+
+.hero-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      62% 95% at 15% 50%,
+      rgb(var(--bg-rgb) / 88%) 0%,
+      transparent 78%
+    ),
+    linear-gradient(180deg, rgb(var(--bg-rgb) / 60%) 0%, transparent 24%);
+}
+
+/* Header + copy share one stacking layer above the art. */
+.hero-layer {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.hero-live:focus-visible {
+  outline: 2px solid #e8574a;
+  outline-offset: 3px;
+}
+
+/* Hero copy */
+.hero-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.7rem;
+  max-width: 34rem;
+  padding: 2rem 0 2.5rem;
+}
+
+.hero-eyebrow {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #e2938a;
+}
+
+.hero-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 66px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--text-heading);
+  text-shadow: 0 2px 16px #000a;
+}
+
+.hero-lede {
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #d8c4c1;
+  max-width: 46ch;
+}
+
+.hero-discord-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: fit-content;
+  padding: 0.6rem 1.1rem;
+  border: 1.5px solid #33294a;
+  border-radius: 4px;
+  background: #151020;
+  color: var(--text-heading);
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition:
+    border-color 0.18s,
+    background-color 0.18s;
+}
+
+.hero-discord-btn:hover {
+  border-color: #5865f2;
+  background: #1a1430;
+}
+
+.hero-discord-icon {
+  width: 18px;
+  height: 18px;
+  fill: #5865f2;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px #5865f244);
+}
+
+/* Hero stat bar */
+.hero-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem 2.6rem;
+  padding: 1.1rem 0;
+}
+
+.hero-statband {
+  border-top: 1px solid #2a1214;
+  background: #12080ab8;
+  backdrop-filter: blur(3px);
+}
+
+.hero-statband-inner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem 2.8rem;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 1.15rem var(--gutter);
+}
+
+.hero-stat-value {
+  display: block;
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 1.625rem;
+  line-height: 1;
+  color: #f0e8e6;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-stat-label {
+  display: block;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #c9b8b6;
+  margin-top: 0.35em;
+}
+
+.hero-live {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-left: auto;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color 0.18s;
+}
+
+.hero-live--open {
+  color: var(--green);
+}
+
+.hero-live--full {
+  color: #e2938a;
+}
+
+.hero-live-offline-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e8574a;
+  box-shadow: 0 0 8px #e8574a;
+  animation: hero-live-pulse 2.4s ease-in-out infinite;
+}
+
+.hero-live-online-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: hero-live-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes hero-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-live-dot {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero {
+    aspect-ratio: auto;
+    min-height: 0;
+  }
+
+  /* Art moves behind the copy instead of beside it. */
+  .hero-media {
+    inset: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .hero-img {
+    object-position: 54% 42%;
+    -webkit-mask-image: linear-gradient(
+      180deg,
+      #000 0%,
+      #000 40%,
+      #00000066 74%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      180deg,
+      #000 0%,
+      #000 40%,
+      #00000066 74%,
+      transparent 100%
+    );
+  }
+
+  .hero-veil {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg) 80%, transparent) 0%,
+        color-mix(in srgb, var(--bg) 45%, transparent) 42%,
+        color-mix(in srgb, var(--bg) 90%, transparent) 100%
+      ),
+      radial-gradient(
+        85% 45% at 22% 62%,
+        color-mix(in srgb, var(--bg) 65%, transparent) 0%,
+        transparent 72%
+      );
+  }
+
+  .hero-copy {
+    padding: 3rem 0 2rem;
+    gap: 0.7rem;
+  }
+
+  .hero-title {
+    font-size: 42px;
+  }
+
+  .hero-stats {
+    gap: 0.9rem 1.6rem;
+  }
+
+  .hero-stat-value {
+    font-size: 1.25rem;
+  }
+
+  .hero-live {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+

@@ -1,0 +1,71 @@
+/* =====================
+   Home page — donation leaderboard
+   ===================== */
+
+.home-donors-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.9rem;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-donor-card {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 6px;
+  padding: 1rem 0.9rem;
+  text-align: center;
+}
+
+.home-donor-card--rank1 {
+  border-top: 3px solid #f4d35e;
+}
+
+.home-donor-card--rank2 {
+  border-top: 3px solid #f0e8e6;
+}
+
+.home-donor-card--rank3 {
+  border-top: 3px solid #f4a35e;
+}
+
+.home-donor-rank {
+  margin-bottom: 0.4rem;
+}
+
+.home-donor-trophy-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.home-donor-rank-num {
+  display: inline-block;
+  font-size: 13px;
+  color: #8f7a78;
+}
+
+.home-donor-name {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  color: var(--text-heading);
+  margin-bottom: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-donor-amount {
+  font-size: 12px;
+  color: #d4b158;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .home-donors-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

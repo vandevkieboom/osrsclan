@@ -1,0 +1,400 @@
+/* =====================
+   Bingo page
+   ===================== */
+
+.bingo-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 2rem;
+}
+
+.bingo-tab {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 1px solid #3a2224;
+  color: var(--text-primary);
+  padding: 0.65rem 1.1rem;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.bingo-tab:hover {
+  border-color: #7a3034;
+}
+
+.bingo-tab.active {
+  background: #a3241a;
+  border-color: #a3241a;
+  color: #fff;
+}
+
+.bingo-tab-badge {
+  background: #e8574a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-size: 10px;
+}
+
+.bingo-teams-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  max-width: 1312px;
+}
+
+.bingo-team-card {
+  border: 1px solid #2a1315;
+  border-top: 3px solid var(--team-accent, #e8574a);
+  background: #120809;
+  padding: 1.375rem;
+  border-radius: 8px;
+  position: relative;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.bingo-team-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+}
+
+.bingo-team-leading-badge {
+  position: absolute;
+  top: -10px;
+  right: 16px;
+  background: #d4a017;
+  color: #120809;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 10px;
+}
+
+.bingo-team-name {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 18px;
+  color: var(--team-accent, #e8574a);
+  margin-bottom: 0.4rem;
+}
+
+.bingo-team-members {
+  font-size: 11px;
+  color: #8f7a78;
+  margin-bottom: 0.9rem;
+}
+
+.bingo-team-progress-track {
+  height: 8px;
+  background: #1c1010;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.bingo-team-progress-fill {
+  height: 100%;
+  background: var(--team-accent, #e8574a);
+  transition: width 0.3s ease;
+}
+
+.bingo-team-count {
+  font-size: 12px;
+  color: #c9b8b6;
+}
+
+.bingo-board-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.bingo-board-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 20px;
+  color: var(--text-primary);
+}
+
+.bingo-tiles-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.bingo-tile {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease;
+  container-type: inline-size;
+}
+
+.bingo-tile:hover {
+  transform: translateY(-2px);
+  border-color: #e8574a;
+}
+
+.bingo-tile--approved {
+  border-color: var(--green);
+  background: color-mix(in srgb, #120809, var(--green) 8%);
+}
+
+.bingo-tile--pending {
+  border-color: #d4a017;
+}
+
+.bingo-tile-status {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: clamp(16px, 16cqw, 26px);
+  height: clamp(16px, 16cqw, 26px);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(9px, 9cqw, 14px);
+  color: #fff;
+  z-index: 1;
+}
+
+.bingo-tile-status--approved {
+  background: var(--green);
+}
+
+.bingo-tile-status--pending {
+  background: #d4a017;
+}
+
+.bingo-tile-status--rejected {
+  background: #a3241a;
+}
+
+.bingo-tile-icon {
+  width: clamp(32px, 44cqw, 96px);
+  height: clamp(32px, 44cqw, 96px);
+  object-fit: contain;
+  opacity: 0.75;
+}
+
+.bingo-tile--pending .bingo-tile-icon {
+  opacity: 0.9;
+}
+
+.bingo-tile--approved .bingo-tile-icon {
+  opacity: 1;
+}
+
+.bingo-tile--selected {
+  border-color: #e8574a;
+}
+
+.bingo-tile-avatars {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  display: flex;
+}
+
+.bingo-tile-avatar {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #3a2224;
+  border: 1px solid #120809;
+  color: #e2938a;
+  font-size: 7px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -4px;
+  object-fit: cover;
+}
+
+.bingo-tile-avatar:first-child {
+  margin-left: 0;
+}
+
+.bingo-tile-fraction {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: var(--bg);
+  border: 1px solid #2a1315;
+  color: #a08c89;
+  font-size: clamp(7px, 8cqw, 10px);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.bingo-tile-uploading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #090506cc;
+  color: #f0e8e6;
+  font-size: clamp(8px, 9cqw, 12px);
+  border-radius: 6px;
+}
+
+.bingo-proof-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bingo-proof-pill--approved {
+  background: #16351f;
+  color: #9ae5b0;
+}
+
+.bingo-proof-pill--pending {
+  background: #3a2b11;
+  color: #f3d58d;
+}
+
+.bingo-proof-pill--rejected {
+  background: #3a1415;
+  color: #f1a19d;
+}
+
+.bingo-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bingo-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.bingo-admin-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.bingo-admin-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bingo-admin-tile-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.bingo-admin-meta {
+  font-size: 11px;
+  color: #8f7a78;
+}
+
+.bingo-admin-proof-link {
+  font-size: 11px;
+  color: #e8574a;
+  white-space: nowrap;
+}
+
+.bingo-admin-approve {
+  background: var(--green);
+  border: none;
+  color: #fff;
+  padding: 0.5rem 0.9rem;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bingo-admin-reject {
+  background: none;
+  border: 1px solid #a3241a;
+  color: #e8574a;
+  padding: 0.5rem 0.9rem;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bingo-admin-empty {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 2.5rem;
+  text-align: center;
+  font-size: 13px;
+  color: #8a7674;
+  margin-bottom: 1.5rem;
+}
+
+.bingo-login-prompt {
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .bingo-teams-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .bingo-admin-row {
+    flex-wrap: wrap;
+  }
+
+  .bingo-teams-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

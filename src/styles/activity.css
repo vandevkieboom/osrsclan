@@ -1,0 +1,106 @@
+/* =====================
+   Activity Page
+   ===================== */
+.activity-panel {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+}
+
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-state {
+  text-align: center;
+  padding: 2rem 0;
+  color: #8f7a78;
+  font-size: 0.95rem;
+}
+
+.activity-error {
+  color: #e8574a;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 22px;
+  border-bottom: 1px solid #1c1010;
+  gap: 1rem;
+  transition: background 0.15s;
+}
+
+.activity-row:last-child {
+  border-bottom: none;
+}
+
+.activity-row:hover {
+  background: rgba(232, 87, 74, 0.06);
+}
+
+.activity-row-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.activity-skill-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.activity-row-content {
+  min-width: 0;
+}
+
+.activity-row-main {
+  font-size: 13px;
+  color: #c9b8b6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-player-link {
+  color: #f0e8e6;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.activity-player-link:hover {
+  color: #e8574a;
+}
+
+.activity-desc {
+  color: #c9b8b6;
+}
+
+.activity-highlight {
+  font-weight: 600;
+}
+
+.activity-time {
+  color: #7a655f;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.activity-pagination {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  padding-top: 1.2rem;
+}
+

@@ -1,0 +1,486 @@
+/* =====================
+   Home Page
+   ===================== */
+
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-card {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.6rem 1.15rem 1.6rem;
+  border: 1px solid #2a1315;
+  border-radius: 2px;
+  background: #120809;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s,
+    background-color 0.18s;
+}
+
+.home-card:hover {
+  border-color: #e8574a;
+  background: #17090a;
+  box-shadow: 0 0 14px #e8574a2e;
+}
+
+.home-card-icon {
+  width: 44px;
+  height: 44px;
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px #000a);
+}
+
+.home-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.home-card-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  color: var(--text-heading);
+  letter-spacing: 0.02em;
+}
+
+.home-card-desc {
+  font-size: 13px;
+  color: var(--text-body);
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  line-height: 1.5;
+}
+
+.home-section-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: #f0e8e6;
+  letter-spacing: 0.02em;
+  margin-bottom: 1.375rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-status {
+  text-align: center;
+  font-size: 0.75rem;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  color: var(--text-body);
+  margin-bottom: 1.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-status--error {
+  color: #f08080;
+}
+
+.home-event {
+  border: 1.5px solid #3a1818;
+  border-radius: 4px;
+  background: #181010cc
+    url("https://oldschool.runescape.wiki/images/Corrupted_Gauntlet_tile.png")
+    repeat;
+  background-size: 120px 120px;
+  padding: 1rem 1.2rem;
+  max-width: 480px;
+  margin: 0 auto 2rem;
+  position: relative;
+  z-index: 2;
+}
+
+.home-event-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #3a181855;
+}
+
+.home-event-metric-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.home-event-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-event-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 0.82rem;
+  color: #e8a0a0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-event-dates {
+  font-size: 0.6rem;
+  color: #9a8080;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+}
+
+.home-event-live {
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  letter-spacing: 0.08em;
+  color: var(--green);
+  border: 1px solid color-mix(in srgb, var(--green) 33%, transparent);
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  flex-shrink: 0;
+}
+
+.home-event-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.6rem;
+}
+
+.home-event-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.28rem 0;
+  border-bottom: 1px solid #3a181833;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+}
+
+.home-event-row:last-child {
+  border-bottom: none;
+}
+
+.home-event-pos {
+  color: #7a5050;
+  width: 2rem;
+  text-align: right;
+  flex-shrink: 0;
+  font-size: 0.68rem;
+}
+
+.home-event-name {
+  flex: 1;
+  color: #d8b0b0;
+}
+
+.home-event-gained {
+  color: var(--green);
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+.home-event-more {
+  display: block;
+  text-align: right;
+  margin-top: 0.4rem;
+  font-size: 0.65rem;
+  color: #7a5050;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.home-discord {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.2rem;
+  border: 1.5px solid #3a2f14;
+  border-radius: 4px;
+  background: color-mix(in srgb, #120809, #d4a017 12%);
+  text-decoration: none;
+  color: inherit;
+  margin-top: 2rem;
+  margin-bottom: 0;
+  position: relative;
+  z-index: 2;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
+}
+
+.home-discord:hover {
+  border-color: #d4a017;
+  box-shadow: 0 0 14px #d4a01733;
+}
+
+.home-discord-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px #d4a01744);
+  margin-right: 0.2rem;
+}
+
+.home-discord-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+}
+
+.home-discord-label {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  color: #f0e8e6;
+  letter-spacing: 0.02em;
+}
+
+.home-discord-sub {
+  font-size: 0.65rem;
+  color: var(--text-body);
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+}
+
+.home-discord-arrow {
+  font-size: 0.9rem;
+  color: var(--text-body);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .home-cards {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+  }
+}
+
+/* =====================
+   Home Page – bottom panels
+   ===================== */
+
+.home-panels {
+  /* display: grid;
+  grid-template-columns: 1fr 1fr; */
+  gap: 1rem;
+  margin-bottom: 0;
+  align-items: stretch;
+  position: relative;
+  z-index: 2;
+}
+
+.home-panel {
+  gap: 0.3rem;
+  padding: 1.5rem 1.625rem;
+  border: 1px solid #2a1315;
+  border-radius: 2px;
+  min-height: 180px;
+  background: #120809;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s,
+    background-color 0.18s;
+}
+
+.home-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+  padding-bottom: 0.5rem;
+}
+
+.home-panel-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  color: var(--text-heading);
+  letter-spacing: 0.04em;
+}
+
+.home-panel-more {
+  font-size: 0.62rem;
+  color: var(--text-body);
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.home-panel-more:hover {
+  color: #e8574a;
+}
+
+/* Twitch panel */
+.home-panel-clan-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.home-twitch-offline {
+  font-size: 0.8125rem;
+  color: #8a7674;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  padding: 0.5rem 0;
+}
+
+.home-twitch-stream {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #2a131533;
+  transition: background 0.15s;
+}
+
+.home-twitch-stream:last-child {
+  border-bottom: none;
+}
+
+.home-twitch-stream:hover .home-twitch-name {
+  color: #9c85e8;
+}
+
+.home-twitch-thumb {
+  width: 96px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: #1a1020;
+}
+
+.home-twitch-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.home-twitch-name {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 0.82rem;
+  color: var(--text-heading);
+  transition: color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-twitch-game {
+  font-size: 0.68rem;
+  color: var(--text-body);
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-twitch-viewers {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  color: var(--green);
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+}
+
+.home-twitch-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e91916;
+  flex-shrink: 0;
+}
+
+/* Clan stats panel */
+.home-clan-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding-top: 0.2rem;
+}
+
+/* Full-width hero stat (Members) */
+.home-clan-stat--hero {
+  grid-column: 1 / -1;
+}
+
+.home-clan-stat--hero .home-clan-stat-value {
+  font-size: 1.5rem;
+}
+
+/* Full-width footer stat */
+.home-clan-stat--span {
+  grid-column: 1 / -1;
+}
+
+/* Featured stats — Total XP & Avg Level */
+.home-clan-stat--featured .home-clan-stat-value {
+  font-size: 1.2rem;
+}
+
+/* Secondary stats — more compact */
+.home-clan-stat--secondary .home-clan-stat-value {
+  font-size: 0.85rem;
+}
+
+.home-clan-stat--secondary .home-clan-stat-label {
+  font-size: 0.52rem;
+}
+.home-clan-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.5rem 0.25rem;
+  border: 1px solid #3a181844;
+  border-radius: 3px;
+  background: #0e0808aa;
+}
+
+.home-clan-stat-value {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 1.05rem;
+  color: #e8a0a0;
+  line-height: 1;
+}
+
+.home-clan-stat-label {
+  font-size: 0.58rem;
+  color: #7a5050;
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .home-panels {
+    grid-template-columns: 1fr;
+  }
+}
+

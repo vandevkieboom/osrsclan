@@ -1,0 +1,364 @@
+/* =====================
+   Profile page
+   ===================== */
+
+.profile-search {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.profile-search-input {
+  background: #120809;
+  border: 1px solid #3a2224;
+  color: var(--text-primary);
+  padding: 9px 12px;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  border-radius: 4px;
+  width: 210px;
+}
+
+.profile-search-input:focus {
+  outline: none;
+  border-color: #e8574a;
+}
+
+.profile-state-card {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 3rem;
+  text-align: center;
+  max-width: 640px;
+}
+
+.profile-error-card {
+  border: 1px solid #a3241a;
+  background: #120809;
+  border-radius: 8px;
+  padding: 2.2rem;
+  max-width: 640px;
+  margin-bottom: 1.5rem;
+}
+
+.profile-state-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 18px;
+  color: var(--text-primary);
+  margin-bottom: 0.6rem;
+}
+
+.profile-state-sub {
+  font-size: 13px;
+  color: #a08c89;
+  margin-bottom: 1rem;
+}
+
+.profile-header-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border: 1px solid #2a1315;
+  border-top: 3px solid #3a2224;
+  background: #120809;
+  border-radius: 8px;
+  padding: 1.6rem 1.85rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-header-main {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #241d1d;
+  border: 2px solid #3a2224;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 26px;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.profile-display-name {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 28px;
+  color: var(--text-heading);
+}
+
+.profile-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.profile-rank-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.profile-rank-name {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.profile-share-btn {
+  white-space: nowrap;
+}
+
+.profile-stat-chips {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-stat-chip {
+  flex: 1;
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+}
+
+.profile-stat-value {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 22px;
+  color: var(--text-primary);
+}
+
+.profile-stat-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.profile-stat-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.profile-stat-label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: #8f7a78;
+}
+
+.profile-columns {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.25rem;
+}
+
+.profile-card {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 1.375rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-card-title {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  color: var(--text-primary);
+  margin-bottom: 0.9rem;
+}
+
+.profile-card-title--sm {
+  font-size: 15px;
+  margin-bottom: 0;
+}
+
+.profile-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.profile-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.profile-skill-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg);
+  border: 1px solid #241d1d;
+  border-radius: 4px;
+  padding: 7px 10px;
+}
+
+.profile-skill-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.profile-skill-name {
+  font-size: 12px;
+  color: #c9b8b6;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-skill-level {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.profile-bosses-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.profile-boss-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg);
+  border: 1px solid #241d1d;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
+.profile-boss-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.profile-boss-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-boss-name {
+  font-size: 11.5px;
+  color: #c9b8b6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-boss-kc {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.profile-activity-text {
+  font-size: 12.5px;
+  color: #a08c89;
+  line-height: 1.5;
+  margin-top: 0.4rem;
+}
+
+.profile-activity-text div + div {
+  margin-top: 0.2rem;
+}
+
+.profile-edit-toggle {
+  font-size: 10px;
+  padding: 0.35rem 0.7rem;
+}
+
+.profile-trophy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.profile-trophy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg);
+  border: 1px solid #241d1d;
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+}
+
+.profile-trophy-icon {
+  font-size: 16px;
+}
+
+.profile-trophy-info {
+  flex: 1;
+}
+
+.profile-trophy-label {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.profile-trophy-date {
+  font-size: 10.5px;
+  color: #7a655f;
+  margin-top: 1px;
+}
+
+.profile-trophy-empty {
+  font-size: 12px;
+  color: #7a655f;
+  margin-bottom: 0.5rem;
+}
+
+.profile-trophy-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid #2a1315;
+  padding-top: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.profile-trophy-form-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.profile-trophy-form-row .admin-input {
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .profile-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-search-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
