@@ -20,8 +20,14 @@ function MemberRow({
 }) {
   return (
     <div className="admin-row">
-      <span className="admin-row-name">{user.runescapeName ?? user.globalName ?? user.username}</span>
-      <select className="admin-select" value={user.team?.id ?? ""} onChange={(e) => onAssign(e.target.value)}>
+      <span className="admin-row-name">
+        {user.runescapeName ?? user.globalName ?? user.username}
+      </span>
+      <select
+        className="admin-select"
+        value={user.team?.id ?? ""}
+        onChange={(e) => onAssign(e.target.value)}
+      >
         <option value="">Unassigned</option>
         {teams.map((t) => (
           <option key={t.id} value={t.id}>
@@ -98,7 +104,9 @@ export function MembersPanel() {
         {users && users.length > 0 && filtered.length === 0 && (
           <div className="admin-empty">No members match "{search}".</div>
         )}
-        {users?.length === 0 && <div className="admin-empty">No members yet.</div>}
+        {users?.length === 0 && (
+          <div className="admin-empty">No members yet.</div>
+        )}
       </div>
     </div>
   );

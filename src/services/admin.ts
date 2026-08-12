@@ -126,7 +126,10 @@ export async function fetchDonations(): Promise<Donation[]> {
   return data.donations;
 }
 
-export async function addDonation(name: string, amountGp: number): Promise<Donation> {
+export async function addDonation(
+  name: string,
+  amountGp: number,
+): Promise<Donation> {
   const res = await fetch("/api/admin/teams?resource=donations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -136,7 +139,11 @@ export async function addDonation(name: string, amountGp: number): Promise<Donat
   return data.donation;
 }
 
-export async function updateDonation(id: number, name: string, amountGp: number): Promise<Donation> {
+export async function updateDonation(
+  id: number,
+  name: string,
+  amountGp: number,
+): Promise<Donation> {
   const res = await fetch("/api/admin/teams?resource=donations", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -147,7 +154,9 @@ export async function updateDonation(id: number, name: string, amountGp: number)
 }
 
 export async function deleteDonation(id: number): Promise<void> {
-  const res = await fetch(`/api/admin/teams?resource=donations&id=${id}`, { method: "DELETE" });
+  const res = await fetch(`/api/admin/teams?resource=donations&id=${id}`, {
+    method: "DELETE",
+  });
   await json(res);
 }
 

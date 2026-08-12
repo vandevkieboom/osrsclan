@@ -68,11 +68,18 @@ export async function fetchDonors(): Promise<Donor[]> {
   return data.donors;
 }
 
-export async function submitTileProof(tileId: number, file: File): Promise<void> {
-  const blob = await upload(`proofs/${tileId}-${Date.now()}-${file.name}`, file, {
-    access: "public",
-    handleUploadUrl: "/api/board",
-  });
+export async function submitTileProof(
+  tileId: number,
+  file: File,
+): Promise<void> {
+  const blob = await upload(
+    `proofs/${tileId}-${Date.now()}-${file.name}`,
+    file,
+    {
+      access: "public",
+      handleUploadUrl: "/api/board",
+    },
+  );
 
   const res = await fetch("/api/board", {
     method: "POST",

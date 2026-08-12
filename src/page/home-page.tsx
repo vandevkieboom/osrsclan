@@ -6,7 +6,11 @@ import { SiteHeader } from "../components/site-header";
 import { fetchDonors, type Donor } from "../services/board";
 import { WOM_GROUP_ID } from "../constants";
 
-const TROPHY_ICONS = ["/trophy.png", "/trophy-silver.png", "/trophy-bronze.png"];
+const TROPHY_ICONS = [
+  "/trophy.png",
+  "/trophy-silver.png",
+  "/trophy-bronze.png",
+];
 
 const WOM_BASE = "https://api.wiseoldman.net/v2";
 

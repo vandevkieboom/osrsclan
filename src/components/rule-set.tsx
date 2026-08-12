@@ -44,4 +44,3 @@ export const Ruleset: React.FC = () => (
     </div>
   </div>
 );
-

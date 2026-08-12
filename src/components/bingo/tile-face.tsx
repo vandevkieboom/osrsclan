@@ -16,7 +16,8 @@ export function TileFace({
     tile.proofs
       .filter((p): p is typeof p & { submittedBy: string } => !!p.submittedBy)
       .reduce((map, p) => {
-        if (!map.has(p.submittedBy)) map.set(p.submittedBy, p.submittedByAvatarUrl);
+        if (!map.has(p.submittedBy))
+          map.set(p.submittedBy, p.submittedByAvatarUrl);
         return map;
       }, new Map<string, string | null>()),
   );
@@ -39,7 +40,12 @@ export function TileFace({
         <div className="bingo-tile-avatars">
           {contributors.slice(0, 3).map(([name, avatarUrl]) =>
             avatarUrl ? (
-              <img key={name} src={avatarUrl} alt="" className="bingo-tile-avatar" />
+              <img
+                key={name}
+                src={avatarUrl}
+                alt=""
+                className="bingo-tile-avatar"
+              />
             ) : (
               <span key={name} className="bingo-tile-avatar">
                 {initialsOf(name)}

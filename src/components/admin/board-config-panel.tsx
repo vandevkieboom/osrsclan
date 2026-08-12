@@ -22,7 +22,9 @@ export function BoardConfigPanel() {
           setConfig(PLACEHOLDER_BOARD_CONFIG);
           return;
         }
-        setError(err instanceof Error ? err.message : "Failed to load board config");
+        setError(
+          err instanceof Error ? err.message : "Failed to load board config",
+        );
       });
   }
 
@@ -45,7 +47,8 @@ export function BoardConfigPanel() {
     }
   }
 
-  if (!config) return <div className="admin-panel">{error ?? "Loading..."}</div>;
+  if (!config)
+    return <div className="admin-panel">{error ?? "Loading..."}</div>;
 
   return (
     <div className="admin-panel">
@@ -67,7 +70,9 @@ export function BoardConfigPanel() {
             <select
               className="admin-select"
               value={config.size}
-              onChange={(e) => setConfig({ ...config, size: Number(e.target.value) })}
+              onChange={(e) =>
+                setConfig({ ...config, size: Number(e.target.value) })
+              }
             >
               {SIZE_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -83,7 +88,9 @@ export function BoardConfigPanel() {
               className="admin-input"
               placeholder="e.g. 51.50M"
               value={config.prizePot.total}
-              onChange={(e) => setConfig({ ...config, prizePot: { total: e.target.value } })}
+              onChange={(e) =>
+                setConfig({ ...config, prizePot: { total: e.target.value } })
+              }
             />
           </label>
         </div>

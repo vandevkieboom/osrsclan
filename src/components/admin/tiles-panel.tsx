@@ -14,7 +14,13 @@ function TileAddRow({
   onSave,
   onCancel,
 }: {
-  onSave: (name: string, iconUrl: string, requiredCount: number, category: string, description: string) => void;
+  onSave: (
+    name: string,
+    iconUrl: string,
+    requiredCount: number,
+    category: string,
+    description: string,
+  ) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
@@ -53,7 +59,9 @@ function TileAddRow({
           className="admin-input admin-tile-count-input"
           placeholder="Proofs"
           value={requiredCount}
-          onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
+          onChange={(e) =>
+            setRequiredCount(Math.max(1, Number(e.target.value) || 1))
+          }
         />
       </div>
       <input
@@ -70,7 +78,13 @@ function TileAddRow({
           onClick={() =>
             name.trim() &&
             iconUrl.trim() &&
-            onSave(name.trim(), iconUrl.trim(), requiredCount, category.trim(), description.trim())
+            onSave(
+              name.trim(),
+              iconUrl.trim(),
+              requiredCount,
+              category.trim(),
+              description.trim(),
+            )
           }
         >
           Save
@@ -89,7 +103,13 @@ function TileRow({
   onDelete,
 }: {
   tile: AdminTile;
-  onSave: (name: string, iconUrl: string, requiredCount: number, category: string, description: string) => void;
+  onSave: (
+    name: string,
+    iconUrl: string,
+    requiredCount: number,
+    category: string,
+    description: string,
+  ) => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(tile.name);
@@ -122,7 +142,11 @@ function TileRow({
     if (
       n &&
       u &&
-      (n !== tile.name || u !== tile.iconUrl || c !== tile.requiredCount || cat !== tile.category || desc !== tile.description)
+      (n !== tile.name ||
+        u !== tile.iconUrl ||
+        c !== tile.requiredCount ||
+        cat !== tile.category ||
+        desc !== tile.description)
     ) {
       onSave(n, u, c, cat, desc);
     } else {
@@ -165,7 +189,9 @@ function TileRow({
           min={1}
           className="admin-input admin-tile-count-input"
           value={requiredCount}
-          onChange={(e) => setRequiredCount(Math.max(1, Number(e.target.value) || 1))}
+          onChange={(e) =>
+            setRequiredCount(Math.max(1, Number(e.target.value) || 1))
+          }
           onBlur={commit}
         />
         <button type="button" className="admin-btn-danger" onClick={onDelete}>
@@ -217,7 +243,14 @@ export function TilesPanel() {
     description: string,
   ) {
     try {
-      await createTile(position, name, iconUrl, requiredCount, category, description);
+      await createTile(
+        position,
+        name,
+        iconUrl,
+        requiredCount,
+        category,
+        description,
+      );
       setAddingPosition(null);
       reload();
     } catch (err) {
@@ -242,7 +275,12 @@ export function TilesPanel() {
   }
 
   async function handleDeleteTile(id: number) {
-    if (!window.confirm("Delete this tile? Any submissions for it will be removed too.")) return;
+    if (
+      !window.confirm(
+        "Delete this tile? Any submissions for it will be removed too.",
+      )
+    )
+      return;
     try {
       await deleteTile(id);
       reload();
@@ -251,14 +289,16 @@ export function TilesPanel() {
     }
   }
 
-  if (!config || !tiles) return <div className="admin-panel">{error ?? "Loading..."}</div>;
+  if (!config || !tiles)
+    return <div className="admin-panel">{error ?? "Loading..."}</div>;
 
   const slotCount = config.size * config.size;
   const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
   const overflowTiles = tiles.filter((t) => t.position >= slotCount);
-  const firstEmptyPosition = Array.from({ length: slotCount }, (_, i) => i).find(
-    (i) => !tileByPosition.has(i),
-  );
+  const firstEmptyPosition = Array.from(
+    { length: slotCount },
+    (_, i) => i,
+  ).find((i) => !tileByPosition.has(i));
 
   return (
     <div className="admin-panel">
@@ -273,7 +313,14 @@ export function TilesPanel() {
               key={tile.position}
               tile={tile}
               onSave={(name, iconUrl, requiredCount, category, description) =>
-                handleSaveTile(tile.id, name, iconUrl, requiredCount, category, description)
+                handleSaveTile(
+                  tile.id,
+                  name,
+                  iconUrl,
+                  requiredCount,
+                  category,
+                  description,
+                )
               }
               onDelete={() => handleDeleteTile(tile.id)}
             />
@@ -281,7 +328,14 @@ export function TilesPanel() {
         {addingPosition !== null && (
           <TileAddRow
             onSave={(name, iconUrl, requiredCount, category, description) =>
-              handleAddTile(addingPosition, name, iconUrl, requiredCount, category, description)
+              handleAddTile(
+                addingPosition,
+                name,
+                iconUrl,
+                requiredCount,
+                category,
+                description,
+              )
             }
             onCancel={() => setAddingPosition(null)}
           />
@@ -300,15 +354,20 @@ export function TilesPanel() {
       {overflowTiles.length > 0 && (
         <>
           <p className="page-sub admin-tiles-heading">
-            Outside the current {config.size} × {config.size} board (from a larger size before) —
-            hidden from the live board until you grow the size again.
+            Outside the current {config.size} × {config.size} board (from a
+            larger size before) — hidden from the live board until you grow the
+            size again.
           </p>
           <div className="admin-row-list">
             {overflowTiles.map((tile) => (
               <div key={tile.id} className="admin-row">
                 <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
                 <span className="admin-row-name">{tile.name}</span>
-                <button type="button" className="admin-btn-danger" onClick={() => handleDeleteTile(tile.id)}>
+                <button
+                  type="button"
+                  className="admin-btn-danger"
+                  onClick={() => handleDeleteTile(tile.id)}
+                >
                   Delete
                 </button>
               </div>

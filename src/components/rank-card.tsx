@@ -49,7 +49,11 @@ export const RankCard: React.FC<RankCardProps> = ({
       ? "progress"
       : "locked";
   const isNext = rankStateClass === "progress";
-  const rankStateText = eligible ? "Eligible" : isNext ? "In Progress" : "Locked";
+  const rankStateText = eligible
+    ? "Eligible"
+    : isNext
+      ? "In Progress"
+      : "Locked";
 
   const pct = stats.total
     ? Math.round((stats.satisfiedCount / stats.total) * 100)
@@ -94,9 +98,13 @@ export const RankCard: React.FC<RankCardProps> = ({
           const key = `${rankIndex}-${itemIndex}`;
           const apiResult = apiVerified[key] ?? null;
           const isUntrackable = !item.apiCheck;
-          const isManuallyVerified = verifiedItemNames.has(item.name.toLowerCase());
+          const isManuallyVerified = verifiedItemNames.has(
+            item.name.toLowerCase(),
+          );
           const isApiDone =
-            apiResult === "pass" || apiResult === "pass-alt" || isManuallyVerified;
+            apiResult === "pass" ||
+            apiResult === "pass-alt" ||
+            isManuallyVerified;
           if (hideCompleted && isApiDone) {
             return null;
           }
@@ -118,4 +126,3 @@ export const RankCard: React.FC<RankCardProps> = ({
     </div>
   );
 };
-

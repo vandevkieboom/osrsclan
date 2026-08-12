@@ -31,7 +31,8 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const prizePot = req.body?.prizePot !== undefined ? parsePrizePot(req.body.prizePot) : null;
+  const prizePot =
+    req.body?.prizePot !== undefined ? parsePrizePot(req.body.prizePot) : null;
   if (req.body?.prizePot !== undefined && !prizePot) {
     res.status(400).json({ error: "Invalid prizePot" });
     return;
@@ -83,8 +84,12 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
   const requiredCount = Number(
     req.body?.requiredCount ?? req.body?.required_count ?? 1,
   );
-  const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
-  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+  const category =
+    typeof req.body?.category === "string" ? req.body.category.trim() : "";
+  const description =
+    typeof req.body?.description === "string"
+      ? req.body.description.trim()
+      : "";
   if (
     !Number.isInteger(position) ||
     position < 0 ||
@@ -93,11 +98,9 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
     !Number.isInteger(requiredCount) ||
     requiredCount < 1
   ) {
-    res
-      .status(400)
-      .json({
-        error: "position, name, iconUrl and requiredCount are required",
-      });
+    res.status(400).json({
+      error: "position, name, iconUrl and requiredCount are required",
+    });
     return;
   }
   try {
@@ -106,19 +109,17 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
       VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description})
       RETURNING id, position, name, icon_url, required_count, category, description`;
     const t = rows[0];
-    res
-      .status(201)
-      .json({
-        tile: {
-          id: t.id,
-          position: t.position,
-          name: t.name,
-          iconUrl: t.icon_url,
-          requiredCount: t.required_count,
-          category: t.category,
-          description: t.description,
-        },
-      });
+    res.status(201).json({
+      tile: {
+        id: t.id,
+        position: t.position,
+        name: t.name,
+        iconUrl: t.icon_url,
+        requiredCount: t.required_count,
+        category: t.category,
+        description: t.description,
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message.includes("duplicate key")) {
@@ -141,8 +142,12 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
   const requiredCount = Number(
     req.body?.requiredCount ?? req.body?.required_count ?? 1,
   );
-  const category = typeof req.body?.category === "string" ? req.body.category.trim() : "";
-  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+  const category =
+    typeof req.body?.category === "string" ? req.body.category.trim() : "";
+  const description =
+    typeof req.body?.description === "string"
+      ? req.body.description.trim()
+      : "";
   if (
     !Number.isInteger(id) ||
     !name ||
@@ -165,19 +170,17 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
     return;
   }
   const t = rows[0];
-  res
-    .status(200)
-    .json({
-      tile: {
-        id: t.id,
-        position: t.position,
-        name: t.name,
-        iconUrl: t.icon_url,
-        requiredCount: t.required_count,
-        category: t.category,
-        description: t.description,
-      },
-    });
+  res.status(200).json({
+    tile: {
+      id: t.id,
+      position: t.position,
+      name: t.name,
+      iconUrl: t.icon_url,
+      requiredCount: t.required_count,
+      category: t.category,
+      description: t.description,
+    },
+  });
 }
 
 async function deleteTile(req: VercelRequest, res: VercelResponse) {

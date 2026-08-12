@@ -102,7 +102,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // no RuneProfile calls on the request path at all, so page views are cheap
 // and RuneProfile only ever hears from us once a day, in a controlled batch.
 async function getLeaderboard(res: VercelResponse) {
-  const rows = await sql`SELECT entries, updated_at FROM leaderboard_cache WHERE id = 1`;
+  const rows =
+    await sql`SELECT entries, updated_at FROM leaderboard_cache WHERE id = 1`;
   const entries = (rows[0]?.entries as LeaderboardEntry[] | undefined) ?? [];
   const updatedAt = rows[0]?.updated_at ?? null;
 
@@ -117,9 +118,12 @@ async function getLeaderboard(res: VercelResponse) {
 // daily Vercel Cron defined in vercel.json (see the auth check in `handler`)
 // — never on a visitor's request path.
 async function refreshLeaderboard(res: VercelResponse) {
-  const rolesRes = await fetch(`https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`, {
-    headers: WOM_HEADERS,
-  });
+  const rolesRes = await fetch(
+    `https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`,
+    {
+      headers: WOM_HEADERS,
+    },
+  );
   if (!rolesRes.ok) {
     // Leave the existing cached snapshot in place rather than wiping it.
     res.status(502).json({ error: "Failed to load clan member list." });
@@ -143,7 +147,8 @@ async function refreshLeaderboard(res: VercelResponse) {
 
   // One bulk query up front rather than one per member — feeds the same
   // manually-verified-item data the Rankings page's admin toggle writes to.
-  const verificationRows = await sql`SELECT rsn_key, item_name FROM manual_item_verifications`;
+  const verificationRows =
+    await sql`SELECT rsn_key, item_name FROM manual_item_verifications`;
   const verifiedByRsn = new Map<string, Set<string>>();
   for (const row of verificationRows) {
     const set = verifiedByRsn.get(row.rsn_key) ?? new Set<string>();
@@ -176,7 +181,11 @@ async function refreshLeaderboard(res: VercelResponse) {
   // every single day.
   async function fetchWithRetry(url: string): Promise<Response> {
     let res = await fetch(url, { headers: RP_HEADERS });
-    for (let attempt = 0; res.status === 429 && attempt < MAX_RETRIES; attempt++) {
+    for (
+      let attempt = 0;
+      res.status === 429 && attempt < MAX_RETRIES;
+      attempt++
+    ) {
       await sleep(STAGGER_MS * 2 ** attempt);
       res = await fetch(url, { headers: RP_HEADERS });
     }
@@ -189,7 +198,9 @@ async function refreshLeaderboard(res: VercelResponse) {
       if (cursor > 1) await sleep(STAGGER_MS);
       try {
         const encoded = encodeURIComponent(username);
-        const fullRes = await fetchWithRetry(`${RP_BASE}/accounts/${encoded}/full`);
+        const fullRes = await fetchWithRetry(
+          `${RP_BASE}/accounts/${encoded}/full`,
+        );
         if (!fullRes.ok) {
           // not on RuneProfile, private, or never synced — or still rate
           // limited after retries.
@@ -208,13 +219,18 @@ async function refreshLeaderboard(res: VercelResponse) {
           ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
           : null;
 
-        const verifiedItemNames = verifiedByRsn.get(username.toLowerCase()) ?? EMPTY_SET;
+        const verifiedItemNames =
+          verifiedByRsn.get(username.toLowerCase()) ?? EMPTY_SET;
         const profile = buildRuneProfile(data, tasksData, null);
         // Untrackable items an admin has confirmed (verifiedItemNames) are
         // counted directly here, same as the per-user "My Progress" view —
         // the rank badge itself still comes from the member's real WOM role
         // below, not this checklist.
-        const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
+        const progress = computeClanRankProgress(
+          ranks,
+          profile,
+          verifiedItemNames,
+        );
 
         const role = roleByName.get(username);
         const rankInfo = getRankForRole(role);
@@ -227,7 +243,9 @@ async function refreshLeaderboard(res: VercelResponse) {
         // emptier bar than members on a small early tier. This is the same
         // fixed denominator for every row, so bars are actually comparable.
         const progressPct = progress.overallTotal
-          ? Math.round((progress.overallSatisfied / progress.overallTotal) * 100)
+          ? Math.round(
+              (progress.overallSatisfied / progress.overallTotal) * 100,
+            )
           : 0;
 
         // Being verified into a tier only proves "all but one item" was
@@ -243,10 +261,17 @@ async function refreshLeaderboard(res: VercelResponse) {
           const stats = progress.rankStats[idx];
           if (idx > currentRankIndex) return sum + stats.satisfiedCount;
           const unconfirmedUntrackable = rank.items.filter(
-            (item) => !item.apiCheck && !verifiedItemNames.has(item.name.toLowerCase()),
+            (item) =>
+              !item.apiCheck && !verifiedItemNames.has(item.name.toLowerCase()),
           ).length;
-          const shortfall = Math.max(0, stats.requiredCount - stats.satisfiedCount);
-          const creditedUntrackable = Math.min(unconfirmedUntrackable, shortfall);
+          const shortfall = Math.max(
+            0,
+            stats.requiredCount - stats.satisfiedCount,
+          );
+          const creditedUntrackable = Math.min(
+            unconfirmedUntrackable,
+            shortfall,
+          );
           return sum + stats.satisfiedCount + creditedUntrackable;
         }, 0);
 
@@ -269,7 +294,10 @@ async function refreshLeaderboard(res: VercelResponse) {
     Array.from({ length: Math.min(CONCURRENCY, usernames.length) }, worker),
   );
 
-  entries.sort((a, b) => b.totalSatisfied - a.totalSatisfied || a.name.localeCompare(b.name));
+  entries.sort(
+    (a, b) =>
+      b.totalSatisfied - a.totalSatisfied || a.name.localeCompare(b.name),
+  );
 
   await sql`
     INSERT INTO leaderboard_cache (id, entries, updated_at)

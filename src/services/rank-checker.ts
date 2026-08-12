@@ -141,7 +141,9 @@ export function checkRequirement(
         return "pass-alt";
       }
       if (check.required >= 2) {
-        const allGroups = check.groups.filter((g): g is string[] => g !== undefined);
+        const allGroups = check.groups.filter(
+          (g): g is string[] => g !== undefined,
+        );
         if (allGroups.some((g) => countInGroup(g) >= check.required - 1)) {
           return "partial";
         }
@@ -156,7 +158,8 @@ export function checkRequirement(
         ),
       ).length;
       if (completedGroups >= check.required) return "pass";
-      if (check.required >= 2 && completedGroups >= check.required - 1) return "partial";
+      if (check.required >= 2 && completedGroups >= check.required - 1)
+        return "partial";
       return "fail";
     }
 
@@ -239,7 +242,8 @@ export function checkRequirement(
       if (typesRepresented >= check.required) {
         return altCount > 0 ? "pass-alt" : "pass";
       }
-      if (check.required >= 2 && typesRepresented >= check.required - 1) return "partial";
+      if (check.required >= 2 && typesRepresented >= check.required - 1)
+        return "partial";
       return "fail";
     }
 
@@ -291,7 +295,11 @@ export function getRequirementProgress(
       let found = check.names.filter((n) =>
         ownsCollectionItem(n, profile),
       ).length;
-      const oathplateSlots = ["oathplate helm", "oathplate chest", "oathplate legs"];
+      const oathplateSlots = [
+        "oathplate helm",
+        "oathplate chest",
+        "oathplate legs",
+      ];
       const oathplateSlotsInCheck = check.names.filter((n) =>
         oathplateSlots.includes(n.toLowerCase()),
       );
@@ -308,7 +316,10 @@ export function getRequirementProgress(
         );
         found += shardPieces;
       }
-      return { found: Math.min(found, check.names.length), required: check.names.length };
+      return {
+        found: Math.min(found, check.names.length),
+        required: check.names.length,
+      };
     }
     case "collection-quantity": {
       const found = profile.itemMap.get(check.name.toLowerCase()) ?? 0;
@@ -316,7 +327,11 @@ export function getRequirementProgress(
       return { found: Math.min(found, total), required: total };
     }
     case "collection-piece-types": {
-      const oathplateSlots = ["oathplate helm", "oathplate chest", "oathplate legs"];
+      const oathplateSlots = [
+        "oathplate helm",
+        "oathplate chest",
+        "oathplate legs",
+      ];
       const shardCount =
         (profile.itemMap.get("oathplate shard") ?? 0) +
         (profile.itemMap.get("oathplate shards") ?? 0);
@@ -342,15 +357,21 @@ export function getRequirementProgress(
     }
     case "collection-full-groups": {
       const found = check.groups.filter((group) =>
-        group.every((name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0),
+        group.every(
+          (name) => (profile.itemMap.get(name.toLowerCase()) ?? 0) > 0,
+        ),
       ).length;
       return { found, required: check.required };
     }
     case "collection-any-group": {
       const countInGroup = (group: string[]) =>
-        group.filter((n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0).length;
+        group.filter((n) => (profile.itemMap.get(n.toLowerCase()) ?? 0) > 0)
+          .length;
       const maxFound = Math.max(...check.groups.map(countInGroup));
-      return { found: Math.min(maxFound, check.required), required: check.required };
+      return {
+        found: Math.min(maxFound, check.required),
+        required: check.required,
+      };
     }
     case "collection-masori-f": {
       const mask = (profile.itemMap.get("masori mask") ?? 0) > 0;
@@ -363,9 +384,18 @@ export function getRequirementProgress(
       // Greedy allocation (most expensive first) to count max craftable pieces
       let craftable = 0;
       let remaining = plates;
-      if (body && remaining >= 4) { craftable++; remaining -= 4; }
-      if (chaps && remaining >= 3) { craftable++; remaining -= 3; }
-      if (mask && remaining >= 1) { craftable++; remaining -= 1; }
+      if (body && remaining >= 4) {
+        craftable++;
+        remaining -= 4;
+      }
+      if (chaps && remaining >= 3) {
+        craftable++;
+        remaining -= 3;
+      }
+      if (mask && remaining >= 1) {
+        craftable++;
+        remaining -= 1;
+      }
       return { found: craftable, required: 3 };
     }
     default:
@@ -492,7 +522,9 @@ export function computeClanRankProgress(
   profile: RuneProfile | null,
   verifiedItemNames: ReadonlySet<string> = new Set(),
 ): ClanRankProgress {
-  const rankStats = ranks.map((rank) => getRankStats(rank, profile, verifiedItemNames));
+  const rankStats = ranks.map((rank) =>
+    getRankStats(rank, profile, verifiedItemNames),
+  );
 
   const eligibleByRank = ranks.map((_, rankIndex) => {
     for (let i = 0; i <= rankIndex; i += 1) {

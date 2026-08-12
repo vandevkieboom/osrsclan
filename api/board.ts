@@ -28,7 +28,9 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     category: t.category,
     description: t.description,
   }));
-  const requiredCountByTile = new Map<number, number>(tiles.map((t) => [t.id, t.requiredCount]));
+  const requiredCountByTile = new Map<number, number>(
+    tiles.map((t) => [t.id, t.requiredCount]),
+  );
 
   const teamRows = await sql`
     SELECT tm.id, tm.name, tm.accent_color, tm.captain_id,
@@ -76,9 +78,14 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     }[];
   };
 
-  const submissionsByTeam = new Map<number, Map<number, TileSubmissionAggregate>>();
+  const submissionsByTeam = new Map<
+    number,
+    Map<number, TileSubmissionAggregate>
+  >();
   for (const row of submissionRows) {
-    const teamSubmissions = submissionsByTeam.get(row.team_id) ?? new Map<number, TileSubmissionAggregate>();
+    const teamSubmissions =
+      submissionsByTeam.get(row.team_id) ??
+      new Map<number, TileSubmissionAggregate>();
     const current = teamSubmissions.get(row.tile_id) ?? {
       approvedCount: 0,
       pendingCount: 0,
@@ -93,12 +100,20 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     else current.rejectedCount += 1;
 
     current.latestProofUrl = row.proof_url;
-    current.latestSubmittedBy = row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? null;
+    current.latestSubmittedBy =
+      row.runescape_name ??
+      row.discord_global_name ??
+      row.discord_username ??
+      null;
     current.proofs.push({
       id: row.id,
       status: row.status,
       proofUrl: row.proof_url,
-      submittedBy: row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? null,
+      submittedBy:
+        row.runescape_name ??
+        row.discord_global_name ??
+        row.discord_username ??
+        null,
       submittedByAvatarUrl:
         row.discord_id && row.discord_avatar_hash
           ? `https://cdn.discordapp.com/avatars/${row.discord_id}/${row.discord_avatar_hash}.png?size=64`
@@ -111,7 +126,9 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   }
 
   function buildTiles(teamId: number) {
-    const subByTile = submissionsByTeam.get(teamId) ?? new Map<number, TileSubmissionAggregate>();
+    const subByTile =
+      submissionsByTeam.get(teamId) ??
+      new Map<number, TileSubmissionAggregate>();
     return tiles.map((t) => {
       const agg = subByTile.get(t.id);
       const approvedCount = agg?.approvedCount ?? 0;
@@ -144,11 +161,17 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
 
   const completeByTeam = new Map<number, number>();
   for (const team of teamRows) {
-    const teamSubmissions = submissionsByTeam.get(team.id) ?? new Map<number, TileSubmissionAggregate>();
+    const teamSubmissions =
+      submissionsByTeam.get(team.id) ??
+      new Map<number, TileSubmissionAggregate>();
     let complete = 0;
     for (const tile of tiles) {
       const aggregate = teamSubmissions.get(tile.id);
-      if (aggregate && aggregate.approvedCount >= requiredCountByTile.get(tile.id)!) complete += 1;
+      if (
+        aggregate &&
+        aggregate.approvedCount >= requiredCountByTile.get(tile.id)!
+      )
+        complete += 1;
     }
     completeByTeam.set(team.id, complete);
   }
@@ -156,7 +179,8 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   const totalTiles = tiles.length;
   const teamsWithPct = teamRows.map((t) => {
     const completeCount = completeByTeam.get(t.id) ?? 0;
-    const pct = totalTiles > 0 ? Math.round((completeCount / totalTiles) * 100) : 0;
+    const pct =
+      totalTiles > 0 ? Math.round((completeCount / totalTiles) * 100) : 0;
     return {
       id: t.id,
       name: t.name,
@@ -173,8 +197,12 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       tiles: buildTiles(t.id),
     };
   });
-  const leaderPct = teamsWithPct.length > 0 ? Math.max(...teamsWithPct.map((t) => t.pct)) : 0;
-  const teams = teamsWithPct.map((t) => ({ ...t, isLeading: t.pct === leaderPct && leaderPct > 0 }));
+  const leaderPct =
+    teamsWithPct.length > 0 ? Math.max(...teamsWithPct.map((t) => t.pct)) : 0;
+  const teams = teamsWithPct.map((t) => ({
+    ...t,
+    isLeading: t.pct === leaderPct && leaderPct > 0,
+  }));
 
   res.status(200).json({
     config: {
@@ -213,13 +241,15 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
   }
 
   const tileId = Number(req.body?.tileId);
-  const proofUrl = typeof req.body?.proofUrl === "string" ? req.body.proofUrl : "";
+  const proofUrl =
+    typeof req.body?.proofUrl === "string" ? req.body.proofUrl : "";
   if (!Number.isInteger(tileId) || !proofUrl) {
     res.status(400).json({ error: "tileId and proofUrl are required" });
     return;
   }
 
-  const tileRows = await sql`SELECT id, required_count FROM tiles WHERE id = ${tileId}`;
+  const tileRows =
+    await sql`SELECT id, required_count FROM tiles WHERE id = ${tileId}`;
   if (tileRows.length === 0) {
     res.status(404).json({ error: "Tile not found" });
     return;
@@ -263,7 +293,9 @@ async function uploadToken(req: VercelRequest, res: VercelResponse) {
     });
     res.status(200).json(jsonResponse);
   } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : "Upload failed" });
+    res
+      .status(400)
+      .json({ error: err instanceof Error ? err.message : "Upload failed" });
   }
 }
 

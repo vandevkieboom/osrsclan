@@ -25,7 +25,12 @@ async function listTrophies(req: VercelRequest, res: VercelResponse) {
   const member = memberRows[0];
 
   res.status(200).json({
-    trophies: trophyRows.map((r) => ({ id: r.id, label: r.label, date: r.date_label, createdAt: r.created_at })),
+    trophies: trophyRows.map((r) => ({
+      id: r.id,
+      label: r.label,
+      date: r.date_label,
+      createdAt: r.created_at,
+    })),
     avatarUrl:
       member?.discord_id && member?.discord_avatar_hash
         ? `https://cdn.discordapp.com/avatars/${member.discord_id}/${member.discord_avatar_hash}.png?size=64`
@@ -38,7 +43,8 @@ async function addTrophy(req: VercelRequest, res: VercelResponse) {
   if (!admin) return;
 
   const rsn = typeof req.body?.rsn === "string" ? req.body.rsn.trim() : "";
-  const label = typeof req.body?.label === "string" ? req.body.label.trim() : "";
+  const label =
+    typeof req.body?.label === "string" ? req.body.label.trim() : "";
   const date = typeof req.body?.date === "string" ? req.body.date.trim() : "";
   if (!rsn || !label) {
     res.status(400).json({ error: "rsn and label are required" });
@@ -54,7 +60,16 @@ async function addTrophy(req: VercelRequest, res: VercelResponse) {
     VALUES (${rsn.toLowerCase()}, ${label}, ${date || "Undated"})
     RETURNING id, label, date_label, created_at`;
   const t = rows[0];
-  res.status(201).json({ trophy: { id: t.id, label: t.label, date: t.date_label, createdAt: t.created_at } });
+  res
+    .status(201)
+    .json({
+      trophy: {
+        id: t.id,
+        label: t.label,
+        date: t.date_label,
+        createdAt: t.created_at,
+      },
+    });
 }
 
 async function removeTrophy(req: VercelRequest, res: VercelResponse) {
@@ -100,7 +115,8 @@ async function addVerifiedItem(req: VercelRequest, res: VercelResponse) {
   if (!admin) return;
 
   const rsn = typeof req.body?.rsn === "string" ? req.body.rsn.trim() : "";
-  const itemName = typeof req.body?.itemName === "string" ? req.body.itemName.trim() : "";
+  const itemName =
+    typeof req.body?.itemName === "string" ? req.body.itemName.trim() : "";
   if (!rsn || !itemName) {
     res.status(400).json({ error: "rsn and itemName are required" });
     return;
@@ -118,7 +134,8 @@ async function removeVerifiedItem(req: VercelRequest, res: VercelResponse) {
   if (!admin) return;
 
   const rsn = typeof req.query.rsn === "string" ? req.query.rsn.trim() : "";
-  const itemName = typeof req.query.itemName === "string" ? req.query.itemName.trim() : "";
+  const itemName =
+    typeof req.query.itemName === "string" ? req.query.itemName.trim() : "";
   if (!rsn || !itemName) {
     res.status(400).json({ error: "rsn and itemName are required" });
     return;

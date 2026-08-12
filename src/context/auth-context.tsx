@@ -20,7 +20,10 @@ interface AuthContextValue {
   isAdmin: boolean;
   login: (next?: string) => void;
   logout: () => Promise<void>;
-  updateSettings: (patch: { runescapeName?: string; rememberRankings?: boolean }) => Promise<void>;
+  updateSettings: (patch: {
+    runescapeName?: string;
+    rememberRankings?: boolean;
+  }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);

@@ -6,7 +6,9 @@ const CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? "";
 const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI ?? "";
 
 function isSafeNextPath(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//") && !path.includes("://");
+  return (
+    path.startsWith("/") && !path.startsWith("//") && !path.includes("://")
+  );
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -23,8 +25,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const rawNext = typeof req.query.next === "string" ? req.query.next : "/";
   const next = isSafeNextPath(rawNext) ? rawNext : "/";
 
-  appendSetCookie(res, serializeCookie("oauth_state", state, { maxAgeSeconds: 300 }));
-  appendSetCookie(res, serializeCookie("oauth_next", encodeURIComponent(next), { maxAgeSeconds: 300 }));
+  appendSetCookie(
+    res,
+    serializeCookie("oauth_state", state, { maxAgeSeconds: 300 }),
+  );
+  appendSetCookie(
+    res,
+    serializeCookie("oauth_next", encodeURIComponent(next), {
+      maxAgeSeconds: 300,
+    }),
+  );
 
   const authorizeUrl = new URL("https://discord.com/api/oauth2/authorize");
   authorizeUrl.searchParams.set("client_id", CLIENT_ID);

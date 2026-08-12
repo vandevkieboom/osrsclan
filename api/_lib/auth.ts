@@ -27,7 +27,10 @@ function hashToken(token: string): string {
 }
 
 function isSecureEnv(): boolean {
-  return process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview";
+  return (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview"
+  );
 }
 
 export function serializeCookie(
@@ -35,7 +38,13 @@ export function serializeCookie(
   value: string,
   opts: { maxAgeSeconds: number },
 ): string {
-  const parts = [`${name}=${value}`, "Path=/", "HttpOnly", "SameSite=Lax", `Max-Age=${opts.maxAgeSeconds}`];
+  const parts = [
+    `${name}=${value}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${opts.maxAgeSeconds}`,
+  ];
   if (isSecureEnv()) parts.push("Secure");
   return parts.join("; ");
 }
@@ -43,19 +52,36 @@ export function serializeCookie(
 /** Appends to any existing Set-Cookie header(s) instead of overwriting them. */
 export function appendSetCookie(res: VercelResponse, cookie: string): void {
   const existing = res.getHeader("Set-Cookie");
-  const cookies = existing === undefined ? [] : Array.isArray(existing) ? existing.map(String) : [String(existing)];
+  const cookies =
+    existing === undefined
+      ? []
+      : Array.isArray(existing)
+        ? existing.map(String)
+        : [String(existing)];
   res.setHeader("Set-Cookie", [...cookies, cookie]);
 }
 
-export async function createSession(userId: number, res: VercelResponse): Promise<void> {
+export async function createSession(
+  userId: number,
+  res: VercelResponse,
+): Promise<void> {
   const token = generateToken();
-  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
+  const expiresAt = new Date(
+    Date.now() + SESSION_TTL_SECONDS * 1000,
+  ).toISOString();
   await sql`INSERT INTO sessions (token_hash, user_id, expires_at)
             VALUES (${hashToken(token)}, ${userId}, ${expiresAt})`;
-  appendSetCookie(res, serializeCookie(SESSION_COOKIE, token, { maxAgeSeconds: SESSION_TTL_SECONDS }));
+  appendSetCookie(
+    res,
+    serializeCookie(SESSION_COOKIE, token, {
+      maxAgeSeconds: SESSION_TTL_SECONDS,
+    }),
+  );
 }
 
-export async function getSessionUser(req: VercelRequest): Promise<SessionUser | null> {
+export async function getSessionUser(
+  req: VercelRequest,
+): Promise<SessionUser | null> {
   const token = req.cookies[SESSION_COOKIE];
   if (!token) return null;
 
@@ -86,13 +112,23 @@ export async function getSessionUser(req: VercelRequest): Promise<SessionUser | 
   };
 }
 
-export async function destroySession(req: VercelRequest, res: VercelResponse): Promise<void> {
+export async function destroySession(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<void> {
   const token = req.cookies[SESSION_COOKIE];
-  if (token) await sql`DELETE FROM sessions WHERE token_hash = ${hashToken(token)}`;
-  appendSetCookie(res, serializeCookie(SESSION_COOKIE, "", { maxAgeSeconds: 0 }));
+  if (token)
+    await sql`DELETE FROM sessions WHERE token_hash = ${hashToken(token)}`;
+  appendSetCookie(
+    res,
+    serializeCookie(SESSION_COOKIE, "", { maxAgeSeconds: 0 }),
+  );
 }
 
-export async function requireUser(req: VercelRequest, res: VercelResponse): Promise<SessionUser | null> {
+export async function requireUser(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<SessionUser | null> {
   const user = await getSessionUser(req);
   if (!user) {
     res.status(401).json({ error: "Not authenticated" });
@@ -101,7 +137,10 @@ export async function requireUser(req: VercelRequest, res: VercelResponse): Prom
   return user;
 }
 
-export async function requireAdmin(req: VercelRequest, res: VercelResponse): Promise<SessionUser | null> {
+export async function requireAdmin(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<SessionUser | null> {
   const user = await requireUser(req, res);
   if (!user) return null;
   if (!user.isAdmin) {

@@ -27,9 +27,15 @@ export interface WomPlayer {
 }
 
 export async function fetchWomPlayer(username: string): Promise<WomPlayer> {
-  const res = await fetch(`https://api.wiseoldman.net/v2/players/${encodeURIComponent(username)}`);
+  const res = await fetch(
+    `https://api.wiseoldman.net/v2/players/${encodeURIComponent(username)}`,
+  );
   if (!res.ok) {
-    throw new Error(res.status === 404 ? "Player not tracked on Wise Old Man" : `Request failed (${res.status})`);
+    throw new Error(
+      res.status === 404
+        ? "Player not tracked on Wise Old Man"
+        : `Request failed (${res.status})`,
+    );
   }
   return res.json() as Promise<WomPlayer>;
 }
@@ -113,7 +119,11 @@ export async function fetchTrophies(rsn: string): Promise<RsnProfile> {
   return json<RsnProfile>(res);
 }
 
-export async function addTrophy(rsn: string, label: string, date: string): Promise<Trophy> {
+export async function addTrophy(
+  rsn: string,
+  label: string,
+  date: string,
+): Promise<Trophy> {
   const res = await fetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -139,7 +149,10 @@ export async function fetchVerifiedItems(rsn: string): Promise<Set<string>> {
   return new Set(data.items);
 }
 
-export async function addVerifiedItem(rsn: string, itemName: string): Promise<void> {
+export async function addVerifiedItem(
+  rsn: string,
+  itemName: string,
+): Promise<void> {
   const res = await fetch("/api/profile?resource=verified-items", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -148,7 +161,10 @@ export async function addVerifiedItem(rsn: string, itemName: string): Promise<vo
   await json(res);
 }
 
-export async function removeVerifiedItem(rsn: string, itemName: string): Promise<void> {
+export async function removeVerifiedItem(
+  rsn: string,
+  itemName: string,
+): Promise<void> {
   const res = await fetch(
     `/api/profile?resource=verified-items&rsn=${encodeURIComponent(rsn)}&itemName=${encodeURIComponent(itemName)}`,
     { method: "DELETE" },

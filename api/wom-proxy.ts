@@ -38,7 +38,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ error: "Rate limit hit — wait a moment and try again." });
       return;
     }
-    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=3600");
+    res.setHeader(
+      "Cache-Control",
+      "s-maxage=3600, stale-while-revalidate=3600",
+    );
     res.status(upstream.status).json(await upstream.json());
   } else if (type === "bulk-hiscores") {
     const upstream = await fetch(
@@ -73,7 +76,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         role: string;
       }>;
     };
-    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=3600");
+    res.setHeader(
+      "Cache-Control",
+      "s-maxage=3600, stale-while-revalidate=3600",
+    );
     res.status(200).json({ memberships: group.memberships ?? [] });
   } else if (type === "event") {
     const compsRes = await fetch(
@@ -81,14 +87,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       { headers: WOM_HEADERS },
     );
     if (compsRes.status === 429) {
-      res.status(429).json({ error: "Rate limit hit — wait a moment and try again." });
+      res
+        .status(429)
+        .json({ error: "Rate limit hit — wait a moment and try again." });
       return;
     }
     if (!compsRes.ok) {
       res.status(compsRes.status).json(await compsRes.json());
       return;
     }
-    const comps = (await compsRes.json()) as Array<{ id: number; status: string }>;
+    const comps = (await compsRes.json()) as Array<{
+      id: number;
+      status: string;
+    }>;
     const target =
       comps.find((c) => c.status === "ongoing") ??
       comps.find((c) => c.status === "upcoming") ??
@@ -97,12 +108,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(404).json({ error: "No competition found." });
       return;
     }
-    const upstream = await fetch(
-      `${BASE_URL}/competitions/${target.id}`,
-      { headers: WOM_HEADERS },
-    );
+    const upstream = await fetch(`${BASE_URL}/competitions/${target.id}`, {
+      headers: WOM_HEADERS,
+    });
     if (upstream.status === 429) {
-      res.status(429).json({ error: "Rate limit hit — wait a moment and try again." });
+      res
+        .status(429)
+        .json({ error: "Rate limit hit — wait a moment and try again." });
       return;
     }
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");

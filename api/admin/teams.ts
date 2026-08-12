@@ -4,11 +4,22 @@ import { requireAdmin } from "../_lib/auth.js";
 
 // Matches api/board.ts's ACCENT_PALETTE — used only to pick a sensible
 // default color for a brand-new team; admins can recolor it afterward.
-const ACCENT_PALETTE = ["#e8574a", "#5b9bd5", "#ffb340", "#3fae5c", "#c9c9c9", "#a76ee8"];
+const ACCENT_PALETTE = [
+  "#e8574a",
+  "#5b9bd5",
+  "#ffb340",
+  "#3fae5c",
+  "#c9c9c9",
+  "#a76ee8",
+];
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 function slugify(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 async function listTeams(res: VercelResponse) {
@@ -46,7 +57,8 @@ async function createTeam(req: VercelRequest, res: VercelResponse) {
   const slug = slugify(name);
   try {
     const countRows = await sql`SELECT COUNT(*)::int AS count FROM teams`;
-    const accentColor = ACCENT_PALETTE[countRows[0].count % ACCENT_PALETTE.length];
+    const accentColor =
+      ACCENT_PALETTE[countRows[0].count % ACCENT_PALETTE.length];
     const rows = await sql`
       INSERT INTO teams (name, slug, accent_color)
       VALUES (${name}, ${slug}, ${accentColor})
@@ -83,7 +95,9 @@ async function updateTeam(req: VercelRequest, res: VercelResponse) {
   const hasColor = typeof req.body?.accentColor === "string";
   const hasCaptain = "captainId" in (req.body ?? {});
   if (!hasName && !hasColor && !hasCaptain) {
-    res.status(400).json({ error: "name, accentColor, or captainId is required" });
+    res
+      .status(400)
+      .json({ error: "name, accentColor, or captainId is required" });
     return;
   }
 
@@ -94,7 +108,9 @@ async function updateTeam(req: VercelRequest, res: VercelResponse) {
   }
   const accentColor = hasColor ? req.body.accentColor.trim() : null;
   if (hasColor && !HEX_COLOR_RE.test(accentColor)) {
-    res.status(400).json({ error: "accentColor must be a hex color like #e8574a" });
+    res
+      .status(400)
+      .json({ error: "accentColor must be a hex color like #e8574a" });
     return;
   }
 
@@ -107,11 +123,14 @@ async function updateTeam(req: VercelRequest, res: VercelResponse) {
         res.status(400).json({ error: "Invalid captainId" });
         return;
       }
-      const memberRows = await sql`SELECT team_id FROM users WHERE id = ${captainId}`;
+      const memberRows =
+        await sql`SELECT team_id FROM users WHERE id = ${captainId}`;
       // team_id is BIGINT — the driver returns it as a string, not a number,
       // so this must be coerced before comparing against `id` or it never matches.
       if (memberRows.length === 0 || Number(memberRows[0].team_id) !== id) {
-        res.status(400).json({ error: "Captain must be a member of this team" });
+        res
+          .status(400)
+          .json({ error: "Captain must be a member of this team" });
         return;
       }
     }
@@ -144,7 +163,9 @@ async function updateTeam(req: VercelRequest, res: VercelResponse) {
       const capRows = await sql`
         SELECT discord_username, discord_global_name, runescape_name FROM users WHERE id = ${t.captain_id}`;
       const c = capRows[0];
-      captainName = c ? (c.runescape_name ?? c.discord_global_name ?? c.discord_username) : null;
+      captainName = c
+        ? (c.runescape_name ?? c.discord_global_name ?? c.discord_username)
+        : null;
     }
     res.status(200).json({
       team: {
@@ -202,7 +223,8 @@ async function listUsers(res: VercelResponse) {
 async function assignTeam(req: VercelRequest, res: VercelResponse) {
   const userId = Number(req.body?.userId);
   const teamIdRaw = req.body?.teamId;
-  const teamId = teamIdRaw === null || teamIdRaw === undefined ? null : Number(teamIdRaw);
+  const teamId =
+    teamIdRaw === null || teamIdRaw === undefined ? null : Number(teamIdRaw);
 
   if (!Number.isInteger(userId)) {
     res.status(400).json({ error: "Invalid userId" });
@@ -233,9 +255,14 @@ async function assignTeam(req: VercelRequest, res: VercelResponse) {
 // every clan member has ever logged into the site, so tying a donation to a
 // registered account would hide anyone who hasn't.
 async function listDonations(res: VercelResponse) {
-  const rows = await sql`SELECT id, name, amount_gp FROM donations ORDER BY amount_gp DESC, name ASC`;
+  const rows =
+    await sql`SELECT id, name, amount_gp FROM donations ORDER BY amount_gp DESC, name ASC`;
   res.status(200).json({
-    donations: rows.map((r) => ({ id: r.id, name: r.name, amountGp: Number(r.amount_gp) })),
+    donations: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      amountGp: Number(r.amount_gp),
+    })),
   });
 }
 
@@ -243,22 +270,37 @@ async function addDonation(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const amountGp = Number(req.body?.amountGp);
   if (!name || !Number.isInteger(amountGp) || amountGp < 0) {
-    res.status(400).json({ error: "name and a non-negative integer amountGp are required" });
+    res
+      .status(400)
+      .json({ error: "name and a non-negative integer amountGp are required" });
     return;
   }
   const rows = await sql`
     INSERT INTO donations (name, amount_gp) VALUES (${name}, ${amountGp})
     RETURNING id, name, amount_gp`;
   const d = rows[0];
-  res.status(201).json({ donation: { id: d.id, name: d.name, amountGp: Number(d.amount_gp) } });
+  res
+    .status(201)
+    .json({
+      donation: { id: d.id, name: d.name, amountGp: Number(d.amount_gp) },
+    });
 }
 
 async function updateDonation(req: VercelRequest, res: VercelResponse) {
   const id = Number(req.body?.id);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const amountGp = Number(req.body?.amountGp);
-  if (!Number.isInteger(id) || !name || !Number.isInteger(amountGp) || amountGp < 0) {
-    res.status(400).json({ error: "id, name, and a non-negative integer amountGp are required" });
+  if (
+    !Number.isInteger(id) ||
+    !name ||
+    !Number.isInteger(amountGp) ||
+    amountGp < 0
+  ) {
+    res
+      .status(400)
+      .json({
+        error: "id, name, and a non-negative integer amountGp are required",
+      });
     return;
   }
   const rows = await sql`
@@ -269,7 +311,11 @@ async function updateDonation(req: VercelRequest, res: VercelResponse) {
     return;
   }
   const d = rows[0];
-  res.status(200).json({ donation: { id: d.id, name: d.name, amountGp: Number(d.amount_gp) } });
+  res
+    .status(200)
+    .json({
+      donation: { id: d.id, name: d.name, amountGp: Number(d.amount_gp) },
+    });
 }
 
 async function deleteDonation(req: VercelRequest, res: VercelResponse) {

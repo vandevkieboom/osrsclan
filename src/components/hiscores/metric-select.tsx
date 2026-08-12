@@ -59,7 +59,11 @@ export function MetricSelect({ value, onChange }: MetricSelectProps) {
           {current?.label ?? "Select metric"}
         </span>
         <span className="ms-trigger-arrow" aria-hidden="true">
-          <img src="/dropdown-arrow.svg" alt="" className="dropdown-arrow-icon" />
+          <img
+            src="/dropdown-arrow.svg"
+            alt=""
+            className="dropdown-arrow-icon"
+          />
         </span>
       </summary>
       <div className="ms-panel" role="listbox">

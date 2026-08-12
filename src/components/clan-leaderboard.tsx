@@ -31,19 +31,25 @@ export function ClanLeaderboard() {
   }, []);
 
   const entries = result?.entries ?? null;
-  const totalPages = entries ? Math.max(1, Math.ceil(entries.length / PAGE_SIZE)) : 1;
-  const pageEntries = entries?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) ?? null;
+  const totalPages = entries
+    ? Math.max(1, Math.ceil(entries.length / PAGE_SIZE))
+    : 1;
+  const pageEntries =
+    entries?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) ?? null;
   const pageStartIndex = (page - 1) * PAGE_SIZE;
 
   return (
     <div>
       <p className="leaderboard-intro">
         Ranked by total collection log items checked off, across all tiers.
-        {result?.updatedAt && ` Last updated ${new Date(result.updatedAt).toLocaleString()}.`}
+        {result?.updatedAt &&
+          ` Last updated ${new Date(result.updatedAt).toLocaleString()}.`}
       </p>
 
       {error && <div className="admin-empty">{error}</div>}
-      {!error && !entries && <div className="admin-empty">Loading leaderboard…</div>}
+      {!error && !entries && (
+        <div className="admin-empty">Loading leaderboard…</div>
+      )}
       {!error && entries && entries.length === 0 && (
         <div className="admin-empty">
           {result?.updatedAt

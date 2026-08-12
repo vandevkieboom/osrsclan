@@ -20,7 +20,10 @@ function DonationRow({
   const [name, setName] = useState(donation.name);
   const [amount, setAmount] = useState(String(donation.amountGp));
   const [prevDonation, setPrevDonation] = useState(donation);
-  if (donation.name !== prevDonation.name || donation.amountGp !== prevDonation.amountGp) {
+  if (
+    donation.name !== prevDonation.name ||
+    donation.amountGp !== prevDonation.amountGp
+  ) {
     setPrevDonation(donation);
     setName(donation.name);
     setAmount(String(donation.amountGp));
@@ -92,7 +95,10 @@ function DonationAddRow({
       <button
         type="button"
         className="admin-btn-primary"
-        onClick={() => name.trim() && onSave(name.trim(), Math.max(0, Math.floor(Number(amount)) || 0))}
+        onClick={() =>
+          name.trim() &&
+          onSave(name.trim(), Math.max(0, Math.floor(Number(amount)) || 0))
+        }
       >
         Save
       </button>
@@ -116,7 +122,9 @@ export function DonationsPanel() {
           setDonations(PLACEHOLDER_DONATIONS);
           return;
         }
-        setError(err instanceof Error ? err.message : "Failed to load donations");
+        setError(
+          err instanceof Error ? err.message : "Failed to load donations",
+        );
       });
   }
 
@@ -137,7 +145,9 @@ export function DonationsPanel() {
       await updateDonation(id, name, amountGp);
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update donation");
+      setError(
+        err instanceof Error ? err.message : "Failed to update donation",
+      );
     }
   }
 
@@ -146,11 +156,14 @@ export function DonationsPanel() {
       await deleteDonation(id);
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete donation");
+      setError(
+        err instanceof Error ? err.message : "Failed to delete donation",
+      );
     }
   }
 
-  if (!donations) return <div className="admin-panel">{error ?? "Loading..."}</div>;
+  if (!donations)
+    return <div className="admin-panel">{error ?? "Loading..."}</div>;
 
   return (
     <div className="admin-panel">
@@ -164,13 +177,22 @@ export function DonationsPanel() {
             onDelete={() => handleDelete(d.id)}
           />
         ))}
-        {adding && <DonationAddRow onSave={handleAdd} onCancel={() => setAdding(false)} />}
+        {adding && (
+          <DonationAddRow
+            onSave={handleAdd}
+            onCancel={() => setAdding(false)}
+          />
+        )}
         {donations.length === 0 && !adding && (
           <div className="admin-empty">No donations recorded yet.</div>
         )}
       </div>
       {!adding && (
-        <button type="button" className="admin-tile-list-add" onClick={() => setAdding(true)}>
+        <button
+          type="button"
+          className="admin-tile-list-add"
+          onClick={() => setAdding(true)}
+        >
           + Add Donor
         </button>
       )}

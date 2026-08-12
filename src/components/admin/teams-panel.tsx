@@ -60,7 +60,9 @@ function TeamRow({
       <select
         className="admin-select"
         value={team.captainId ?? ""}
-        onChange={(e) => onSetCaptain(e.target.value === "" ? null : Number(e.target.value))}
+        onChange={(e) =>
+          onSetCaptain(e.target.value === "" ? null : Number(e.target.value))
+        }
       >
         <option value="">No captain</option>
         {roster.map((u) => (
@@ -142,7 +144,8 @@ export function TeamsPanel() {
   }
 
   async function handleDelete(id: number) {
-    if (!window.confirm("Delete this team? Members will become unassigned.")) return;
+    if (!window.confirm("Delete this team? Members will become unassigned."))
+      return;
     try {
       await deleteTeam(id);
       reload();
@@ -166,9 +169,16 @@ export function TeamsPanel() {
             onDelete={() => handleDelete(t.id)}
           />
         ))}
-        {teams?.length === 0 && <div className="admin-empty">No teams yet.</div>}
+        {teams?.length === 0 && (
+          <div className="admin-empty">No teams yet.</div>
+        )}
       </div>
-      <button type="button" className="admin-btn-primary" onClick={handleCreate} disabled={saving}>
+      <button
+        type="button"
+        className="admin-btn-primary"
+        onClick={handleCreate}
+        disabled={saving}
+      >
         + New Team
       </button>
     </div>

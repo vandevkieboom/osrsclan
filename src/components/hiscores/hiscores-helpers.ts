@@ -61,7 +61,10 @@ export function getRowIcon(metric: string, dataType: string): string {
     : getWomMetricIcon(metric);
 }
 
-export function getPrimaryCol(entry: WomHiscoresEntry, dataType: string): string {
+export function getPrimaryCol(
+  entry: WomHiscoresEntry,
+  dataType: string,
+): string {
   const d = entry.data;
   if (dataType === "skill") return formatNumber(d.level);
   if (dataType === "boss") return formatNumber(d.kills);

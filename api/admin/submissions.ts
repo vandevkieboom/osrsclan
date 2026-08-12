@@ -3,7 +3,8 @@ import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
 
 async function listSubmissions(req: VercelRequest, res: VercelResponse) {
-  const status = typeof req.query.status === "string" ? req.query.status : "pending";
+  const status =
+    typeof req.query.status === "string" ? req.query.status : "pending";
 
   const rows = await sql`
     SELECT s.id, s.status, s.proof_url, s.created_at,
@@ -24,17 +25,32 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
       teamName: r.team_name,
       tileName: r.tile_name,
       iconUrl: r.icon_url,
-      submittedBy: r.runescape_name ?? r.discord_global_name ?? r.discord_username ?? "Unknown",
+      submittedBy:
+        r.runescape_name ??
+        r.discord_global_name ??
+        r.discord_username ??
+        "Unknown",
       createdAt: r.created_at,
     })),
   });
 }
 
-async function reviewSubmission(req: VercelRequest, res: VercelResponse, adminId: number) {
+async function reviewSubmission(
+  req: VercelRequest,
+  res: VercelResponse,
+  adminId: number,
+) {
   const id = Number(req.body?.id);
   const decision = req.body?.decision;
-  if (!Number.isInteger(id) || (decision !== "approved" && decision !== "rejected")) {
-    res.status(400).json({ error: "id and decision ('approved' | 'rejected') are required" });
+  if (
+    !Number.isInteger(id) ||
+    (decision !== "approved" && decision !== "rejected")
+  ) {
+    res
+      .status(400)
+      .json({
+        error: "id and decision ('approved' | 'rejected') are required",
+      });
     return;
   }
 

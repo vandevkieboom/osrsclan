@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
-import { appendSetCookie, createSession, serializeCookie } from "../_lib/auth.js";
+import {
+  appendSetCookie,
+  createSession,
+  serializeCookie,
+} from "../_lib/auth.js";
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET ?? "";
@@ -21,12 +25,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { code, state } = req.query;
   const expectedState = req.cookies.oauth_state;
-  const next = req.cookies.oauth_next ? decodeURIComponent(req.cookies.oauth_next) : "/";
+  const next = req.cookies.oauth_next
+    ? decodeURIComponent(req.cookies.oauth_next)
+    : "/";
 
-  appendSetCookie(res, serializeCookie("oauth_state", "", { maxAgeSeconds: 0 }));
+  appendSetCookie(
+    res,
+    serializeCookie("oauth_state", "", { maxAgeSeconds: 0 }),
+  );
   appendSetCookie(res, serializeCookie("oauth_next", "", { maxAgeSeconds: 0 }));
 
-  if (typeof code !== "string" || typeof state !== "string" || !expectedState || state !== expectedState) {
+  if (
+    typeof code !== "string" ||
+    typeof state !== "string" ||
+    !expectedState ||
+    state !== expectedState
+  ) {
     res.redirect(302, "/?authError=state");
     return;
   }
@@ -52,7 +66,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.redirect(302, "/?authError=token");
       return;
     }
-    const { access_token } = (await tokenRes.json()) as { access_token: string };
+    const { access_token } = (await tokenRes.json()) as {
+      access_token: string;
+    };
 
     const meRes = await fetch("https://discord.com/api/users/@me", {
       headers: { Authorization: `Bearer ${access_token}` },
