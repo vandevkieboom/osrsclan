@@ -8,6 +8,8 @@ Web app voor de clan: rankings/tier-lijst, hiscores, activiteit, bingo-events en
 - `api/` — Vercel serverless functions (de backend): authenticatie (Discord OAuth), admin CRUD, board/bingo-data, en proxies naar externe APIs (Wise Old Man, RuneProfile, Twitch).
 - `db/schema.sql` — huidig databaseschema, wordt idempotent toegepast via `pnpm db:migrate`.
 
+`api/runeprofile-proxy.ts` importeert bewust rechtstreeks uit `src/data/` en `src/services/` (rank-progress-logica wordt niet gedupliceerd). Er is geen aparte `shared/`-package tussen `api/` en `src/` — dat is een bewuste, uitgestelde keuze, geen abusievelijke koppeling.
+
 ## Aan de slag
 
 ```bash

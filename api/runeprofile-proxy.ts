@@ -1,5 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
+// This backend function intentionally imports frontend domain/service
+// modules directly rather than duplicating rank-progress logic — there's no
+// shared/ package boundary between api/ and src/, so these are real
+// cross-directory dependencies, not an accident. See tsconfig.api.json for
+// how api/'s type-checking accounts for this (it pulls in DOM lib so
+// src/services/profile.ts type-checks the same way here as it does in the
+// browser build).
 import { ranks, rankIconByRole, STAFF_ROLES } from "../src/data/ranks-data.js";
 import { computeClanRankProgress } from "../src/services/rank-checker.js";
 import { getRankForRole } from "../src/services/profile.js";
