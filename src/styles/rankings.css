@@ -32,11 +32,6 @@
   color: #d8b0b0;
   filter: drop-shadow(0 0 2px #000a);
 }
-/* Infernal rule note style */
-.rule-note {
-  color: #ff6622;
-}
-
 :root {
   /* One rail for the whole site: every container uses these two values, so
      the hero copy, page content and footer all line up. */
@@ -435,23 +430,6 @@ body {
   border-radius: 10px;
 }
 
-.rank-card.faq {
-  grid-column: 1 / -1;
-  background: #120809;
-  border-color: #2a1315;
-  border-radius: 6px;
-  padding: 1.75rem;
-}
-
-.rank-card.faq:hover {
-  transform: none;
-  box-shadow: none;
-}
-
-.faq-divider {
-  display: none;
-}
-
 .rank-header {
   display: flex;
   align-items: center;
@@ -820,15 +798,6 @@ button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
   gap: 0.625rem;
 }
 
-.tracker-hint {
-  margin-top: 0.45rem;
-  font-size: 0.62rem;
-  color: #c79b9b;
-  text-align: center;
-  letter-spacing: 0.01em;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
-}
-
 .tracker-btn {
   border: 1px solid #3a2224;
   background: transparent;
@@ -869,11 +838,6 @@ button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
   background: #c22e21;
 }
 
-/* Section dividers inside cards */
-.item-section {
-  margin-bottom: 0.5rem;
-}
-
 .section-label {
   font-size: 0.6rem;
   color: #e0b0b0;
@@ -882,111 +846,6 @@ button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
   padding-bottom: 2px;
   border-bottom: 1px solid #a81a2a55;
   font-family: "Roboto", Arial, Helvetica, sans-serif;
-}
-
-/* Ruleset styles */
-.ruleset-title {
-  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 1.25rem;
-  font-weight: 400;
-  color: var(--text-heading);
-  margin-bottom: 1.25rem;
-  letter-spacing: 0.02em;
-  text-align: left;
-}
-
-.rule-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem 1.75rem;
-}
-
-.rule-block {
-  position: relative;
-}
-
-.rule-q {
-  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
-  font-size: 0.875rem;
-  color: #e8574a;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  text-align: left;
-  word-break: break-word;
-  hyphens: auto;
-}
-
-.rule-a {
-  font-size: 0.8125rem;
-  color: var(--text-body);
-  line-height: 1.6;
-  font-family: "Manrope", Arial, Helvetica, sans-serif;
-  text-align: left;
-  word-break: break-word;
-  hyphens: auto;
-  max-width: 100%;
-}
-
-@media (max-width: 900px) {
-  .rule-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .rule-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Footer */
-.footer {
-  text-align: center;
-  margin-top: 2rem;
-  font-family: "Roboto", Arial, Helvetica, sans-serif;
-  font-size: 0.85rem;
-  color: #bda8a8;
-  letter-spacing: 0.08em;
-  text-shadow: 0 0 2px #0008;
-}
-
-.trophy {
-  font-size: 1.2rem;
-  margin: 0 0.5rem;
-  filter: drop-shadow(0 0 6px #a81a2a88);
-}
-
-/* Gem SVGs inline */
-.gem-sapphire {
-  color: #4488ff;
-}
-
-.gem-emerald {
-  color: #22cc44;
-}
-
-.gem-ruby {
-  color: #dd2222;
-}
-
-.gem-diamond {
-  color: #aaddff;
-}
-
-.gem-dragon {
-  color: #44aaee;
-}
-
-.gem-onyx {
-  color: #9966cc;
-}
-
-.gem-zenyte {
-  color: #cc44aa;
-}
-
-.gem-infernal {
-  color: #ff6622;
 }
 
 @media (max-width: 900px) {
@@ -1092,12 +951,6 @@ button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
   .item-sprite {
     width: 36px;
     height: 36px;
-  }
-
-  .tracker-hint,
-  .rule-a,
-  .rule-q {
-    word-break: normal;
   }
 }
 
