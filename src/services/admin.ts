@@ -44,6 +44,8 @@ export interface AdminTile {
   description: string;
   /** OSRS item ids the RuneLite plugin watches for. Empty = manual only. */
   itemIds: number[];
+  /** When true, the same item id can only be submitted once per team for this tile. */
+  requireUniqueItems: boolean;
 }
 
 export interface AdminSubmission {
@@ -55,6 +57,8 @@ export interface AdminSubmission {
   iconUrl: string;
   submittedBy: string;
   createdAt: string;
+  /** Set only for submissions the RuneLite plugin made. */
+  itemId: number | null;
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -212,6 +216,7 @@ export async function createTile(
   category = "",
   description = "",
   itemIds: number[] = [],
+  requireUniqueItems = false,
 ): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
@@ -224,6 +229,7 @@ export async function createTile(
       category,
       description,
       itemIds,
+      requireUniqueItems,
       icon_url: iconUrl,
       required_count: requiredCount,
     }),
@@ -240,6 +246,7 @@ export async function updateTile(
   category = "",
   description = "",
   itemIds: number[] = [],
+  requireUniqueItems = false,
 ): Promise<AdminTile> {
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
@@ -252,6 +259,7 @@ export async function updateTile(
       category,
       description,
       itemIds,
+      requireUniqueItems,
       icon_url: iconUrl,
       required_count: requiredCount,
     }),

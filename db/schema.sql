@@ -76,6 +76,12 @@ ALTER TABLE tiles ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 -- one of the DT2 rings). Empty means "no automatic detection" — the tile is
 -- manual-upload only, which is the default and stays valid.
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS item_ids INT[] NOT NULL DEFAULT '{}';
+-- For a tile that accepts several items and needs more than one proof (e.g.
+-- "10 Barrows items"): when true, the same item id can only be submitted once
+-- per team for this tile, so "10 different pieces" and "4 unique DK rings"
+-- are enforced automatically instead of relying on an admin to notice a
+-- duplicate during review. Has no effect on tiles needing only one proof.
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS require_unique_items BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS submissions (
   id BIGSERIAL PRIMARY KEY,
@@ -90,6 +96,11 @@ CREATE TABLE IF NOT EXISTS submissions (
   UNIQUE (team_id, tile_id)
 );
 ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_team_id_tile_id_key;
+-- Which OSRS item this submission was for, when known (only the RuneLite
+-- plugin resolves this — a manual screenshot upload has no way to). Backs
+-- the require_unique_items check on tiles and lets the admin review list
+-- show what was actually submitted instead of just an image.
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS item_id INT;
 CREATE INDEX IF NOT EXISTS idx_submissions_team_id ON submissions(team_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
 

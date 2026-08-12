@@ -136,6 +136,7 @@ export const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
     iconUrl: PLACEHOLDER_ICON,
     submittedBy: "SomePlayer",
     createdAt: "2026-08-02T00:00:00.000Z",
+    itemId: null,
   },
   {
     id: 2,
@@ -146,5 +147,6 @@ export const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
     iconUrl: PLACEHOLDER_ICON,
     submittedBy: "AnotherPlayer",
     createdAt: "2026-08-02T00:00:00.000Z",
+    itemId: null,
   },
 ];

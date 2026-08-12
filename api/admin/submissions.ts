@@ -7,7 +7,7 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
     typeof req.query.status === "string" ? req.query.status : "pending";
 
   const rows = await sql`
-    SELECT s.id, s.status, s.proof_url, s.created_at,
+    SELECT s.id, s.status, s.proof_url, s.created_at, s.item_id,
            t.name AS team_name, ti.name AS tile_name, ti.icon_url,
            u.discord_username, u.discord_global_name, u.runescape_name
     FROM submissions s
@@ -25,6 +25,9 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
       teamName: r.team_name,
       tileName: r.tile_name,
       iconUrl: r.icon_url,
+      // Only ever set for submissions the RuneLite plugin made — a manual
+      // screenshot upload has no way to know which item id it's showing.
+      itemId: r.item_id,
       submittedBy:
         r.runescape_name ??
         r.discord_global_name ??

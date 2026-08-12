@@ -7,7 +7,11 @@ import {
   requireRequestUser,
   requireUser,
 } from "./_lib/auth.js";
-import { getOrCreateBoardConfig, insertProofSubmission } from "./_lib/board.js";
+import {
+  getOrCreateBoardConfig,
+  recordProofSubmission,
+  validateProofSubmission,
+} from "./_lib/board.js";
 
 const PROOF_CONTENT_TYPES: Record<string, string> = {
   "image/png": "png",
@@ -269,16 +273,18 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const result = await insertProofSubmission({
+  const validation = await validateProofSubmission({ teamId: user.teamId, tileId });
+  if (!validation.ok) {
+    res.status(validation.status).json({ error: validation.error });
+    return;
+  }
+
+  await recordProofSubmission({
     teamId: user.teamId,
     tileId,
     proofUrl,
     submittedBy: user.id,
   });
-  if (!result.ok) {
-    res.status(result.status).json({ error: result.error });
-    return;
-  }
 
   res.status(200).json({ ok: true });
 }
@@ -337,27 +343,19 @@ async function submitPluginProof(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Resolve the tile before uploading: a bad tileId that only got caught by
-  // insertProofSubmission afterwards would leave an orphaned blob behind.
-  const tileRows = await sql`SELECT item_ids FROM tiles WHERE id = ${tileId}`;
-  if (tileRows.length === 0) {
-    res.status(404).json({ error: "Tile not found" });
-    return;
-  }
-
-  // Defence in depth: if the tile declares which item ids satisfy it and the
-  // plugin reports one, it has to match. Admins still review every submission,
-  // so this only catches a misbehaving/outdated client, not a determined one.
+  // Validate everything (tile exists, item matches, unique-item and
+  // required-count rules) before uploading: catching a rejection only after
+  // the upload would leave an orphaned blob behind for no reason.
   const reportedItemId = Number(req.query.itemId);
-  const itemIds = (tileRows[0].item_ids ?? []) as number[];
-  if (
-    Number.isInteger(reportedItemId) &&
-    itemIds.length > 0 &&
-    !itemIds.includes(reportedItemId)
-  ) {
-    res
-      .status(400)
-      .json({ error: "That item does not satisfy the requested tile" });
+  const itemId = Number.isInteger(reportedItemId) ? reportedItemId : undefined;
+
+  const validation = await validateProofSubmission({
+    teamId: user.teamId,
+    tileId,
+    itemId,
+  });
+  if (!validation.ok) {
+    res.status(validation.status).json({ error: validation.error });
     return;
   }
 
@@ -377,16 +375,13 @@ async function submitPluginProof(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const result = await insertProofSubmission({
+  await recordProofSubmission({
     teamId: user.teamId,
     tileId,
     proofUrl: blob.url,
     submittedBy: user.id,
+    itemId,
   });
-  if (!result.ok) {
-    res.status(result.status).json({ error: result.error });
-    return;
-  }
 
   res.status(200).json({ ok: true, proofUrl: blob.url });
 }

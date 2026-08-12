@@ -302,6 +302,7 @@ export function BingoPage() {
                   <div className="bingo-admin-tile-name">{sub.tileName}</div>
                   <div className="bingo-admin-meta">
                     {sub.teamName} · submitted by {sub.submittedBy}
+                    {sub.itemId != null && ` · item id ${sub.itemId}`}
                   </div>
                   <div className="bingo-admin-meta bingo-admin-meta--timestamp">
                     {new Date(sub.createdAt).toLocaleString()}

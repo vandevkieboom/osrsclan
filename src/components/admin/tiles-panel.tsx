@@ -38,6 +38,7 @@ function TileAddRow({
     category: string,
     description: string,
     itemIds: number[],
+    requireUniqueItems: boolean,
   ) => void;
   onCancel: () => void;
 }) {
@@ -47,6 +48,7 @@ function TileAddRow({
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [itemIdsText, setItemIdsText] = useState("");
+  const [requireUniqueItems, setRequireUniqueItems] = useState(false);
   return (
     <div className="admin-row admin-tile-row--adding admin-tile-card">
       <div className="admin-tile-card-top">
@@ -97,6 +99,14 @@ function TileAddRow({
         value={itemIdsText}
         onChange={(e) => setItemIdsText(e.target.value)}
       />
+      <label className="admin-tile-unique-toggle">
+        <input
+          type="checkbox"
+          checked={requireUniqueItems}
+          onChange={(e) => setRequireUniqueItems(e.target.checked)}
+        />
+        Require unique items (e.g. "4 different DK rings", not the same one 4x)
+      </label>
       <div className="admin-tile-card-actions">
         <button
           type="button"
@@ -111,6 +121,7 @@ function TileAddRow({
               category.trim(),
               description.trim(),
               parseItemIdsInput(itemIdsText),
+              requireUniqueItems,
             )
           }
         >
@@ -137,6 +148,7 @@ function TileRow({
     category: string,
     description: string,
     itemIds: number[],
+    requireUniqueItems: boolean,
   ) => void;
   onDelete: () => void;
 }) {
@@ -146,6 +158,9 @@ function TileRow({
   const [category, setCategory] = useState(tile.category);
   const [description, setDescription] = useState(tile.description);
   const [itemIdsText, setItemIdsText] = useState(tile.itemIds.join(", "));
+  const [requireUniqueItems, setRequireUniqueItems] = useState(
+    tile.requireUniqueItems,
+  );
   const [prevTile, setPrevTile] = useState(tile);
   if (
     tile.name !== prevTile.name ||
@@ -153,7 +168,8 @@ function TileRow({
     tile.requiredCount !== prevTile.requiredCount ||
     tile.category !== prevTile.category ||
     tile.description !== prevTile.description ||
-    tile.itemIds.join(",") !== prevTile.itemIds.join(",")
+    tile.itemIds.join(",") !== prevTile.itemIds.join(",") ||
+    tile.requireUniqueItems !== prevTile.requireUniqueItems
   ) {
     setPrevTile(tile);
     setName(tile.name);
@@ -162,6 +178,7 @@ function TileRow({
     setCategory(tile.category);
     setDescription(tile.description);
     setItemIdsText(tile.itemIds.join(", "));
+    setRequireUniqueItems(tile.requireUniqueItems);
   }
 
   function commit() {
@@ -179,9 +196,10 @@ function TileRow({
         c !== tile.requiredCount ||
         cat !== tile.category ||
         desc !== tile.description ||
-        ids.join(",") !== tile.itemIds.join(","))
+        ids.join(",") !== tile.itemIds.join(",") ||
+        requireUniqueItems !== tile.requireUniqueItems)
     ) {
-      onSave(n, u, c, cat, desc, ids);
+      onSave(n, u, c, cat, desc, ids, requireUniqueItems);
     } else {
       setName(tile.name);
       setIconUrl(tile.iconUrl);
@@ -189,6 +207,7 @@ function TileRow({
       setCategory(tile.category);
       setDescription(tile.description);
       setItemIdsText(tile.itemIds.join(", "));
+      setRequireUniqueItems(tile.requireUniqueItems);
     }
   }
 
@@ -248,6 +267,26 @@ function TileRow({
         onChange={(e) => setItemIdsText(e.target.value)}
         onBlur={commit}
       />
+      <label className="admin-tile-unique-toggle">
+        <input
+          type="checkbox"
+          checked={requireUniqueItems}
+          onChange={(e) => {
+            setRequireUniqueItems(e.target.checked);
+            // Not text input + onBlur here, so commit explicitly on change.
+            onSave(
+              name.trim() || tile.name,
+              iconUrl.trim() || tile.iconUrl,
+              Math.max(1, Math.floor(requiredCount) || 1),
+              category.trim(),
+              description.trim(),
+              parseItemIdsInput(itemIdsText),
+              e.target.checked,
+            );
+          }}
+        />
+        Require unique items (e.g. "4 different DK rings", not the same one 4x)
+      </label>
     </div>
   );
 }
@@ -284,6 +323,7 @@ export function TilesPanel() {
     category: string,
     description: string,
     itemIds: number[],
+    requireUniqueItems: boolean,
   ) {
     try {
       await createTile(
@@ -294,6 +334,7 @@ export function TilesPanel() {
         category,
         description,
         itemIds,
+        requireUniqueItems,
       );
       setAddingPosition(null);
       reload();
@@ -310,6 +351,7 @@ export function TilesPanel() {
     category: string,
     description: string,
     itemIds: number[],
+    requireUniqueItems: boolean,
   ) {
     try {
       await updateTile(
@@ -320,6 +362,7 @@ export function TilesPanel() {
         category,
         description,
         itemIds,
+        requireUniqueItems,
       );
       reload();
     } catch (err) {
@@ -372,6 +415,7 @@ export function TilesPanel() {
                 category,
                 description,
                 itemIds,
+                requireUniqueItems,
               ) =>
                 handleSaveTile(
                   tile.id,
@@ -381,6 +425,7 @@ export function TilesPanel() {
                   category,
                   description,
                   itemIds,
+                  requireUniqueItems,
                 )
               }
               onDelete={() => handleDeleteTile(tile.id)}
@@ -395,6 +440,7 @@ export function TilesPanel() {
               category,
               description,
               itemIds,
+              requireUniqueItems,
             ) =>
               handleAddTile(
                 addingPosition,
@@ -404,6 +450,7 @@ export function TilesPanel() {
                 category,
                 description,
                 itemIds,
+                requireUniqueItems,
               )
             }
             onCancel={() => setAddingPosition(null)}

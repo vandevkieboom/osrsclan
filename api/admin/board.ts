@@ -66,6 +66,7 @@ function serializeTile(t: Record<string, unknown>) {
     category: t.category,
     description: t.description,
     itemIds: (t.item_ids ?? []) as number[],
+    requireUniqueItems: Boolean(t.require_unique_items),
   };
 }
 
@@ -87,7 +88,7 @@ function parseItemIds(body: unknown): number[] | null {
 async function listTiles(res: VercelResponse) {
   const rows = await sql`
     SELECT id, position, name, icon_url, required_count, category, description,
-           item_ids
+           item_ids, require_unique_items
     FROM tiles ORDER BY position`;
   res.status(200).json({ tiles: rows.map(serializeTile) });
 }
@@ -111,6 +112,9 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
       ? req.body.description.trim()
       : "";
   const itemIds = parseItemIds(req.body);
+  const requireUniqueItems = Boolean(
+    req.body?.requireUniqueItems ?? req.body?.require_unique_items,
+  );
   if (
     !Number.isInteger(position) ||
     position < 0 ||
@@ -127,9 +131,9 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
   }
   try {
     const rows = await sql`
-      INSERT INTO tiles (position, name, icon_url, required_count, category, description, item_ids)
-      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description}, ${itemIds}::int[])
-      RETURNING id, position, name, icon_url, required_count, category, description, item_ids`;
+      INSERT INTO tiles (position, name, icon_url, required_count, category, description, item_ids, require_unique_items)
+      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description}, ${itemIds}::int[], ${requireUniqueItems})
+      RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items`;
     res.status(201).json({ tile: serializeTile(rows[0]) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
@@ -160,6 +164,9 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
       ? req.body.description.trim()
       : "";
   const itemIds = parseItemIds(req.body);
+  const requireUniqueItems = Boolean(
+    req.body?.requireUniqueItems ?? req.body?.require_unique_items,
+  );
   if (
     !Number.isInteger(id) ||
     !name ||
@@ -175,9 +182,10 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
   }
   const rows = await sql`
     UPDATE tiles SET name = ${name}, icon_url = ${iconUrl}, required_count = ${requiredCount},
-      category = ${category}, description = ${description}, item_ids = ${itemIds}::int[]
+      category = ${category}, description = ${description}, item_ids = ${itemIds}::int[],
+      require_unique_items = ${requireUniqueItems}
     WHERE id = ${id}
-    RETURNING id, position, name, icon_url, required_count, category, description, item_ids`;
+    RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items`;
   if (rows.length === 0) {
     res.status(404).json({ error: "Tile not found" });
     return;
