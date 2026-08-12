@@ -19,6 +19,7 @@ function placeholderTiles(teamId: number): BoardTile[] {
       PLACEHOLDER_STATUSES[(i + teamId) % PLACEHOLDER_STATUSES.length];
     return {
       tileId: i,
+      position: i,
       name: `Tile ${i + 1}`,
       iconUrl: PLACEHOLDER_ICON,
       requiredCount: i % 5 === 0 ? 3 : 1,

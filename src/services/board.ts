@@ -11,6 +11,7 @@ export interface BoardProof {
 
 export interface BoardTile {
   tileId: number;
+  position: number;
   name: string;
   iconUrl: string;
   requiredCount: number;

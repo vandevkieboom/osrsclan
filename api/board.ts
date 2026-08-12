@@ -176,6 +176,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
         const teamProgress = teamProgressFor(t, teamId);
         return {
           tileId: t.id,
+          position: t.position,
           name: t.name,
           iconUrl: t.iconUrl,
           requiredCount: t.requiredCount,
@@ -205,6 +206,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       const rejectedCount = agg?.rejectedCount ?? 0;
       return {
         tileId: t.id,
+        position: t.position,
         name: t.name,
         iconUrl: t.iconUrl,
         requiredCount: t.requiredCount,
