@@ -4,10 +4,10 @@ import { Hero } from "../components/hero";
 import { SiteFooter } from "../components/site-footer";
 import { SiteHeader } from "../components/site-header";
 import { fetchDonors, type Donor } from "../services/board";
+import { WOM_GROUP_ID } from "../constants";
 
 const TROPHY_ICONS = ["/trophy.png", "/trophy-silver.png", "/trophy-bronze.png"];
 
-const WOM_GROUP_ID = 22206;
 const WOM_BASE = "https://api.wiseoldman.net/v2";
 
 interface LiveStream {

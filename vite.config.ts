@@ -5,6 +5,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 const RP_BASE = 'https://api.runeprofile.com/v1'
 const WOM_BASE = 'https://api.wiseoldman.net/v2'
+// Keep in sync with WOM_GROUP_ID in src/constants.ts, api/wom-proxy.ts, and
+// api/runeprofile-proxy.ts.
 const WOM_GROUP_ID = 22206
 
 const ALLOWED_PATHS = [

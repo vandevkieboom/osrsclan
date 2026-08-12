@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
+// Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts, and
+// api/runeprofile-proxy.ts.
 const GROUP_ID = 22206;
 const API_KEY = process.env.WOM_API_KEY ?? "";
 

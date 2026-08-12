@@ -23,6 +23,7 @@ const ALLOWED_PATHS = [
 
 // Same Wise Old Man clan group used by api/wom-proxy.ts, queried here directly
 // (rather than through that proxy) since this runs server-side already.
+// Keep in sync with WOM_GROUP_ID in src/constants.ts and vite.config.ts.
 const WOM_GROUP_ID = 22206;
 const WOM_HEADERS: Record<string, string> = {
   "Content-Type": "application/json",
