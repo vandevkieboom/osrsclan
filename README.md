@@ -1,73 +1,41 @@
-# React + TypeScript + Vite
+# Clan Rankings
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web app voor de clan: rankings/tier-lijst, hiscores, activiteit, bingo-events en clan-profielen. React/Vite frontend met een Vercel serverless backend en een Neon Postgres database.
 
-Currently, two official plugins are available:
+## Architectuur
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `src/` — React 19 + React Router frontend (Vite). Elke route in `src/main.tsx` komt overeen met één bestand in `src/page/`.
+- `api/` — Vercel serverless functions (de backend): authenticatie (Discord OAuth), admin CRUD, board/bingo-data, en proxies naar externe APIs (Wise Old Man, RuneProfile, Twitch).
+- `db/schema.sql` — huidig databaseschema, wordt idempotent toegepast via `pnpm db:migrate`.
 
-## React Compiler
+## Aan de slag
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install
+pnpm dev            # frontend only (Vite dev server)
+pnpm dev:vercel     # frontend + api/ routes lokaal (vereist Vercel CLI + env vars)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+`pnpm dev:vercel` is nodig zodra je iets in `api/` test, omdat `pnpm dev` de serverless functions niet uitvoert.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Benodigde environment variables
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Zie `.env.local` (niet in git) voor de huidige waarden. Vereist:
+
+- `DATABASE_URL` — Neon Postgres connection string
+- `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI` — Discord OAuth login
+- `DISCORD_BOT_TOKEN`, `DISCORD_ANNOUNCEMENTS_CHANNEL_ID` — Discord aankondigingen
+- `WOM_API_KEY` — Wise Old Man API (via `api/wom-proxy.ts` en `api/runeprofile-proxy.ts`)
+- `RUNEPROFILE_API_KEY` — RuneProfile API (via `api/runeprofile-proxy.ts`)
+- `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNELS` — live-status van clanleden
+- `CRON_SECRET` — beveiligt de dagelijkse cron (`vercel.json`) die de RuneProfile-leaderboard ververst
+- `BLOB_READ_WRITE_TOKEN` — Vercel Blob storage voor bingo-tile screenshots (meestal automatisch gezet door Vercel)
+
+## Overige scripts
+
+```bash
+pnpm build        # tsc -b && vite build
+pnpm lint         # eslint .
+pnpm preview      # preview van de productiebuild
+pnpm db:migrate   # past db/schema.sql toe op de database uit .env.local
 ```
