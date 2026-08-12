@@ -528,6 +528,13 @@ body {
 .item-icon-wrap {
   position: relative;
   display: inline-flex;
+  /* Fixed to match .item-sprite exactly, rather than letting inline-flex
+     shrink-to-fit the image — with a corner badge (.item-status) also
+     present, some browsers factor its negative-offset overflow into the
+     wrap's intrinsic size, widening it into a non-square box and turning
+     the circular .item-manual-toggle overlay into an oval. */
+  width: 40px;
+  height: 40px;
 }
 
 .item.is-complete .item-name {
@@ -584,10 +591,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  border: 2px solid transparent;
   border-radius: 50%;
   background: transparent;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 button.item-manual-toggle {
@@ -595,12 +604,18 @@ button.item-manual-toggle {
   cursor: pointer;
 }
 
+/* A translucent fill alone blends unevenly into high-contrast item art (a
+   dark background behind a light weapon render, say), so its edge stops
+   reading as a circle. The ring gives the toggle a crisp boundary that
+   doesn't depend on what's underneath. */
 button.item-manual-toggle:hover {
   background: color-mix(in srgb, #7a655f 30%, transparent);
+  border-color: color-mix(in srgb, #7a655f 80%, transparent);
 }
 
 .item-manual-toggle.checked {
   background: color-mix(in srgb, var(--green) 42%, transparent);
+  border-color: var(--green);
 }
 
 button.item-manual-toggle.checked:hover {
@@ -946,6 +961,11 @@ button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
 
   .item {
     width: 54px;
+  }
+
+  .item-icon-wrap {
+    width: 36px;
+    height: 36px;
   }
 
   .item-sprite {
