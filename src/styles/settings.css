@@ -83,20 +83,6 @@
   line-height: 1.5;
 }
 
-.settings-profile-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 13px;
-  color: #e8574a;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.settings-profile-link:hover {
-  color: #f0837a;
-}
-
 /* A freshly generated plugin key, shown once. Deliberately loud — this is the
    only chance to copy it. */
 .settings-token-new {

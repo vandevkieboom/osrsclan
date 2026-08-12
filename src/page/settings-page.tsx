@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import { useAuth } from "../context/auth-context";
@@ -232,7 +231,7 @@ export function SettingsPage() {
           <p className="settings-field-hint">
             Paste a key into the clan bingo RuneLite plugin and it will submit
             tile proofs for you automatically when you get a drop. Treat a key
-            like a password — anyone with it can submit proofs as you.
+            like a password.
           </p>
 
           {newToken && (
@@ -297,15 +296,6 @@ export function SettingsPage() {
           )}
           {tokenError && <div className="admin-error">{tokenError}</div>}
         </div>
-
-        {user.runescapeName && (
-          <Link
-            to={`/profile?rsn=${encodeURIComponent(user.runescapeName)}`}
-            className="settings-profile-link"
-          >
-            View your profile →
-          </Link>
-        )}
       </div>
 
       <SiteFooter />
