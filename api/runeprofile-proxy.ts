@@ -10,7 +10,7 @@ import { requireRequestUser } from "./_lib/auth.js";
 // src/services/profile.ts type-checks the same way here as it does in the
 // browser build).
 import { ranks, rankIconByRole, STAFF_ROLES } from "../src/data/ranks-data.js";
-import { computeClanRankProgress } from "../src/services/rank-checker.js";
+import { checkRequirement, computeClanRankProgress } from "../src/services/rank-checker.js";
 import { getRankForRole } from "../src/services/profile.js";
 import {
   buildRuneProfile,
@@ -369,9 +369,12 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
     headers: RP_HEADERS,
   });
   if (fullRes.status === 404) {
-    res
-      .status(404)
-      .json({ error: `${displayName} isn't set up on RuneProfile.` });
+    res.status(404).json({
+      error: `${displayName} isn't set up on RuneProfile.`,
+      // Lets the plugin distinguish "never synced" from any other failure
+      // without string-matching the message above.
+      reason: "not-on-runeprofile",
+    });
     return;
   }
   if (fullRes.status === 429) {
@@ -404,6 +407,35 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
   const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
   const currentRankInfo = getRankForRole(membership.role);
 
+  // What's left for the *next* tier up — same "satisfied" rule
+  // getRankStats uses internally (manually verified, or an apiCheck that
+  // actually passes), just listing the item names instead of only a count.
+  // Capped at 8 names so a big early tier can't blow up the plugin's chat
+  // reply; the exact "any N of these" nuance (one item can always be
+  // skipped) isn't reproduced here since this is informational, not
+  // gating anything.
+  const nextRankIndex = progress.highestEligibleRankIndex + 1;
+  let nextRank: string | null = null;
+  let neededForNextRank: number | null = null;
+  let missingItemNames: string[] = [];
+  if (nextRankIndex < ranks.length) {
+    const rank = ranks[nextRankIndex];
+    const stats = progress.rankStats[nextRankIndex];
+    nextRank = rank.name;
+    neededForNextRank = Math.max(0, stats.requiredCount - stats.satisfiedCount);
+    missingItemNames = rank.items
+      .filter((item) => {
+        if (verifiedItemNames.has(item.name.toLowerCase())) return false;
+        if (item.apiCheck) {
+          const result = checkRequirement(item.apiCheck, profile);
+          if (result === "pass" || result === "pass-alt") return false;
+        }
+        return true;
+      })
+      .map((item) => item.name)
+      .slice(0, 8);
+  }
+
   res.status(200).json({
     rsn: displayName,
     currentRank: currentRankInfo?.name ?? null,
@@ -413,6 +445,9 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
         : null,
     overallSatisfied: progress.overallSatisfied,
     overallTotal: progress.overallTotal,
+    nextRank,
+    neededForNextRank,
+    missingItemNames,
   });
 }
 
