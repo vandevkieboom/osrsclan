@@ -934,35 +934,12 @@ export const rankIconByRole: Record<string, string> = {
   tzkal: ranks.find((r) => r.name === "Infernal")!.icon,
 };
 
-// Staff badges, kept separate from the `ranks` achievement ladder above —
-// these are WOM group roles assigned to clan leadership/moderation, not
-// tiers earned through collection-log progress, so they must never appear
-// in `ranks` itself (that array also drives the Rankings page's eligible-tier
-// checker, which would treat them as achievable goals).
-const CROWN_ICON_GOLD =
-  "https://support.runescape.com/hc/article_attachments/27922167083409";
-const CROWN_ICON_SILVER =
-  "https://support.runescape.com/hc/article_attachments/27922167084561";
-
-export const staffRankByRole: Record<
-  string,
-  { name: string; color: string; icon: string }
-> = {
-  owner: {
-    name: "Clan Owner",
-    color: "#826bc2",
-    icon: CROWN_ICON_GOLD,
-  },
-  deputy_owner: {
-    name: "Clan Admin",
-    color: "#d4843d",
-    icon: CROWN_ICON_GOLD,
-  },
-  moderator: {
-    name: "Clan Moderator",
-    color: "#369876",
-    icon: CROWN_ICON_SILVER,
-  },
-};
+// WOM group roles held by clan leadership/moderation. Their displayed rank
+// badge comes straight from WOM itself (see getRankForRole's fallback in
+// services/profile.ts) — this set exists only so the leaderboard's
+// progress-crediting math (resolveMemberRankIndex in
+// api/runeprofile-proxy.ts) can still treat them as having satisfied the
+// whole achievement ladder, same as before that badge was WOM-driven.
+export const STAFF_ROLES = new Set(["owner", "deputy_owner", "moderator"]);
 
 export default ranks;

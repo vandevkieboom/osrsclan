@@ -1,4 +1,4 @@
-import ranks, { rankIconByRole, staffRankByRole } from "../data/ranks-data.js";
+import ranks, { rankIconByRole } from "../data/ranks-data.js";
 
 export interface WomSkillEntry {
   level: number;
@@ -41,15 +41,20 @@ export interface RankInfo {
 }
 
 // Wise Old Man ships a small badge icon for every group role it supports —
-// not just the achievement tiers and staff titles this clan actually uses,
-// but also cosmetic/event ones (e.g. "champion") that leadership sometimes
-// assigns instead of a tier. Those fall through both lookups below, so
-// rather than reporting the member as rank-less, render whatever icon WOM
-// itself shows next to their name. Pinned to a commit-ish ref rather than
-// a moving branch so the URL can't change under us.
+// not just the achievement tiers this clan's own ladder tracks, but staff
+// titles (owner, deputy_owner, moderator, ...) and cosmetic/event ones (e.g.
+// "champion") too. Rather than maintaining our own separate icon/name for
+// those, render whatever icon and role name WOM itself shows next to their
+// name. Pinned to a commit-ish ref rather than a moving branch so the URL
+// can't change under us.
 const WOM_ROLE_ICON_BASE =
   "https://cdn.jsdelivr.net/gh/wise-old-man/wise-old-man@master/app/public/img/group_roles";
 const WOM_ROLE_FALLBACK_COLOR = "#a99089";
+
+// This clan uses the WOM role "serenist" to mark members who haven't
+// earned a real clan rank yet — it's a placeholder, not an achievement, so
+// it should render as no badge at all rather than WOM's serenist icon.
+const UNRANKED_ROLES = new Set(["serenist"]);
 
 function titleCaseRole(role: string): string {
   return role
@@ -63,9 +68,7 @@ function titleCaseRole(role: string): string {
 export function getRankForRole(role: string | undefined): RankInfo | null {
   if (!role) return null;
   const roleKey = role.toLowerCase();
-
-  const staff = staffRankByRole[roleKey];
-  if (staff) return { name: staff.name, color: staff.color, icon: staff.icon };
+  if (UNRANKED_ROLES.has(roleKey)) return null;
 
   const icon = rankIconByRole[roleKey];
   if (icon) {

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
-import ranks, { rankIconByRole, staffRankByRole } from "../src/data/ranks-data.js";
+import ranks, { rankIconByRole, STAFF_ROLES } from "../src/data/ranks-data.js";
 import { computeClanRankProgress } from "../src/services/rank-checker.js";
 import { getRankForRole } from "../src/services/profile.js";
 import {
@@ -80,7 +80,7 @@ interface LeaderboardEntry {
 function resolveMemberRankIndex(role: string | undefined): number {
   if (!role) return -1;
   const roleKey = role.toLowerCase();
-  if (staffRankByRole[roleKey]) return ranks.length;
+  if (STAFF_ROLES.has(roleKey)) return ranks.length;
   const icon = rankIconByRole[roleKey];
   if (!icon) return -1;
   return ranks.findIndex((r) => r.icon === icon);
