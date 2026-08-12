@@ -13,6 +13,7 @@ import { TileFace } from "../components/bingo/tile-face";
 import { TileDetailPanel } from "../components/bingo/tile-detail-panel";
 import { PrizePotChip } from "../components/bingo/prize-pot-chip";
 import { Lightbox } from "../components/bingo/lightbox";
+import { AdminReview } from "../components/bingo/admin-review";
 import {
   PLACEHOLDER_BOARD,
   PLACEHOLDER_SUBMISSIONS,
@@ -84,9 +85,13 @@ export function BingoPage() {
     }
   }
 
-  async function handleReview(id: number, decision: "approved" | "rejected") {
+  async function handleReview(
+    id: number,
+    decision: "approved" | "rejected",
+    itemId?: number,
+  ) {
     try {
-      await reviewSubmission(id, decision);
+      await reviewSubmission(id, decision, itemId);
       reloadSubmissions();
       reloadBoard();
     } catch (err) {
@@ -291,50 +296,7 @@ export function BingoPage() {
         )}
 
         {view === "admin" && isAdmin && (
-          <div className="bingo-admin-list">
-            {(!submissions || submissions.length === 0) && (
-              <div className="bingo-admin-empty">No pending submissions.</div>
-            )}
-            {submissions?.map((sub) => (
-              <div key={sub.id} className="bingo-admin-row">
-                <img src={sub.iconUrl} alt="" className="bingo-admin-icon" />
-                <div className="bingo-admin-info">
-                  <div className="bingo-admin-tile-name">{sub.tileName}</div>
-                  <div className="bingo-admin-meta">
-                    {sub.teamName} · submitted by {sub.submittedBy}
-                    {sub.itemId != null && ` · item id ${sub.itemId}`}
-                  </div>
-                  <div className="bingo-admin-meta bingo-admin-meta--timestamp">
-                    {new Date(sub.createdAt).toLocaleString()}
-                  </div>
-                </div>
-                {sub.proofUrl && (
-                  <a
-                    href={sub.proofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bingo-admin-proof-link"
-                  >
-                    View proof
-                  </a>
-                )}
-                <button
-                  type="button"
-                  className="bingo-admin-approve"
-                  onClick={() => handleReview(sub.id, "approved")}
-                >
-                  APPROVE
-                </button>
-                <button
-                  type="button"
-                  className="bingo-admin-reject"
-                  onClick={() => handleReview(sub.id, "rejected")}
-                >
-                  REJECT
-                </button>
-              </div>
-            ))}
-          </div>
+          <AdminReview submissions={submissions} onReview={handleReview} />
         )}
       </div>
 

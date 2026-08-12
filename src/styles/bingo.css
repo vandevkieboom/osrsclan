@@ -297,7 +297,44 @@
 .bingo-admin-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
+}
+
+/* One group = one tile+team pair — everything an admin needs to compare
+   when checking for a duplicate lives together, never spread across the
+   whole review queue. */
+.bingo-admin-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bingo-admin-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bingo-admin-group-header .bingo-admin-tile-name {
+  flex: 1;
+}
+
+.bingo-admin-unique-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e8574a;
+  border: 1px solid #a3241a;
+  border-radius: 4px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.bingo-admin-group-context {
+  font-size: 11px;
+  color: #8f7a78;
+  margin-top: -4px;
 }
 
 .bingo-admin-row {
@@ -308,6 +345,13 @@
   background: #120809;
   border-radius: 8px;
   padding: 1rem 1.25rem;
+}
+
+.bingo-admin-itemid-input {
+  width: 90px;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 0.4rem 0.6rem;
 }
 
 .bingo-admin-icon {

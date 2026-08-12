@@ -52,13 +52,18 @@ export interface AdminSubmission {
   id: number;
   status: "pending" | "approved" | "rejected";
   proofUrl: string | null;
+  teamId: number;
+  tileId: number;
   teamName: string;
   tileName: string;
   iconUrl: string;
+  requireUniqueItems: boolean;
   submittedBy: string;
   createdAt: string;
-  /** Set only for submissions the RuneLite plugin made. */
+  /** Set once the plugin (automatically) or an admin (by hand) has tagged it. */
   itemId: number | null;
+  /** Item ids already approved for this exact team+tile, for reviewer context. */
+  alreadyApprovedItemIds: number[];
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -286,11 +291,12 @@ export async function fetchAdminSubmissions(
 export async function reviewSubmission(
   id: number,
   decision: "approved" | "rejected",
+  itemId?: number,
 ): Promise<void> {
   const res = await fetch("/api/admin/submissions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, decision }),
+    body: JSON.stringify({ id, decision, itemId }),
   });
   await json(res);
 }
