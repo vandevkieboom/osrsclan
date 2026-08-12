@@ -1,4 +1,4 @@
-import ranks, { rankIconByRole } from "../data/ranks-data.js";
+import { ranks, rankIconByRole } from "../data/ranks-data.js";
 
 export interface WomSkillEntry {
   level: number;

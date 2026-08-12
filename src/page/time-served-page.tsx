@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
-import RankCard from "../components/rank-card";
-import ranks from "../data/ranks-data";
+import { RankCard } from "../components/rank-card";
+import { ranks } from "../data/ranks-data";
 import { useAuth } from "../context/auth-context";
 import {
   fetchRuneProfile,
@@ -16,7 +16,7 @@ import {
   getRequirementProgress,
 } from "../services/rank-checker";
 import type { CheckResult } from "../types/item";
-import ClanLeaderboard from "../components/clan-leaderboard";
+import { ClanLeaderboard } from "../components/clan-leaderboard";
 import {
   addVerifiedItem,
   fetchVerifiedItems,

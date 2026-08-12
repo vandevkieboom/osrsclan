@@ -31,7 +31,7 @@ const rules = [
   },
 ];
 
-const Ruleset: React.FC = () => (
+export const Ruleset: React.FC = () => (
   <div className="rank-card faq">
     <div className="ruleset-title">Frequently Asked Questions</div>
     <div className="rule-grid">
@@ -45,4 +45,3 @@ const Ruleset: React.FC = () => (
   </div>
 );
 
-export default Ruleset;

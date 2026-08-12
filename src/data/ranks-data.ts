@@ -1,6 +1,6 @@
 import type { Rank } from "../types/rank";
 
-const ranks: Rank[] = [
+export const ranks: Rank[] = [
   {
     name: "Sapphire",
     color: "#2a62e5",
@@ -941,5 +941,3 @@ export const rankIconByRole: Record<string, string> = {
 // api/runeprofile-proxy.ts) can still treat them as having satisfied the
 // whole achievement ladder, same as before that badge was WOM-driven.
 export const STAFF_ROLES = new Set(["owner", "deputy_owner", "moderator"]);
-
-export default ranks;

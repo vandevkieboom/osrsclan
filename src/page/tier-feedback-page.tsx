@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
-import ranks from "../data/ranks-data";
+import { ranks } from "../data/ranks-data";
 import type { Item } from "../types/item";
 
 const STORAGE_KEY = "clan-tier-feedback-v1";

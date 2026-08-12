@@ -7,7 +7,7 @@ import {
 const UNRANKED_COLOR = "#7a655f";
 const PAGE_SIZE = 25;
 
-export default function ClanLeaderboard() {
+export function ClanLeaderboard() {
   const [result, setResult] = useState<ClanLeaderboardResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);

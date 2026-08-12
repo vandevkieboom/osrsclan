@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
-import ranks, { rankIconByRole, STAFF_ROLES } from "../src/data/ranks-data.js";
+import { ranks, rankIconByRole, STAFF_ROLES } from "../src/data/ranks-data.js";
 import { computeClanRankProgress } from "../src/services/rank-checker.js";
 import { getRankForRole } from "../src/services/profile.js";
 import {

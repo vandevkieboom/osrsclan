@@ -10,7 +10,7 @@ type ItemCardProps = Item & {
   onToggleVerification?: () => void;
 };
 
-const ItemCard: React.FC<ItemCardProps> = ({
+export const ItemCard: React.FC<ItemCardProps> = ({
   name,
   img,
   alt,
@@ -98,4 +98,3 @@ const ItemCard: React.FC<ItemCardProps> = ({
   );
 };
 
-export default ItemCard;

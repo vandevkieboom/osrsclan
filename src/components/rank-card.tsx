@@ -1,5 +1,5 @@
 import React from "react";
-import ItemCard from "./item-card.js";
+import { ItemCard } from "./item-card.js";
 import type { CheckResult } from "../types/item";
 import type { Rank } from "../types/rank";
 
@@ -23,7 +23,7 @@ type RankCardProps = Rank & {
   onToggleVerification: (itemName: string) => void;
 };
 
-const RankCard: React.FC<RankCardProps> = ({
+export const RankCard: React.FC<RankCardProps> = ({
   name,
   color,
   textColor,
@@ -119,4 +119,3 @@ const RankCard: React.FC<RankCardProps> = ({
   );
 };
 
-export default RankCard;
