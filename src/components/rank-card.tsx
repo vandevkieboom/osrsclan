@@ -1,5 +1,5 @@
 import React from "react";
-import { ItemCard } from "./item-card.js";
+import { ItemCard } from "./item-card";
 import type { CheckResult } from "../types/item";
 import type { Rank } from "../types/rank";
 
