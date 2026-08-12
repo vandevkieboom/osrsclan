@@ -22,7 +22,7 @@ export function generateToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
@@ -79,6 +79,23 @@ export async function createSession(
   );
 }
 
+function toSessionUser(r: Record<string, unknown>): SessionUser {
+  return {
+    id: r.id as number,
+    discordId: r.discord_id as string,
+    username: r.discord_username as string,
+    globalName: r.discord_global_name as string | null,
+    runescapeName: r.runescape_name as string | null,
+    avatarUrl: r.discord_avatar_hash
+      ? `https://cdn.discordapp.com/avatars/${r.discord_id as string}/${r.discord_avatar_hash as string}.png?size=64`
+      : null,
+    isAdmin: r.is_admin as boolean,
+    teamId: r.team_id as number | null,
+    teamName: r.team_name as string | null,
+    rememberRankings: r.remember_rankings as boolean,
+  };
+}
+
 export async function getSessionUser(
   req: VercelRequest,
 ): Promise<SessionUser | null> {
@@ -95,21 +112,52 @@ export async function getSessionUser(
     WHERE s.token_hash = ${hashToken(token)} AND s.expires_at > now()`;
 
   if (rows.length === 0) return null;
-  const r = rows[0];
-  return {
-    id: r.id,
-    discordId: r.discord_id,
-    username: r.discord_username,
-    globalName: r.discord_global_name,
-    runescapeName: r.runescape_name,
-    avatarUrl: r.discord_avatar_hash
-      ? `https://cdn.discordapp.com/avatars/${r.discord_id}/${r.discord_avatar_hash}.png?size=64`
-      : null,
-    isAdmin: r.is_admin,
-    teamId: r.team_id,
-    teamName: r.team_name,
-    rememberRankings: r.remember_rankings,
-  };
+  return toSessionUser(rows[0]);
+}
+
+/**
+ * Resolves the caller from an `Authorization: Bearer <token>` header backed by
+ * the plugin_tokens table, for clients that can't hold a browser session
+ * cookie (the RuneLite plugin). Returns the same shape as getSessionUser so
+ * downstream handlers don't care which way the caller authenticated.
+ *
+ * Plugin tokens deliberately never satisfy requireAdmin — see getRequestUser.
+ */
+export async function getPluginUser(
+  req: VercelRequest,
+): Promise<SessionUser | null> {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) return null;
+  const token = header.slice("Bearer ".length).trim();
+  if (!token) return null;
+
+  const rows = await sql`
+    SELECT pt.id AS token_id, u.id, u.discord_id, u.discord_username,
+           u.discord_global_name, u.discord_avatar_hash, u.is_admin, u.team_id,
+           u.runescape_name, u.remember_rankings, t.name AS team_name
+    FROM plugin_tokens pt
+    JOIN users u ON u.id = pt.user_id
+    LEFT JOIN teams t ON t.id = u.team_id
+    WHERE pt.token_hash = ${hashToken(token)} AND pt.revoked_at IS NULL`;
+
+  if (rows.length === 0) return null;
+
+  await sql`UPDATE plugin_tokens SET last_used_at = now() WHERE id = ${rows[0].token_id}`;
+  return toSessionUser(rows[0]);
+}
+
+/**
+ * Identity for endpoints usable by both the website and the RuneLite plugin:
+ * browser session cookie first, plugin bearer token as a fallback.
+ *
+ * Only wire this into team-scoped read/submit endpoints. Admin endpoints stay
+ * on requireUser/requireAdmin (cookie-only) on purpose, so a leaked plugin
+ * token can never perform admin actions.
+ */
+export async function getRequestUser(
+  req: VercelRequest,
+): Promise<SessionUser | null> {
+  return (await getSessionUser(req)) ?? (await getPluginUser(req));
 }
 
 export async function destroySession(
@@ -130,6 +178,19 @@ export async function requireUser(
   res: VercelResponse,
 ): Promise<SessionUser | null> {
   const user = await getSessionUser(req);
+  if (!user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return null;
+  }
+  return user;
+}
+
+/** requireUser's equivalent for endpoints that also accept a plugin token. */
+export async function requireRequestUser(
+  req: VercelRequest,
+  res: VercelResponse,
+): Promise<SessionUser | null> {
+  const user = await getRequestUser(req);
   if (!user) {
     res.status(401).json({ error: "Not authenticated" });
     return null;

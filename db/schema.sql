@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS tiles (
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS required_count INT NOT NULL DEFAULT 1 CHECK (required_count >= 1);
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT '';
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+-- OSRS item ids that satisfy this tile, for the RuneLite plugin's automatic
+-- drop detection. An array because a tile can accept several items (e.g. any
+-- one of the DT2 rings). Empty means "no automatic detection" — the tile is
+-- manual-upload only, which is the default and stays valid.
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS item_ids INT[] NOT NULL DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS submissions (
   id BIGSERIAL PRIMARY KEY,
@@ -139,3 +144,20 @@ CREATE TABLE IF NOT EXISTS leaderboard_cache (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO leaderboard_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Long-lived per-user tokens so the RuneLite bingo plugin can submit tile
+-- proofs on a member's behalf. A browser session cookie can't be used — the
+-- plugin is a Java process, not a browser — so it sends
+-- `Authorization: Bearer <token>` instead. Mirrors the sessions table's
+-- store-only-the-hash pattern, so a database leak never exposes usable
+-- tokens. Revocation is a soft delete so last_used_at history survives it.
+CREATE TABLE IF NOT EXISTS plugin_tokens (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_plugin_tokens_user_id ON plugin_tokens(user_id);

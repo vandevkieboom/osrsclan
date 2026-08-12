@@ -1,14 +1,32 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { put } from "@vercel/blob";
 import { sql } from "./_lib/db.js";
-import { getSessionUser, requireUser } from "./_lib/auth.js";
-import { getOrCreateBoardConfig } from "./_lib/board.js";
+import {
+  getRequestUser,
+  requireRequestUser,
+  requireUser,
+} from "./_lib/auth.js";
+import { getOrCreateBoardConfig, insertProofSubmission } from "./_lib/board.js";
+
+const PROOF_CONTENT_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+
+// Unlike the browser's upload (which streams straight to Blob storage and so
+// allows 8MB), plugin uploads pass through this function, and Vercel caps a
+// function's request body at ~4.5MB. Stay clearly under that.
+const MAX_PLUGIN_PROOF_BYTES = 4 * 1024 * 1024;
 
 // The leaderboard is public — anyone can see team standings (and every
 // team's board, read-only) without logging in. A session is only needed to
-// know which team is "yours" for submit-proof permission checks.
+// know which team is "yours" for submit-proof permission checks. The RuneLite
+// plugin reads this same endpoint (authenticating by bearer token) to learn
+// which tiles its team still needs and which item ids to watch for.
 async function getBoard(req: VercelRequest, res: VercelResponse) {
-  const user = await getSessionUser(req);
+  const user = await getRequestUser(req);
 
   const config = await getOrCreateBoardConfig();
   const slotCount = config.size * config.size;
@@ -17,7 +35,8 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   // a larger board that got shrunk) stay in the database but drop off the
   // board until size grows back to cover them again.
   const tileRows = await sql`
-    SELECT id, position, name, icon_url, required_count, category, description
+    SELECT id, position, name, icon_url, required_count, category, description,
+           item_ids
     FROM tiles WHERE position < ${slotCount} ORDER BY position`;
   const tiles = tileRows.map((t) => ({
     id: t.id,
@@ -27,6 +46,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     requiredCount: t.required_count,
     category: t.category,
     description: t.description,
+    itemIds: (t.item_ids ?? []) as number[],
   }));
   const requiredCountByTile = new Map<number, number>(
     tiles.map((t) => [t.id, t.requiredCount]),
@@ -141,6 +161,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
         requiredCount: t.requiredCount,
         category: t.category,
         description: t.description,
+        itemIds: t.itemIds,
         approvedCount,
         pendingCount,
         rejectedCount,
@@ -248,31 +269,108 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const tileRows =
-    await sql`SELECT id, required_count FROM tiles WHERE id = ${tileId}`;
-  if (tileRows.length === 0) {
-    res.status(404).json({ error: "Tile not found" });
+  const result = await insertProofSubmission({
+    teamId: user.teamId,
+    tileId,
+    proofUrl,
+    submittedBy: user.id,
+  });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
     return;
   }
-
-  const currentCompleteRows = await sql`
-    SELECT
-      COUNT(*) FILTER (WHERE status = 'approved')::int AS approved_count,
-      COUNT(*) FILTER (WHERE status IN ('approved', 'pending'))::int AS active_count
-    FROM submissions
-    WHERE team_id = ${user.teamId} AND tile_id = ${tileId}`;
-  const activeCount = currentCompleteRows[0]?.active_count ?? 0;
-  const requiredCount = tileRows[0].required_count;
-  if (activeCount >= requiredCount) {
-    res.status(409).json({ error: "That tile is already complete" });
-    return;
-  }
-
-  await sql`
-    INSERT INTO submissions (team_id, tile_id, status, proof_url, submitted_by)
-    VALUES (${user.teamId}, ${tileId}, 'pending', ${proofUrl}, ${user.id})`;
 
   res.status(200).json({ ok: true });
+}
+
+/**
+ * The RuneLite plugin's proof upload. Unlike the browser flow (which gets a
+ * client token and streams the image straight to Blob storage), a plugin just
+ * POSTs the raw bytes here and this function stores them.
+ *
+ * POST /api/board?resource=plugin-proof&tileId=<id>&contentType=image/png
+ *   Authorization: Bearer <plugin token>
+ *   Content-Type: application/octet-stream   <- required, see below
+ *   body: raw image bytes
+ *
+ * The real image type travels in the `contentType` query param because
+ * @vercel/node only exposes req.body as a Buffer for
+ * `application/octet-stream`; sending `image/png` as the literal Content-Type
+ * leaves req.body undefined.
+ */
+async function submitPluginProof(req: VercelRequest, res: VercelResponse) {
+  const user = await requireRequestUser(req, res);
+  if (!user) return;
+
+  if (!user.teamId) {
+    res.status(400).json({ error: "You are not assigned to a team yet" });
+    return;
+  }
+
+  const tileId = Number(req.query.tileId);
+  if (!Number.isInteger(tileId)) {
+    res.status(400).json({ error: "A valid tileId query param is required" });
+    return;
+  }
+
+  const contentType = String(req.query.contentType ?? "");
+  const extension = PROOF_CONTENT_TYPES[contentType];
+  if (!extension) {
+    res.status(400).json({
+      error: `contentType must be one of ${Object.keys(PROOF_CONTENT_TYPES).join(", ")}`,
+    });
+    return;
+  }
+
+  const body: unknown = req.body;
+  if (!Buffer.isBuffer(body) || body.length === 0) {
+    res.status(400).json({
+      error:
+        "Request body must be raw image bytes sent as application/octet-stream",
+    });
+    return;
+  }
+  if (body.length > MAX_PLUGIN_PROOF_BYTES) {
+    res.status(413).json({
+      error: `Screenshot is too large (max ${MAX_PLUGIN_PROOF_BYTES / (1024 * 1024)}MB)`,
+    });
+    return;
+  }
+
+  // Defence in depth: if the tile declares which item ids satisfy it and the
+  // plugin reports one, it has to match. Admins still review every submission,
+  // so this only catches a misbehaving/outdated client, not a determined one.
+  const reportedItemId = Number(req.query.itemId);
+  if (Number.isInteger(reportedItemId)) {
+    const tileRows =
+      await sql`SELECT item_ids FROM tiles WHERE id = ${tileId}`;
+    const itemIds = (tileRows[0]?.item_ids ?? []) as number[];
+    if (itemIds.length > 0 && !itemIds.includes(reportedItemId)) {
+      res
+        .status(400)
+        .json({ error: "That item does not satisfy the requested tile" });
+      return;
+    }
+  }
+
+  const blob = await put(`proofs/plugin-${tileId}.${extension}`, body, {
+    access: "public",
+    contentType,
+    addRandomSuffix: true,
+  });
+
+  const result = await insertProofSubmission({
+    teamId: user.teamId,
+    tileId,
+    proofUrl: blob.url,
+    submittedBy: user.id,
+  });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  res.status(200).json({ ok: true, proofUrl: blob.url });
 }
 
 async function uploadToken(req: VercelRequest, res: VercelResponse) {
@@ -300,11 +398,14 @@ async function uploadToken(req: VercelRequest, res: VercelResponse) {
 }
 
 // Reading the board (incl. the public donor leaderboard), submitting a
-// tile, and the Blob upload-token handshake are combined into one function
-// to stay under the Vercel Hobby plan's 12-function-per-deployment cap.
+// tile, the Blob upload-token handshake, and the RuneLite plugin's direct
+// proof upload are combined into one function to stay under the Vercel Hobby
+// plan's 12-function-per-deployment cap.
 // Vercel Blob's client SDK always posts a `type` field (e.g.
 // "blob.generate-client-token"); our own submit body never has one, so
-// that's what distinguishes the two POST actions.
+// that's what distinguishes those two POST actions. The plugin upload is
+// picked out first by its explicit `resource` query param, since its body is
+// raw bytes rather than JSON.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") {
     if (req.query.resource === "donors") {
@@ -316,7 +417,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === "POST") {
-    if (typeof req.body?.type === "string") {
+    if (req.query.resource === "plugin-proof") {
+      await submitPluginProof(req, res);
+    } else if (typeof req.body?.type === "string") {
       await uploadToken(req, res);
     } else {
       await submitTile(req, res);
