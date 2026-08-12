@@ -1,43 +1,43 @@
 # Clan Rankings
 
-Web app voor de clan: rankings/tier-lijst, hiscores, activiteit, bingo-events en clan-profielen. React/Vite frontend met een Vercel serverless backend en een Neon Postgres database.
+Web app for the clan: rankings/tier list, hiscores, activity, bingo events, and clan profiles. React/Vite frontend with a Vercel serverless backend and a Neon Postgres database.
 
-## Architectuur
+## Architecture
 
-- `src/` — React 19 + React Router frontend (Vite). Elke route in `src/main.tsx` komt overeen met één bestand in `src/page/`.
-- `api/` — Vercel serverless functions (de backend): authenticatie (Discord OAuth), admin CRUD, board/bingo-data, en proxies naar externe APIs (Wise Old Man, RuneProfile, Twitch).
-- `db/schema.sql` — huidig databaseschema, wordt idempotent toegepast via `pnpm db:migrate`.
+- `src/` — React 19 + React Router frontend (Vite). Each route in `src/main.tsx` corresponds to one file in `src/page/`.
+- `api/` — Vercel serverless functions (the backend): authentication (Discord OAuth), admin CRUD, board/bingo data, and proxies to external APIs (Wise Old Man, RuneProfile, Twitch).
+- `db/schema.sql` — current database schema, applied idempotently via `pnpm db:migrate`.
 
-`api/runeprofile-proxy.ts` importeert bewust rechtstreeks uit `src/data/` en `src/services/` (rank-progress-logica wordt niet gedupliceerd). Er is geen aparte `shared/`-package tussen `api/` en `src/` — dat is een bewuste, uitgestelde keuze, geen abusievelijke koppeling.
+`api/runeprofile-proxy.ts` intentionally imports directly from `src/data/` and `src/services/` (rank-progress logic isn't duplicated). There's no separate `shared/` package between `api/` and `src/` — that's a deliberate, deferred choice, not accidental coupling.
 
-## Aan de slag
+## Getting started
 
 ```bash
 pnpm install
 pnpm dev            # frontend only (Vite dev server)
-pnpm dev:vercel     # frontend + api/ routes lokaal (vereist Vercel CLI + env vars)
+pnpm dev:vercel     # frontend + api/ routes locally (requires Vercel CLI + env vars)
 ```
 
-`pnpm dev:vercel` is nodig zodra je iets in `api/` test, omdat `pnpm dev` de serverless functions niet uitvoert.
+`pnpm dev:vercel` is needed as soon as you're testing anything in `api/`, since `pnpm dev` doesn't run the serverless functions.
 
-## Benodigde environment variables
+## Required environment variables
 
-Zie `.env.local` (niet in git) voor de huidige waarden. Vereist:
+See `.env.local` (not in git) for the current values. Required:
 
 - `DATABASE_URL` — Neon Postgres connection string
 - `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI` — Discord OAuth login
-- `DISCORD_BOT_TOKEN`, `DISCORD_ANNOUNCEMENTS_CHANNEL_ID` — Discord aankondigingen
-- `WOM_API_KEY` — Wise Old Man API (via `api/wom-proxy.ts` en `api/runeprofile-proxy.ts`)
+- `DISCORD_BOT_TOKEN`, `DISCORD_ANNOUNCEMENTS_CHANNEL_ID` — Discord announcements
+- `WOM_API_KEY` — Wise Old Man API (via `api/wom-proxy.ts` and `api/runeprofile-proxy.ts`)
 - `RUNEPROFILE_API_KEY` — RuneProfile API (via `api/runeprofile-proxy.ts`)
-- `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNELS` — live-status van clanleden
-- `CRON_SECRET` — beveiligt de dagelijkse cron (`vercel.json`) die de RuneProfile-leaderboard ververst
-- `BLOB_READ_WRITE_TOKEN` — Vercel Blob storage voor bingo-tile screenshots (meestal automatisch gezet door Vercel)
+- `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNELS` — live status of clan members
+- `CRON_SECRET` — secures the daily cron job (`vercel.json`) that refreshes the RuneProfile leaderboard
+- `BLOB_READ_WRITE_TOKEN` — Vercel Blob storage for bingo tile screenshots (usually set automatically by Vercel)
 
-## Overige scripts
+## Other scripts
 
 ```bash
 pnpm build        # tsc -b && vite build
 pnpm lint         # eslint .
-pnpm preview      # preview van de productiebuild
-pnpm db:migrate   # past db/schema.sql toe op de database uit .env.local
+pnpm preview      # preview of the production build
+pnpm db:migrate   # applies db/schema.sql to the database from .env.local
 ```
