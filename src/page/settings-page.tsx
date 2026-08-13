@@ -237,7 +237,7 @@ export function SettingsPage() {
           {newToken && (
             <div className="settings-token-new">
               <div className="settings-token-new-label">
-                Your new key — copy it now, it won&apos;t be shown again.
+                Your new key: copy it now, it won&apos;t be shown again.
               </div>
               <code className="settings-token-value">{newToken}</code>
               <button

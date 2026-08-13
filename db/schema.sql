@@ -66,6 +66,13 @@ ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
 -- as a manually-entered config value instead, communicated to participants
 -- directly rather than broadcast through the site.
 ALTER TABLE board_config DROP COLUMN IF EXISTS verification_code;
+-- A one-off message an admin can push out, read by the RuneLite plugin's
+-- periodic poll and printed as a chat message to anyone with the "Clan
+-- broadcasts" toggle on. broadcast_updated_at is what the plugin compares
+-- against its own last-seen timestamp to tell a new broadcast from one
+-- it's already shown.
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS broadcast_message TEXT NOT NULL DEFAULT '';
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS broadcast_updated_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,

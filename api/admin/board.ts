@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
-import { getOrCreateBoardConfig, type PrizePot } from "../_lib/board.js";
+import { getOrCreateBoardConfig, setBroadcast, type PrizePot } from "../_lib/board.js";
 import { withErrorHandling } from "../_lib/handler.js";
 
 async function getConfig(res: VercelResponse) {
@@ -13,6 +13,21 @@ async function getConfig(res: VercelResponse) {
       prizePot: c.prize_pot,
     },
   });
+}
+
+/** Pushes a new "!broadcast"-style message, read by the plugin's poll. */
+async function sendBroadcast(req: VercelRequest, res: VercelResponse) {
+  const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+  if (!message) {
+    res.status(400).json({ error: "Message is required" });
+    return;
+  }
+  if (message.length > 200) {
+    res.status(400).json({ error: "Message must be 200 characters or fewer" });
+    return;
+  }
+  const broadcast = await setBroadcast(message);
+  res.status(200).json({ broadcast });
 }
 
 function parsePrizePot(raw: unknown): PrizePot | null {
@@ -264,6 +279,11 @@ export default withErrorHandling(async function handler(req, res) {
   if (req.method === "PUT") {
     if (isTiles) await updateTile(req, res);
     else await updateConfig(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && resource === "broadcast") {
+    await sendBroadcast(req, res);
     return;
   }
 

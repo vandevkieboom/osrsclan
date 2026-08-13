@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
+import { getOrCreateBoardConfig } from "./_lib/board.js";
 import { withErrorHandling } from "./_lib/handler.js";
-import { requireRequestUser } from "./_lib/auth.js";
 // This backend function intentionally imports frontend domain/service
 // modules directly rather than duplicating rank-progress logic — there's no
 // shared/ package boundary between api/ and src/, so these are real
@@ -315,17 +315,20 @@ async function refreshLeaderboard(res: VercelResponse) {
 }
 
 /**
- * The RuneLite plugin's `!rank <name>` chat command — runs the exact same
+ * The RuneLite plugin's `!verify <name>` chat command — runs the exact same
  * rank-progress computation as the site's "Auto-Verify" button on the Clan
  * Ranks page (computeClanRankProgress over a live RuneProfile fetch), just
  * server-side for a single RSN instead of client-side in the browser. Only
  * ever tells the caller what rank a member is eligible for — it never
  * changes anything (no API exists to actually promote someone in-game).
+ *
+ * Deliberately public, no auth: everything this returns is already visible
+ * to anyone on the Clan Ranks page without logging in, so requiring a
+ * plugin key here would only gate access to data that isn't actually
+ * restricted anywhere else — it's not a bingo feature, so it doesn't need
+ * one.
  */
 async function lookupRank(req: VercelRequest, res: VercelResponse) {
-  const user = await requireRequestUser(req, res);
-  if (!user) return;
-
   const rsn = typeof req.query.rsn === "string" ? req.query.rsn.trim() : "";
   if (!rsn) {
     res.status(400).json({ error: "rsn is required" });
@@ -451,9 +454,28 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+/**
+ * The RuneLite plugin's periodic broadcast poll (see BingoApiClient#fetchBroadcast
+ * and BingoPlugin#checkBroadcast). Deliberately public, no auth — same
+ * reasoning as lookupRank above: an admin broadcast isn't gated anywhere
+ * else on the site, so there's nothing here for a plugin key to protect.
+ */
+async function getBroadcast(res: VercelResponse) {
+  const config = await getOrCreateBoardConfig();
+  res.status(200).json({
+    message: config.broadcast_message,
+    updatedAt: config.broadcast_updated_at,
+  });
+}
+
 export default withErrorHandling(async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  if (req.query.resource === "broadcast") {
+    await getBroadcast(res);
     return;
   }
 

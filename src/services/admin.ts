@@ -220,6 +220,22 @@ export async function updateBoardConfig(
   return data.config;
 }
 
+export interface Broadcast {
+  message: string;
+  updatedAt: string;
+}
+
+/** Pushes a one-off message the RuneLite plugin picks up on its next poll. */
+export async function sendBroadcast(message: string): Promise<Broadcast> {
+  const res = await fetch("/api/admin/board?resource=broadcast", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  const data = await json<{ broadcast: Broadcast }>(res);
+  return data.broadcast;
+}
+
 export async function fetchAdminTiles(): Promise<AdminTile[]> {
   const res = await fetch("/api/admin/board?resource=tiles");
   const data = await json<{ tiles: AdminTile[] }>(res);
