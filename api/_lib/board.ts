@@ -1,13 +1,8 @@
 import { sql } from "./db.js";
 
-export interface PrizePot {
-  total: string;
-}
-
 export interface BoardConfigRow {
   name: string;
   size: number;
-  prize_pot: PrizePot;
   broadcast_message: string;
   broadcast_updated_at: string | null;
 }
@@ -19,8 +14,25 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, size, prize_pot, broadcast_message, broadcast_updated_at`;
+    RETURNING name, size, broadcast_message, broadcast_updated_at`;
   return rows[0] as BoardConfigRow;
+}
+
+/**
+ * Wipes everything tied to the current round of bingo so a new one can start
+ * clean: every team's tile submissions, and every member's xp/kc goal-tile
+ * progress (see goal_progress in db/schema.sql — baselines otherwise persist
+ * forever and would under-count a reused goal_key's next round). Tiles,
+ * teams/rosters, donations and the broadcast message are deliberately left
+ * alone — none of those are "per-round" state. Run as a transaction so a
+ * failure partway through can't leave submissions cleared but goal progress
+ * intact (or vice versa).
+ */
+export async function resetBingoProgress(): Promise<void> {
+  await sql.transaction([
+    sql`DELETE FROM submissions`,
+    sql`DELETE FROM goal_progress`,
+  ]);
 }
 
 /**

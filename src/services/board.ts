@@ -48,15 +48,10 @@ export interface BoardTeam {
   tiles: BoardTile[];
 }
 
-export interface PrizePot {
-  total: string;
-}
-
 export interface BoardData {
   config: {
     name: string;
     size: number;
-    prizePot: PrizePot;
   };
   teams: BoardTeam[];
   myTeamId: number | null;

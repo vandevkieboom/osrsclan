@@ -1,7 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
-import { getOrCreateBoardConfig, setBroadcast, type PrizePot } from "../_lib/board.js";
+import {
+  getOrCreateBoardConfig,
+  resetBingoProgress,
+  setBroadcast,
+} from "../_lib/board.js";
 import { withErrorHandling } from "../_lib/handler.js";
 
 async function getConfig(res: VercelResponse) {
@@ -10,7 +14,6 @@ async function getConfig(res: VercelResponse) {
     config: {
       name: c.name,
       size: c.size,
-      prizePot: c.prize_pot,
     },
   });
 }
@@ -30,14 +33,6 @@ async function sendBroadcast(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ broadcast });
 }
 
-function parsePrizePot(raw: unknown): PrizePot | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  return {
-    total: typeof r.total === "string" ? r.total.trim() : "",
-  };
-}
-
 async function updateConfig(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const size = Number(req.body?.size);
@@ -51,34 +46,35 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const prizePot =
-    req.body?.prizePot !== undefined ? parsePrizePot(req.body.prizePot) : null;
-  if (req.body?.prizePot !== undefined && !prizePot) {
-    res.status(400).json({ error: "Invalid prizePot" });
-    return;
-  }
-
   // Upsert rather than a plain UPDATE — board_config is a singleton, but if
   // it was ever deleted by hand, a plain "WHERE id = 1" would silently touch
   // zero rows instead of recreating it.
-  const current = await getOrCreateBoardConfig();
-  const nextPrizePot = prizePot ?? current.prize_pot;
+  await getOrCreateBoardConfig();
   const rows = await sql`
-    INSERT INTO board_config (id, name, size, prize_pot)
-    VALUES (1, ${name}, ${size}, ${JSON.stringify(nextPrizePot)}::jsonb)
+    INSERT INTO board_config (id, name, size)
+    VALUES (1, ${name}, ${size})
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name, size = EXCLUDED.size,
-      prize_pot = EXCLUDED.prize_pot,
       updated_at = now()
-    RETURNING name, size, prize_pot`;
+    RETURNING name, size`;
   const c = rows[0];
   res.status(200).json({
     config: {
       name: c.name,
       size: c.size,
-      prizePot: c.prize_pot,
     },
   });
+}
+
+/**
+ * Clears everything tied to the current bingo round (submissions, xp/kc goal
+ * progress) so a new round starts clean — see resetBingoProgress for exactly
+ * what is and isn't touched. Deliberately destructive and irreversible, so
+ * the frontend requires a typed confirmation before ever sending this.
+ */
+async function resetBingo(res: VercelResponse) {
+  await resetBingoProgress();
+  res.status(200).json({ ok: true });
 }
 
 function serializeTile(t: Record<string, unknown>) {
@@ -284,6 +280,11 @@ export default withErrorHandling(async function handler(req, res) {
 
   if (req.method === "POST" && resource === "broadcast") {
     await sendBroadcast(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && resource === "reset-bingo") {
+    await resetBingo(res);
     return;
   }
 

@@ -54,11 +54,9 @@ ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_log;
 -- The Board Config admin form's Date Range field was removed as clutter.
 ALTER TABLE board_config DROP COLUMN IF EXISTS date_range;
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":""}';
--- The prize pot admin form was simplified down to just the total GP amount —
--- buy-in, donated, and the per-donor entries list were never shown anywhere
--- on the public site and are dropped from new rows and future saves.
-ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
+-- The prize pot feature (admin field + public "PRIZE POT" chip) was never
+-- used and is dropped entirely.
+ALTER TABLE board_config DROP COLUMN IF EXISTS prize_pot;
 -- A site-wide verification codephrase was tried and dropped: any
 -- authenticated member could read it via the board API (see getBoard in
 -- api/board.ts), not just members actually on a bingo team, which defeats

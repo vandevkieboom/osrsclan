@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   fetchBoardConfig,
+  resetBingo,
   sendBroadcast,
   updateBoardConfig,
   type BoardConfig,
@@ -19,6 +20,10 @@ export function BoardConfigPanel() {
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
   const [broadcasting, setBroadcasting] = useState(false);
   const [lastBroadcastAt, setLastBroadcastAt] = useState<string | null>(null);
+
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetDone, setResetDone] = useState(false);
 
   function reload() {
     fetchBoardConfig()
@@ -69,6 +74,30 @@ export function BoardConfigPanel() {
       );
     } finally {
       setBroadcasting(false);
+    }
+  }
+
+  async function handleResetBingo() {
+    if (
+      !window.confirm(
+        "Start a fresh bingo? This permanently clears every team's tile " +
+          "submissions and everyone's xp/kc goal progress. Tiles, teams, " +
+          "and donations are not affected. This cannot be undone.",
+      )
+    )
+      return;
+    setResetting(true);
+    setResetError(null);
+    setResetDone(false);
+    try {
+      await resetBingo();
+      setResetDone(true);
+    } catch (err) {
+      setResetError(
+        err instanceof Error ? err.message : "Failed to reset bingo",
+      );
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -135,18 +164,6 @@ export function BoardConfigPanel() {
               ))}
             </select>
           </label>
-          <label className="admin-field">
-            <span>Prize pot total</span>
-            <input
-              type="text"
-              className="admin-input"
-              placeholder="e.g. 51.50M"
-              value={config.prizePot.total}
-              onChange={(e) =>
-                setConfig({ ...config, prizePot: { total: e.target.value } })
-              }
-            />
-          </label>
         </div>
 
         <div className="admin-section-save">
@@ -156,6 +173,28 @@ export function BoardConfigPanel() {
           {saved && <span className="admin-saved">Saved.</span>}
         </div>
       </form>
+
+      <div className="admin-board-form">
+        <label className="admin-field">
+          <span>Start a fresh bingo</span>
+          <p className="admin-field-hint">
+            Clears every team's tile submissions and everyone's xp/kc goal
+            progress, so the board reads as if nothing has been submitted
+            yet. Tiles, teams, and donations are left alone. This cannot be
+            undone.
+          </p>
+          <button
+            type="button"
+            className="admin-btn-danger"
+            disabled={resetting}
+            onClick={handleResetBingo}
+          >
+            {resetting ? "Resetting..." : "Start fresh bingo"}
+          </button>
+        </label>
+        {resetDone && <span className="admin-saved">Reset.</span>}
+        {resetError && <div className="admin-error">{resetError}</div>}
+      </div>
     </div>
   );
 }

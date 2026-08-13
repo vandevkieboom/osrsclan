@@ -271,7 +271,6 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     config: {
       name: config.name,
       size: config.size,
-      prizePot: config.prize_pot,
     },
     teams,
     myTeamId: user?.teamId ?? null,
