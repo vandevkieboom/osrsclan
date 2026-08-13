@@ -217,21 +217,3 @@ CREATE TABLE IF NOT EXISTS plugin_tokens (
   revoked_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_plugin_tokens_user_id ON plugin_tokens(user_id);
-
--- One open "looking for group" ad per member, posted from the RuneLite
--- plugin's LFG panel — there is no website UI for this at all. Deliberately
--- ephemeral: nothing ever deletes a row on a timer, api/lfg.ts just filters
--- out anything older than its age cutoff at read time, and a stale row is
--- harmless clutter the next post from that user overwrites anyway.
--- UNIQUE(user_id) is what makes "one active post per member" true: posting
--- again is an upsert (see api/lfg.ts) that bumps created_at, not a second row.
-CREATE TABLE IF NOT EXISTS lfg_posts (
-  id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-  activity TEXT NOT NULL CHECK (activity IN ('tob', 'cox', 'toa', 'inferno', 'fight_caves', 'wintertodt', 'skilling', 'other')),
-  spots_needed INT NOT NULL CHECK (spots_needed BETWEEN 1 AND 20),
-  note TEXT NOT NULL DEFAULT '',
-  party_passphrase TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_lfg_posts_created_at ON lfg_posts(created_at);
