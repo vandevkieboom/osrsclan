@@ -447,6 +447,7 @@ export function TilesPanel() {
 
   const slotCount = config.size * config.size;
   const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
+  const inGridTiles = tiles.filter((t) => t.position < slotCount);
   const overflowTiles = tiles.filter((t) => t.position >= slotCount);
   const firstEmptyPosition = Array.from(
     { length: slotCount },
@@ -458,8 +459,7 @@ export function TilesPanel() {
       {error && <div className="admin-error">{error}</div>}
 
       <div className="admin-row-list admin-tile-list">
-        {tiles
-          .filter((t) => t.position < slotCount)
+        {inGridTiles
           .sort((a, b) => a.position - b.position)
           .map((tile) => (
             <TileRow
@@ -474,6 +474,9 @@ export function TilesPanel() {
             onSave={(values) => handleAddTile(addingPosition, values)}
             onCancel={() => setAddingPosition(null)}
           />
+        )}
+        {inGridTiles.length === 0 && addingPosition === null && (
+          <div className="admin-empty">No tiles yet.</div>
         )}
       </div>
       {addingPosition === null && firstEmptyPosition !== undefined && (

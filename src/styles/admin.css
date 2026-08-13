@@ -122,7 +122,10 @@
   flex-direction: column;
   gap: 1rem;
   max-width: 500px;
-  margin-bottom: 1rem;
+}
+
+.admin-section {
+  margin-bottom: 2rem;
 }
 
 .admin-field {
