@@ -12,6 +12,10 @@
     {
       "path": "/api/runeprofile-proxy?resource=leaderboard-refresh",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/wom-proxy?type=goal-reconcile",
+      "schedule": "0 4 * * *"
     }
   ]
 }

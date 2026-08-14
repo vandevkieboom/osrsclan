@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { sql } from "./db.js";
 
 export interface PrizePot {
@@ -21,6 +22,44 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
     RETURNING name, size, prize_pot, broadcast_message, broadcast_updated_at`;
   return rows[0] as BoardConfigRow;
+}
+
+const CODEWORD_ROTATE_MS = 24 * 60 * 60 * 1000;
+// Excludes visually ambiguous characters (0/O, 1/I/L) since this gets read
+// off a screenshot by an admin, possibly at low resolution.
+const CODEWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function generateCodeword(): string {
+  const bytes = randomBytes(5);
+  let code = "";
+  for (const b of bytes) {
+    code += CODEWORD_ALPHABET[b % CODEWORD_ALPHABET.length];
+  }
+  return `TS-${code}`;
+}
+
+/**
+ * Returns the current daily verification codeword, generating a new one if
+ * the last one is missing or more than a day old. The plugin burns this
+ * (plus a live timestamp) into every proof screenshot — see
+ * BingoVerificationOverlay — so a submitted image is visibly tied to a
+ * specific day, making a stale or reused screenshot obvious to an admin
+ * reviewing submissions. Lazy rotation (checked here, from getBoard, rather
+ * than a scheduled job) mirrors maybeReconcileGoalProgress's own pattern:
+ * whichever request happens to notice it's stale generates the next one.
+ */
+export async function getOrRotateCodeword(): Promise<string> {
+  const rows = await sql`SELECT codeword, codeword_rotated_at FROM board_config WHERE id = 1`;
+  const current = rows[0]?.codeword as string | undefined;
+  const rotatedAt = rows[0]?.codeword_rotated_at as string | null | undefined;
+
+  if (current && rotatedAt && Date.now() - new Date(rotatedAt).getTime() < CODEWORD_ROTATE_MS) {
+    return current;
+  }
+
+  const next = generateCodeword();
+  await sql`UPDATE board_config SET codeword = ${next}, codeword_rotated_at = now() WHERE id = 1`;
+  return next;
 }
 
 /**
@@ -95,6 +134,258 @@ export async function getTeamGoalProgress(): Promise<
     byGoal.set(goalMapKey, byTeam);
   }
   return byGoal;
+}
+
+export interface GoalReconcileResult {
+  checked: number;
+  updated: number;
+  seeded: number;
+  skippedNoRsnMatch: number;
+  skippedNoMetric: number;
+}
+
+export interface WomStats {
+  skills?: Record<string, { experience?: number }>;
+  bosses?: Record<string, { kills?: number }>;
+}
+
+/**
+ * Matches a goal_progress/tiles goal_key against a WOM player's stats,
+ * tolerating the same admin-typo spellings the plugin's own skillFromName()
+ * already accepts — plus one WOM disagrees with RuneLite's own enum on:
+ * WOM's skill metric is "runecrafting", not "runecraft", so an admin typing
+ * the CURRENT in-game name (which the plugin accepts directly) needs the
+ * alias tried here too. Boss KC metrics collapse anything that isn't a
+ * letter or digit to a single underscore ("TzTok-Jad" -> "tztok_jad",
+ * "Vet'ion" -> "vet_ion"). Returns null when nothing matches — an
+ * admin-typed goal_key that isn't a real WOM skill/boss (a Slayer-task NPC,
+ * say) just never gets a backstop; the live push stays the only source.
+ */
+function lookupWomValue(
+  entry: WomStats,
+  goalKind: string,
+  goalKey: string,
+): number | null {
+  if (goalKind === "xp") {
+    const aliases =
+      goalKey === "runecraft"
+        ? ["runecrafting", "runecraft"]
+        : goalKey === "defense"
+          ? ["defence", "defense"]
+          : [goalKey];
+    for (const alias of aliases) {
+      const skill = entry.skills?.[alias];
+      if (skill && typeof skill.experience === "number" && skill.experience >= 0) {
+        return skill.experience;
+      }
+    }
+    return null;
+  }
+  if (goalKind === "kc") {
+    const metricKey = goalKey.replace(/[^a-z0-9]+/g, "_");
+    const boss = entry.bosses?.[metricKey];
+    if (boss && typeof boss.kills === "number" && boss.kills >= 0) {
+      return boss.kills;
+    }
+  }
+  return null;
+}
+
+/**
+ * Corrects goal_progress against real Wise Old Man hiscores data, fetched
+ * by the caller (fetchWomStatsByRsnKey below). The plugin's own live push
+ * (see recordGoalProgress) is normally enough, but it's the ONLY source of
+ * truth today — a missed chat line, a client that quits mid-event, or a
+ * regex that doesn't match some message variant leaves that member's
+ * contribution permanently short with nothing to correct it. This does two
+ * things:
+ *
+ * 1. Corrects existing rows — only ever raises latest_value (never lowers
+ *    it, never touches baseline_value), the same GREATEST-based "only
+ *    progress counts" idiom recordGoalProgress itself already uses.
+ * 2. Seeds a starting row for a team member an active tile should be
+ *    tracking who has none at all — otherwise a member who never opens the
+ *    plugin (there's no RuneLite on mobile, so a mobile-only player NEVER
+ *    gets a first-ever report) contributes nothing to their team,
+ *    permanently, with nothing able to fix it — there'd be no row to ever
+ *    raise. The seeded baseline is their hiscores reading at the moment
+ *    this runs, identical in spirit to a first-ever plugin report becoming
+ *    a baseline: nothing is backdated or retroactively credited, tracking
+ *    just starts existing for them from here. ON CONFLICT DO NOTHING
+ *    guards the race where the plugin establishes a real baseline for the
+ *    same (user, goal) at the same moment — whichever commits first wins.
+ */
+// Caps how many INSERT/UPDATE statements a single reconciliation pass will
+// actually execute. Each one is a separate awaited round trip, and Vercel
+// kills a function that runs too long — a clan with many members and no
+// existing goal_progress rows yet (a fresh board, or the first run after
+// this feature ships) could otherwise need hundreds of writes in one pass.
+// Capping it just means the leftover work naturally gets picked up by the
+// next throttled pass (see maybeReconcileGoalProgress) a few minutes later
+// — nothing is lost or skipped permanently, it just spreads out safely
+// instead of risking a mid-batch timeout.
+const MAX_WRITES_PER_PASS = 60;
+
+export async function reconcileGoalProgress(
+  womByRsnKey: Map<string, WomStats>,
+): Promise<GoalReconcileResult> {
+  const result: GoalReconcileResult = {
+    checked: 0,
+    updated: 0,
+    seeded: 0,
+    skippedNoRsnMatch: 0,
+    skippedNoMetric: 0,
+  };
+
+  const existingRows = await sql`
+    SELECT gp.id, gp.user_id, gp.goal_kind, gp.goal_key, gp.latest_value, u.runescape_name
+    FROM goal_progress gp
+    JOIN users u ON u.id = gp.user_id
+    WHERE u.runescape_name IS NOT NULL AND u.runescape_name != ''`;
+  result.checked = existingRows.length;
+
+  const existingKeys = new Set<string>();
+  let writes = 0;
+  for (const row of existingRows) {
+    existingKeys.add(`${row.user_id}:${row.goal_kind}:${row.goal_key}`);
+    if (writes >= MAX_WRITES_PER_PASS) continue;
+
+    const rsnKey = (row.runescape_name as string).trim().toLowerCase();
+    const womEntry = womByRsnKey.get(rsnKey);
+    if (!womEntry) {
+      result.skippedNoRsnMatch++;
+      continue;
+    }
+
+    const womValue = lookupWomValue(womEntry, row.goal_kind as string, row.goal_key as string);
+    if (womValue === null) {
+      result.skippedNoMetric++;
+      continue;
+    }
+
+    const updatedRows = await sql`
+      UPDATE goal_progress SET latest_value = ${womValue}, updated_at = now()
+      WHERE id = ${row.id} AND ${womValue} > latest_value
+      RETURNING id`;
+    if (updatedRows.length > 0) {
+      result.updated++;
+      writes++;
+    }
+  }
+
+  // tiles.goal_key preserves whatever casing the admin typed ("Zulrah"),
+  // unlike goal_progress.goal_key, which recordGoalProgress always
+  // lowercases before storing ("zulrah"). Normalizing here is what keeps
+  // this comparable against existingKeys (built from goal_progress rows
+  // above) and matchable against WOM's lowercase metric names — skipping
+  // it would silently match nothing, or worse, insert a row whose casing
+  // getTeamGoalProgress's own lookup (also lowercase) would never find.
+  const activeGoalsRaw = await sql`
+    SELECT DISTINCT goal_kind, goal_key FROM tiles WHERE goal_kind IN ('xp', 'kc')`;
+  const activeGoals = activeGoalsRaw.map((g) => ({
+    goal_kind: g.goal_kind as string,
+    goal_key: (g.goal_key as string).trim().toLowerCase(),
+  }));
+  if (activeGoals.length === 0) {
+    return result;
+  }
+
+  const members = await sql`
+    SELECT id, runescape_name FROM users
+    WHERE team_id IS NOT NULL AND runescape_name IS NOT NULL AND runescape_name != ''`;
+
+  memberLoop: for (const member of members) {
+    const rsnKey = (member.runescape_name as string).trim().toLowerCase();
+    const womEntry = womByRsnKey.get(rsnKey);
+    if (!womEntry) continue;
+
+    for (const goal of activeGoals) {
+      if (writes >= MAX_WRITES_PER_PASS) break memberLoop;
+
+      const key = `${member.id}:${goal.goal_kind}:${goal.goal_key}`;
+      if (existingKeys.has(key)) continue;
+
+      const womValue = lookupWomValue(womEntry, goal.goal_kind, goal.goal_key);
+      if (womValue === null) continue;
+
+      await sql`
+        INSERT INTO goal_progress (user_id, goal_kind, goal_key, baseline_value, latest_value)
+        VALUES (${member.id}, ${goal.goal_kind}, ${goal.goal_key}, ${womValue}, ${womValue})
+        ON CONFLICT (user_id, goal_kind, goal_key) DO NOTHING`;
+      existingKeys.add(key);
+      result.seeded++;
+      writes++;
+    }
+  }
+
+  return result;
+}
+
+const WOM_BASE_URL = "https://api.wiseoldman.net/v2";
+// Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts,
+// api/runeprofile-proxy.ts, and api/wom-proxy.ts.
+const WOM_GROUP_ID = 22206;
+const WOM_HEADERS: Record<string, string> = {
+  "Content-Type": "application/json",
+  "User-Agent": "vandevkieboom",
+  ...(process.env.WOM_API_KEY ? { "x-api-key": process.env.WOM_API_KEY } : {}),
+};
+
+/** Fetches the whole group's hiscores in one call, keyed by lowercased RSN. Null on any failure — callers just skip reconciling for this pass. */
+export async function fetchWomStatsByRsnKey(): Promise<Map<string, WomStats> | null> {
+  try {
+    const res = await fetch(`${WOM_BASE_URL}/groups/${WOM_GROUP_ID}/bulk-hiscores`, {
+      headers: WOM_HEADERS,
+    });
+    if (!res.ok) return null;
+    const bulk = (await res.json()) as Array<{
+      player?: { username?: string; displayName?: string };
+      data?: { data?: WomStats };
+    }>;
+    const map = new Map<string, WomStats>();
+    for (const entry of bulk) {
+      const key = (entry.player?.displayName ?? entry.player?.username ?? "")
+        .trim()
+        .toLowerCase();
+      if (key && entry.data?.data) {
+        map.set(key, entry.data.data);
+      }
+    }
+    return map;
+  } catch {
+    return null;
+  }
+}
+
+// Only actually hit WOM this often, no matter how many times
+// maybeReconcileGoalProgress is called — it's invoked from getBoard, which
+// every online plugin user's 1-minute refresh already hits, so without a
+// throttle this would fire a WOM request roughly once per online member
+// per minute. 10 minutes still means the backstop keeps correcting
+// throughout an event right up to its deadline, unlike a fixed daily cron
+// that might not run again until after scoring has already closed.
+const GOAL_RECONCILE_THROTTLE_MS = 10 * 60 * 1000;
+
+/**
+ * Opportunistically reconciles goal_progress, throttled to run at most once
+ * per GOAL_RECONCILE_THROTTLE_MS. Called from getBoard (see api/board.ts)
+ * so it rides along on real traffic instead of a fixed-clock cron. Never
+ * throws — a WOM outage should never take the board down with it, it just
+ * means this pass is skipped and the next request retries.
+ */
+export async function maybeReconcileGoalProgress(): Promise<void> {
+  const rows = await sql`SELECT goal_reconciled_at FROM board_config WHERE id = 1`;
+  const lastRun = rows[0]?.goal_reconciled_at as string | null;
+  if (lastRun && Date.now() - new Date(lastRun).getTime() < GOAL_RECONCILE_THROTTLE_MS) {
+    return;
+  }
+  // Claimed before the network call so concurrent requests arriving during
+  // the fetch don't all decide it's also their turn.
+  await sql`UPDATE board_config SET goal_reconciled_at = now() WHERE id = 1`;
+
+  const womByRsnKey = await fetchWomStatsByRsnKey();
+  if (!womByRsnKey) return;
+  await reconcileGoalProgress(womByRsnKey);
 }
 
 export type ProofValidation =

@@ -48,6 +48,22 @@ CREATE TABLE IF NOT EXISTS board_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO board_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+-- Throttle for maybeReconcileGoalProgress (api/_lib/board.ts): the last time
+-- goal_progress was checked against WOM hiscores. Reconciliation is
+-- triggered from GET /api/board itself (every plugin refresh, ~1/min per
+-- online member) rather than a fixed-clock cron, specifically so it keeps
+-- correcting right up until an event's actual deadline instead of waiting
+-- for a scheduled time that might land after scoring has already closed.
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS goal_reconciled_at TIMESTAMPTZ;
+-- A rotating code the plugin burns into every proof screenshot alongside a
+-- live timestamp (see BingoVerificationOverlay in the plugin), so a
+-- submitted image is tied to a specific day — a screenshot from a previous
+-- day, or one with no code/timestamp visible, is a clear tell to an admin
+-- reviewing submissions. Rotated lazily (see getOrRotateCodeword in
+-- api/_lib/board.ts) rather than on a schedule: whichever request happens
+-- to notice it's stale generates the next one.
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS codeword TEXT NOT NULL DEFAULT '';
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS codeword_rotated_at TIMESTAMPTZ;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_active;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_order;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;

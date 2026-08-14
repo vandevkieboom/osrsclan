@@ -9,7 +9,9 @@ import {
 } from "./_lib/auth.js";
 import {
   getOrCreateBoardConfig,
+  getOrRotateCodeword,
   getTeamGoalProgress,
+  maybeReconcileGoalProgress,
   recordGoalProgress,
   recordProofSubmission,
   validateProofSubmission,
@@ -61,7 +63,20 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
 
   // Only fetched/summed when at least one tile actually needs it — most
   // boards are item-only and this avoids the extra query and join for them.
-  const goalProgressByGoal = tiles.some((t) => t.goalKind !== "item")
+  // The reconcile pass runs first (throttled — see maybeReconcileGoalProgress)
+  // so a correction it makes shows up in this same response instead of
+  // waiting for the next request.
+  const hasGoalTiles = tiles.some((t) => t.goalKind !== "item");
+  if (hasGoalTiles) {
+    try {
+      await maybeReconcileGoalProgress();
+    } catch (err) {
+      // A WOM hiccup should never take the board down with it — this pass
+      // just gets retried on a later request.
+      console.error("goal-progress reconciliation failed:", err);
+    }
+  }
+  const goalProgressByGoal = hasGoalTiles
     ? await getTeamGoalProgress()
     : new Map<string, Map<number, number>>();
   function teamProgressFor(tile: (typeof tiles)[number], teamId: number) {
@@ -267,6 +282,8 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     isLeading: t.pct === leaderPct && leaderPct > 0,
   }));
 
+  const codeword = await getOrRotateCodeword();
+
   res.status(200).json({
     config: {
       name: config.name,
@@ -275,6 +292,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     },
     teams,
     myTeamId: user?.teamId ?? null,
+    codeword,
   });
 }
 

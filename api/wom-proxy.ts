@@ -1,4 +1,5 @@
 import { withErrorHandling } from "./_lib/handler.js";
+import { reconcileGoalProgress, fetchWomStatsByRsnKey } from "./_lib/board.js";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
 // Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts, and
@@ -136,6 +137,27 @@ export default withErrorHandling(async function handler(req, res) {
       return;
     }
     res.status(upstream.status).json(await upstream.json());
+  } else if (type === "goal-reconcile") {
+    // Vercel automatically sends this header on cron-triggered invocations
+    // when CRON_SECRET is set on the project — see vercel.json's `crons`.
+    // Same auth shape as runeprofile-proxy.ts's leaderboard-refresh cron.
+    const expected = process.env.CRON_SECRET;
+    if (!expected || req.headers.authorization !== `Bearer ${expected}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    // This is now a redundant fallback for periods with zero site/plugin
+    // traffic — the real backstop is maybeReconcileGoalProgress, triggered
+    // from GET /api/board on every plugin refresh (see api/_lib/board.ts).
+    const womByRsnKey = await fetchWomStatsByRsnKey();
+    if (!womByRsnKey) {
+      res.status(502).json({ error: "Failed to load WOM hiscores." });
+      return;
+    }
+
+    const result = await reconcileGoalProgress(womByRsnKey);
+    res.status(200).json({ ok: true, ...result });
   } else {
     res.status(400).json({ error: "Invalid type" });
   }
