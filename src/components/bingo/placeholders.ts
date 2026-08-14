@@ -60,9 +60,6 @@ export const PLACEHOLDER_BOARD: BoardData = {
   config: {
     name: "Summer Blackout Bingo",
     size: 5,
-    prizePot: {
-      total: "51.50M",
-    },
   },
   teams: [
     {

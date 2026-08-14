@@ -69,11 +69,9 @@ ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_log;
 -- The Board Config admin form's Date Range field was removed as clutter.
 ALTER TABLE board_config DROP COLUMN IF EXISTS date_range;
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS prize_pot JSONB NOT NULL DEFAULT '{"total":""}';
--- The prize pot admin form was simplified down to just the total GP amount —
--- buy-in, donated, and the per-donor entries list were never shown anywhere
--- on the public site and are dropped from new rows and future saves.
-ALTER TABLE board_config ALTER COLUMN prize_pot SET DEFAULT '{"total":""}';
+-- The prize pot feature (admin field + public "PRIZE POT" chip) was never
+-- used and is dropped entirely.
+ALTER TABLE board_config DROP COLUMN IF EXISTS prize_pot;
 -- A site-wide verification codephrase was tried and dropped: any
 -- authenticated member could read it via the board API (see getBoard in
 -- api/board.ts), not just members actually on a bingo team, which defeats
@@ -232,21 +230,3 @@ CREATE TABLE IF NOT EXISTS plugin_tokens (
   revoked_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_plugin_tokens_user_id ON plugin_tokens(user_id);
-
--- One open "looking for group" ad per member, posted from the RuneLite
--- plugin's LFG panel — there is no website UI for this at all. Deliberately
--- ephemeral: nothing ever deletes a row on a timer, api/lfg.ts just filters
--- out anything older than its age cutoff at read time, and a stale row is
--- harmless clutter the next post from that user overwrites anyway.
--- UNIQUE(user_id) is what makes "one active post per member" true: posting
--- again is an upsert (see api/lfg.ts) that bumps created_at, not a second row.
-CREATE TABLE IF NOT EXISTS lfg_posts (
-  id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-  activity TEXT NOT NULL CHECK (activity IN ('tob', 'cox', 'toa', 'inferno', 'fight_caves', 'wintertodt', 'skilling', 'other')),
-  spots_needed INT NOT NULL CHECK (spots_needed BETWEEN 1 AND 20),
-  note TEXT NOT NULL DEFAULT '',
-  party_passphrase TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_lfg_posts_created_at ON lfg_posts(created_at);

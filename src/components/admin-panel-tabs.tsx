@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BroadcastPanel } from "./admin/broadcast-panel";
 import { TeamsPanel } from "./admin/teams-panel";
 import { MembersPanel } from "./admin/members-panel";
 import { DonationsPanel } from "./admin/donations-panel";
@@ -12,6 +13,8 @@ export function AdminPanelTabs() {
 
   return (
     <div>
+      <BroadcastPanel />
+
       <div className="bingo-tabs">
         <button
           type="button"

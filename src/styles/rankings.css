@@ -527,14 +527,12 @@ body {
 
 .item-icon-wrap {
   position: relative;
+  /* Left to shrink-to-fit (matching .item-sprite) rather than a hardcoded
+     size — pinning this box to a fixed width/height was tried as a fix for
+     the .item-manual-toggle circle going oval, but it made .item-status
+     (the small corner badge) go oval instead. The toggle now sizes itself
+     explicitly below instead of relying on this wrap's box. */
   display: inline-flex;
-  /* Fixed to match .item-sprite exactly, rather than letting inline-flex
-     shrink-to-fit the image — with a corner badge (.item-status) also
-     present, some browsers factor its negative-offset overflow into the
-     wrap's intrinsic size, widening it into a non-square box and turning
-     the circular .item-manual-toggle overlay into an oval. */
-  width: 40px;
-  height: 40px;
 }
 
 .item.is-complete .item-name {
@@ -583,10 +581,17 @@ body {
 /* Manual verification is an admin override that beats whatever RuneProfile
    found, so it gets a big, hard-to-miss treatment covering the whole icon —
    not a small corner dot like the auto-check badges below. Admins can click
-   it on ANY item (not just untrackable ones) to force-verify or unverify. */
+   it on ANY item (not just untrackable ones) to force-verify or unverify.
+   Sized explicitly to match .item-sprite instead of `inset: 0` — inset ties
+   its box to .item-icon-wrap's own computed size, and letting that wrap
+   shrink-to-fit (needed to keep .item-status circular, see above) made
+   this overlay inherit whatever non-square size the wrap ended up with. */
 .item-manual-toggle {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 40px;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -963,12 +968,12 @@ button.item-manual-toggle:not(.checked):hover .item-manual-toggle-icon {
     width: 54px;
   }
 
-  .item-icon-wrap {
+  .item-sprite {
     width: 36px;
     height: 36px;
   }
 
-  .item-sprite {
+  .item-manual-toggle {
     width: 36px;
     height: 36px;
   }

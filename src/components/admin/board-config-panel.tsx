@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   fetchBoardConfig,
-  sendBroadcast,
+  resetBingo,
   updateBoardConfig,
   type BoardConfig,
 } from "../../services/admin";
@@ -15,10 +15,9 @@ export function BoardConfigPanel() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const [broadcastMessage, setBroadcastMessage] = useState("");
-  const [broadcastError, setBroadcastError] = useState<string | null>(null);
-  const [broadcasting, setBroadcasting] = useState(false);
-  const [lastBroadcastAt, setLastBroadcastAt] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetDone, setResetDone] = useState(false);
 
   function reload() {
     fetchBoardConfig()
@@ -53,22 +52,28 @@ export function BoardConfigPanel() {
     }
   }
 
-  async function handleSendBroadcast(e: React.FormEvent) {
-    e.preventDefault();
-    const message = broadcastMessage.trim();
-    if (!message) return;
-    setBroadcasting(true);
-    setBroadcastError(null);
+  async function handleResetBingo() {
+    if (
+      !window.confirm(
+        "Start a fresh bingo? This permanently clears every team's tile " +
+          "submissions (proof images included) and everyone's xp/kc goal " +
+          "progress. Tiles, teams, and donations are not affected. This " +
+          "cannot be undone.",
+      )
+    )
+      return;
+    setResetting(true);
+    setResetError(null);
+    setResetDone(false);
     try {
-      const broadcast = await sendBroadcast(message);
-      setLastBroadcastAt(broadcast.updatedAt);
-      setBroadcastMessage("");
+      await resetBingo();
+      setResetDone(true);
     } catch (err) {
-      setBroadcastError(
-        err instanceof Error ? err.message : "Failed to send broadcast",
+      setResetError(
+        err instanceof Error ? err.message : "Failed to reset bingo",
       );
     } finally {
-      setBroadcasting(false);
+      setResetting(false);
     }
   }
 
@@ -79,36 +84,7 @@ export function BoardConfigPanel() {
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
 
-      <form onSubmit={handleSendBroadcast} className="admin-board-form">
-        <label className="admin-field">
-          <span>Broadcast to clan</span>
-          <input
-            type="text"
-            className="admin-input"
-            placeholder="Message shown to anyone with plugin broadcasts on"
-            maxLength={200}
-            value={broadcastMessage}
-            onChange={(e) => setBroadcastMessage(e.target.value)}
-          />
-        </label>
-        <div className="admin-section-save">
-          <button
-            type="submit"
-            className="admin-btn-primary"
-            disabled={broadcasting || !broadcastMessage.trim()}
-          >
-            {broadcasting ? "Sending..." : "Send"}
-          </button>
-          {lastBroadcastAt && (
-            <span className="admin-saved">
-              Sent {new Date(lastBroadcastAt).toLocaleString()}
-            </span>
-          )}
-        </div>
-        {broadcastError && <div className="admin-error">{broadcastError}</div>}
-      </form>
-
-      <form onSubmit={handleSaveConfig}>
+      <form onSubmit={handleSaveConfig} className="admin-section">
         <div className="admin-board-form">
           <label className="admin-field">
             <span>Event name</span>
@@ -135,18 +111,6 @@ export function BoardConfigPanel() {
               ))}
             </select>
           </label>
-          <label className="admin-field">
-            <span>Prize pot total</span>
-            <input
-              type="text"
-              className="admin-input"
-              placeholder="e.g. 51.50M"
-              value={config.prizePot.total}
-              onChange={(e) =>
-                setConfig({ ...config, prizePot: { total: e.target.value } })
-              }
-            />
-          </label>
         </div>
 
         <div className="admin-section-save">
@@ -156,6 +120,28 @@ export function BoardConfigPanel() {
           {saved && <span className="admin-saved">Saved.</span>}
         </div>
       </form>
+
+      <div className="admin-section admin-board-form">
+        <label className="admin-field">
+          <span>Start a fresh bingo</span>
+          <p className="admin-field-hint">
+            Clears every team's tile submissions (including the uploaded
+            proof images) and everyone's xp/kc goal progress, so the board
+            reads as if nothing has been submitted yet. Tiles, teams, and
+            donations are left alone. This cannot be undone.
+          </p>
+          <button
+            type="button"
+            className="admin-btn-danger"
+            disabled={resetting}
+            onClick={handleResetBingo}
+          >
+            {resetting ? "Resetting..." : "Start fresh bingo"}
+          </button>
+        </label>
+        {resetDone && <span className="admin-saved">Reset.</span>}
+        {resetError && <div className="admin-error">{resetError}</div>}
+      </div>
     </div>
   );
 }

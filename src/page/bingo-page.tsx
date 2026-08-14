@@ -11,7 +11,6 @@ import {
 import { TeamCard } from "../components/bingo/team-card";
 import { TileFace } from "../components/bingo/tile-face";
 import { TileDetailPanel } from "../components/bingo/tile-detail-panel";
-import { PrizePotChip } from "../components/bingo/prize-pot-chip";
 import { Lightbox } from "../components/bingo/lightbox";
 import { AdminReview } from "../components/bingo/admin-review";
 import {
@@ -158,7 +157,6 @@ export function BingoPage() {
                 submit proof.
               </p>
             </div>
-            <PrizePotChip total={board.config.prizePot.total} />
           </div>
         </div>
 

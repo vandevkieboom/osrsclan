@@ -1,13 +1,9 @@
+import { del } from "@vercel/blob";
 import { sql } from "./db.js";
-
-export interface PrizePot {
-  total: string;
-}
 
 export interface BoardConfigRow {
   name: string;
   size: number;
-  prize_pot: PrizePot;
   broadcast_message: string;
   broadcast_updated_at: string | null;
 }
@@ -19,8 +15,41 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, size, prize_pot, broadcast_message, broadcast_updated_at`;
+    RETURNING name, size, broadcast_message, broadcast_updated_at`;
   return rows[0] as BoardConfigRow;
+}
+
+/**
+ * Wipes everything tied to the current round of bingo so a new one can start
+ * clean: every team's tile submissions (proof images included — see below),
+ * and every member's xp/kc goal-tile progress (see goal_progress in
+ * db/schema.sql — baselines otherwise persist forever and would under-count
+ * a reused goal_key's next round). Tiles, teams/rosters, donations and the
+ * broadcast message are deliberately left alone — none of those are
+ * "per-round" state.
+ *
+ * Proof screenshots live in Vercel Blob, not the database (see uploadProof
+ * in api/board.ts) — deleting only the submissions rows would leave every
+ * old image sitting in storage, still publicly reachable at its URL,
+ * forever. So this reads every proof_url and deletes the blobs *before*
+ * touching the database: if blob deletion fails partway, the submissions
+ * rows are still there to retry against, rather than the rows being gone
+ * with no record of which blobs still need cleaning up.
+ */
+export async function resetBingoProgress(): Promise<void> {
+  const proofRows = await sql`
+    SELECT proof_url FROM submissions WHERE proof_url IS NOT NULL`;
+  const proofUrls = proofRows
+    .map((r) => r.proof_url as string)
+    .filter(Boolean);
+  if (proofUrls.length > 0) {
+    await del(proofUrls);
+  }
+
+  await sql.transaction([
+    sql`DELETE FROM submissions`,
+    sql`DELETE FROM goal_progress`,
+  ]);
 }
 
 /**

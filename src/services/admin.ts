@@ -24,14 +24,9 @@ export interface Donation {
   amountGp: number;
 }
 
-export interface PrizePot {
-  total: string;
-}
-
 export interface BoardConfig {
   name: string;
   size: number;
-  prizePot: PrizePot;
 }
 
 export interface AdminTile {
@@ -218,6 +213,18 @@ export async function updateBoardConfig(
   });
   const data = await json<{ config: BoardConfig }>(res);
   return data.config;
+}
+
+/**
+ * Wipes everything tied to the current bingo round (submissions, xp/kc goal
+ * progress) so a new round starts clean. Tiles, teams/rosters, donations and
+ * the broadcast message are left untouched. Irreversible.
+ */
+export async function resetBingo(): Promise<void> {
+  const res = await fetch("/api/admin/board?resource=reset-bingo", {
+    method: "POST",
+  });
+  await json(res);
 }
 
 export interface Broadcast {

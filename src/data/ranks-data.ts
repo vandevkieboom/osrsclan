@@ -21,7 +21,7 @@ export const ranks: Rank[] = [
       },
       {
         name: "Imbued god cape",
-        img: "https://oldschool.runescape.wiki/images/Imbued_zamorak_cape_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Imbued_Zamorak_cape_detail.png",
         alt: "Imbued god cape",
         apiCheck: { type: "quest", name: "Mage Arena II" },
       },
