@@ -44,6 +44,19 @@ technical blocker. It'll happen automatically and gradually the next time
 `GET /api/board` is hit after deploy, 60 rows at a time — if you want to
 hold it off longer, that needs a deliberate decision, not code.
 
+## Scope / design philosophy — bingo tiles
+
+Tile types are staying to exactly three on purpose: **item drops,
+team-combined boss KC, team-combined skill XP** (`tiles.goal_kind IN
+('item', 'xp', 'kc')`). This was a deliberate decision after comparing
+against a more feature-rich reference plugin ("Anvil" — see
+`osrsclanplugin`'s `CLAUDE.md` for the full comparison and everything
+explicitly declined from it: CA/diary/timed-clear/item-gain/loot-value
+tiles, weekly competitions, multi-clan federation, a points/tiers system).
+Don't propose expanding `goal_kind` or adding new tile shapes without
+checking that this scope call still stands — it isn't a placeholder, it's
+"keep it simple" chosen on purpose for this clan's size.
+
 ## Also fixed this session, worth knowing
 
 - A verification-codeword feature was attempted, found to leak through
