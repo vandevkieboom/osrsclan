@@ -110,26 +110,29 @@ ALTER TABLE tiles ADD COLUMN IF NOT EXISTS item_ids INT[] NOT NULL DEFAULT '{}';
 -- duplicate during review. Has no effect on tiles needing only one proof.
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS require_unique_items BOOLEAN NOT NULL DEFAULT FALSE;
 -- A tile's goal is either an item drop (the default — tracked via item_ids
--- above, admin-reviewed proof) or a team-combined total the RuneLite plugin
--- reports on directly with no proof/review step: 'xp' is total skill XP
--- gained by the team since each member's plugin started reporting, 'kc' is
--- total kills of a boss. goal_key is the skill or boss name exactly as it
--- reads in-game/in kill-count chat (matched case-insensitively), not a
--- machine id — see goal_progress below for how the per-member totals that
--- get summed into a team total are tracked.
+-- above, admin-reviewed proof) or a team-combined total tracked entirely
+-- from WOM hiscores, with no plugin reporting and no proof/review step:
+-- 'xp' is total skill XP gained by the team since each member's baseline
+-- was seeded, 'kc' is total kills of a boss. goal_key is the skill or boss
+-- name as an admin types it (matched case-insensitively, and reconciled
+-- against a couple of known WOM/OSRS naming mismatches — see
+-- lookupWomValue in api/_lib/board.ts), not a machine id — see goal_progress
+-- below for how the per-member totals that get summed into a team total are
+-- tracked.
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_kind TEXT NOT NULL DEFAULT 'item' CHECK (goal_kind IN ('item', 'xp', 'kc'));
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_key TEXT NOT NULL DEFAULT '';
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_target BIGINT;
 
 -- Per-member progress toward a tile's team-combined xp/kc goal (see goal_kind
--- above). baseline_value is that member's reading the first time their
--- plugin ever reports this (goal_kind, goal_key) — so only XP/kills gained
--- from that point on count, mirroring how item-drop tiles only see loot
--- obtained while the plugin is running. latest_value only ever moves
--- forward (XP and kill counts are monotonic in OSRS) — a team's total
--- contribution is SUM(latest_value - baseline_value) across its members for
--- a given goal_kind+goal_key, computed at read time in api/board.ts rather
--- than stored, so it always reflects current team membership.
+-- above). baseline_value is that member's hiscores reading at the moment
+-- seedGoalBaselines (api/_lib/board.ts) explicitly seeded it — a full board
+-- reset, or this tile's goal being created/changed — never set implicitly
+-- by "whenever we first happened to see a reading" the way an earlier,
+-- plugin-live-push design worked. latest_value only ever moves forward
+-- (XP and kill counts are monotonic in OSRS) — a team's total contribution
+-- is SUM(latest_value - baseline_value) across its members for a given
+-- goal_kind+goal_key, computed at read time in api/board.ts rather than
+-- stored, so it always reflects current team membership.
 CREATE TABLE IF NOT EXISTS goal_progress (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -1,5 +1,5 @@
 import { withErrorHandling } from "./_lib/handler.js";
-import { reconcileGoalProgress, fetchWomStatsByRsnKey } from "./_lib/board.js";
+import { refreshGoalLatestValues, fetchWomStatsByRsnKey } from "./_lib/board.js";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
 // Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts, and
@@ -156,7 +156,7 @@ export default withErrorHandling(async function handler(req, res) {
       return;
     }
 
-    const result = await reconcileGoalProgress(womByRsnKey);
+    const result = await refreshGoalLatestValues(womByRsnKey);
     res.status(200).json({ ok: true, ...result });
   } else {
     res.status(400).json({ error: "Invalid type" });

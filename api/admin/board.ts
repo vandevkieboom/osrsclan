@@ -2,11 +2,35 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
 import {
+  fetchWomStatsByRsnKey,
   getOrCreateBoardConfig,
   resetBingoProgress,
+  seedGoalBaselines,
   setBroadcast,
 } from "../_lib/board.js";
 import { withErrorHandling } from "../_lib/handler.js";
+
+/**
+ * Seeds every current team member's baseline for one specific goal from
+ * their hiscores reading right now — called after a tile's goal is
+ * created or changed to xp/kc, so tracking starts existing for everyone at
+ * the same moment the tile does, rather than staggered across whenever
+ * each person's plugin next happens to report (or never, for a
+ * mobile-only player). Best-effort: a WOM outage here just means nobody
+ * got seeded for this tile yet, which the next reset (or a future manual
+ * retry) would still fix — it's not worth failing the tile save over.
+ */
+async function seedNewGoalTile(goalKind: string, goalKey: string) {
+  if (goalKind !== "xp" && goalKind !== "kc") {
+    return;
+  }
+  const womByRsnKey = await fetchWomStatsByRsnKey();
+  if (!womByRsnKey) {
+    console.error(`seedNewGoalTile: WOM unreachable, baselines not seeded for ${goalKind}:${goalKey}`);
+    return;
+  }
+  await seedGoalBaselines(womByRsnKey, [{ goalKind, goalKey }]);
+}
 
 async function getConfig(res: VercelResponse) {
   const c = await getOrCreateBoardConfig();
@@ -184,6 +208,7 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
       INSERT INTO tiles (position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target)
       VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description}, ${itemIds}::int[], ${requireUniqueItems}, ${goal.goalKind}, ${goal.goalKey}, ${goal.goalTarget})
       RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target`;
+    await seedNewGoalTile(goal.goalKind, goal.goalKey);
     res.status(201).json({ tile: serializeTile(rows[0]) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
@@ -244,6 +269,7 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
     res.status(404).json({ error: "Tile not found" });
     return;
   }
+  await seedNewGoalTile(goal.goalKind, goal.goalKey);
   res.status(200).json({ tile: serializeTile(rows[0]) });
 }
 

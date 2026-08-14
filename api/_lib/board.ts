@@ -35,6 +35,16 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
  * touching the database: if blob deletion fails partway, the submissions
  * rows are still there to retry against, rather than the rows being gone
  * with no record of which blobs still need cleaning up.
+ *
+ * After wiping, immediately re-seeds every current team member's baseline
+ * for every active xp/kc goal from their hiscores reading right now (see
+ * seedGoalBaselines) — a reset isn't just "forget the old numbers," it's
+ * "everyone's starting line is this exact moment," for every roster member
+ * at once, not staggered across whenever each person's plugin next checks
+ * in (or never, for a mobile-only player). A WOM outage here just means
+ * the reset's wipe still happened but nobody got re-seeded yet — the
+ * periodic refresh can't fix that on its own since it only ever corrects
+ * existing rows, so this logs rather than silently swallowing the failure.
  */
 export async function resetBingoProgress(): Promise<void> {
   const proofRows = await sql`
@@ -50,6 +60,17 @@ export async function resetBingoProgress(): Promise<void> {
     sql`DELETE FROM submissions`,
     sql`DELETE FROM goal_progress`,
   ]);
+
+  const activeGoals = await getActiveGoals();
+  if (activeGoals.length === 0) {
+    return;
+  }
+  const womByRsnKey = await fetchWomStatsByRsnKey();
+  if (!womByRsnKey) {
+    console.error("resetBingoProgress: WOM unreachable, goal baselines were not re-seeded");
+    return;
+  }
+  await seedGoalBaselines(womByRsnKey, activeGoals);
 }
 
 /**
@@ -73,30 +94,6 @@ export async function setBroadcast(
     message: rows[0].broadcast_message,
     updatedAt: rows[0].broadcast_updated_at,
   };
-}
-
-/**
- * Records a plugin's reading of a member's current XP/kill-count for a goal.
- * The first reading for a given (user, goalKind, goalKey) becomes that
- * member's baseline — only progress from that point on counts, same
- * philosophy as item-drop tiles only seeing loot obtained while the plugin
- * runs. Later readings only ever raise latest_value: both XP and kill count
- * are monotonic in OSRS, so a lower report is a stale/out-of-order request,
- * not real progress lost.
- */
-export async function recordGoalProgress(opts: {
-  userId: number;
-  goalKind: "xp" | "kc";
-  goalKey: string;
-  value: number;
-}): Promise<void> {
-  const key = opts.goalKey.trim().toLowerCase();
-  await sql`
-    INSERT INTO goal_progress (user_id, goal_kind, goal_key, baseline_value, latest_value)
-    VALUES (${opts.userId}, ${opts.goalKind}, ${key}, ${opts.value}, ${opts.value})
-    ON CONFLICT (user_id, goal_kind, goal_key) DO UPDATE SET
-      latest_value = GREATEST(goal_progress.latest_value, EXCLUDED.latest_value),
-      updated_at = now()`;
 }
 
 /**
@@ -124,14 +121,6 @@ export async function getTeamGoalProgress(): Promise<
     byGoal.set(goalMapKey, byTeam);
   }
   return byGoal;
-}
-
-export interface GoalReconcileResult {
-  checked: number;
-  updated: number;
-  seeded: number;
-  skippedNoRsnMatch: number;
-  skippedNoMetric: number;
 }
 
 export interface WomStats {
@@ -181,134 +170,150 @@ function lookupWomValue(
   return null;
 }
 
-/**
- * Corrects goal_progress against real Wise Old Man hiscores data, fetched
- * by the caller (fetchWomStatsByRsnKey below). The plugin's own live push
- * (see recordGoalProgress) is normally enough, but it's the ONLY source of
- * truth today — a missed chat line, a client that quits mid-event, or a
- * regex that doesn't match some message variant leaves that member's
- * contribution permanently short with nothing to correct it. This does two
- * things:
- *
- * 1. Corrects existing rows — only ever raises latest_value (never lowers
- *    it, never touches baseline_value), the same GREATEST-based "only
- *    progress counts" idiom recordGoalProgress itself already uses.
- * 2. Seeds a starting row for a team member an active tile should be
- *    tracking who has none at all — otherwise a member who never opens the
- *    plugin (there's no RuneLite on mobile, so a mobile-only player NEVER
- *    gets a first-ever report) contributes nothing to their team,
- *    permanently, with nothing able to fix it — there'd be no row to ever
- *    raise. The seeded baseline is their hiscores reading at the moment
- *    this runs, identical in spirit to a first-ever plugin report becoming
- *    a baseline: nothing is backdated or retroactively credited, tracking
- *    just starts existing for them from here. ON CONFLICT DO NOTHING
- *    guards the race where the plugin establishes a real baseline for the
- *    same (user, goal) at the same moment — whichever commits first wins.
- */
-// Caps how many INSERT/UPDATE statements a single reconciliation pass will
-// actually execute. Each one is a separate awaited round trip, and Vercel
-// kills a function that runs too long — a clan with many members and no
-// existing goal_progress rows yet (a fresh board, or the first run after
-// this feature ships) could otherwise need hundreds of writes in one pass.
-// Capping it just means the leftover work naturally gets picked up by the
-// next throttled pass (see maybeReconcileGoalProgress) a few minutes later
-// — nothing is lost or skipped permanently, it just spreads out safely
-// instead of risking a mid-batch timeout.
-const MAX_WRITES_PER_PASS = 60;
+/** Every currently-active xp/kc goal, deduplicated and lowercased — the same tile.goal_key-casing normalization getTeamGoalProgress's lookup requires. */
+export async function getActiveGoals(): Promise<
+  { goalKind: "xp" | "kc"; goalKey: string }[]
+> {
+  const rows = await sql`
+    SELECT DISTINCT goal_kind, goal_key FROM tiles WHERE goal_kind IN ('xp', 'kc')`;
+  return rows.map((g) => ({
+    goalKind: g.goal_kind as "xp" | "kc",
+    goalKey: (g.goal_key as string).trim().toLowerCase(),
+  }));
+}
 
-export async function reconcileGoalProgress(
+export interface GoalRefreshResult {
+  checked: number;
+  updated: number;
+  skippedNoRsnMatch: number;
+  skippedNoMetric: number;
+}
+
+/**
+ * Corrects EXISTING goal_progress rows against real WOM hiscores data —
+ * only ever raises latest_value (never lowers it, never touches
+ * baseline_value, never creates a row that doesn't already exist). This is
+ * a pure backstop against a value falling behind reality; it does not, and
+ * deliberately no longer does, create new rows — see seedGoalBaselines for
+ * that, which is now only ever called explicitly (on reset or when a tile's
+ * goal is set/changed), not opportunistically here. Mixing "correct what
+ * exists" and "invent what's missing" into one lazily-triggered pass was
+ * the previous design, and it's what caused entries to seem to appear at
+ * random, inconsistent moments depending on whose report happened to be
+ * seen first.
+ *
+ * Single round trip regardless of team size: computes every (row id, new
+ * value) candidate in memory first, then issues one bulk UPDATE — avoids
+ * both the N-round-trip cost and the timeout risk that came with it.
+ */
+export async function refreshGoalLatestValues(
   womByRsnKey: Map<string, WomStats>,
-): Promise<GoalReconcileResult> {
-  const result: GoalReconcileResult = {
+): Promise<GoalRefreshResult> {
+  const result: GoalRefreshResult = {
     checked: 0,
     updated: 0,
-    seeded: 0,
     skippedNoRsnMatch: 0,
     skippedNoMetric: 0,
   };
 
   const existingRows = await sql`
-    SELECT gp.id, gp.user_id, gp.goal_kind, gp.goal_key, gp.latest_value, u.runescape_name
+    SELECT gp.id, gp.goal_kind, gp.goal_key, u.runescape_name
     FROM goal_progress gp
     JOIN users u ON u.id = gp.user_id
     WHERE u.runescape_name IS NOT NULL AND u.runescape_name != ''`;
   result.checked = existingRows.length;
 
-  const existingKeys = new Set<string>();
-  let writes = 0;
+  const ids: number[] = [];
+  const values: number[] = [];
   for (const row of existingRows) {
-    existingKeys.add(`${row.user_id}:${row.goal_kind}:${row.goal_key}`);
-    if (writes >= MAX_WRITES_PER_PASS) continue;
-
     const rsnKey = (row.runescape_name as string).trim().toLowerCase();
     const womEntry = womByRsnKey.get(rsnKey);
     if (!womEntry) {
       result.skippedNoRsnMatch++;
       continue;
     }
-
     const womValue = lookupWomValue(womEntry, row.goal_kind as string, row.goal_key as string);
     if (womValue === null) {
       result.skippedNoMetric++;
       continue;
     }
-
-    const updatedRows = await sql`
-      UPDATE goal_progress SET latest_value = ${womValue}, updated_at = now()
-      WHERE id = ${row.id} AND ${womValue} > latest_value
-      RETURNING id`;
-    if (updatedRows.length > 0) {
-      result.updated++;
-      writes++;
-    }
+    ids.push(row.id as number);
+    values.push(womValue);
   }
 
-  // tiles.goal_key preserves whatever casing the admin typed ("Zulrah"),
-  // unlike goal_progress.goal_key, which recordGoalProgress always
-  // lowercases before storing ("zulrah"). Normalizing here is what keeps
-  // this comparable against existingKeys (built from goal_progress rows
-  // above) and matchable against WOM's lowercase metric names — skipping
-  // it would silently match nothing, or worse, insert a row whose casing
-  // getTeamGoalProgress's own lookup (also lowercase) would never find.
-  const activeGoalsRaw = await sql`
-    SELECT DISTINCT goal_kind, goal_key FROM tiles WHERE goal_kind IN ('xp', 'kc')`;
-  const activeGoals = activeGoalsRaw.map((g) => ({
-    goal_kind: g.goal_kind as string,
-    goal_key: (g.goal_key as string).trim().toLowerCase(),
-  }));
-  if (activeGoals.length === 0) {
+  if (ids.length === 0) {
     return result;
+  }
+
+  const updatedRows = await sql`
+    UPDATE goal_progress gp SET latest_value = v.new_value, updated_at = now()
+    FROM (SELECT * FROM unnest(${ids}::bigint[], ${values}::bigint[]) AS t(id, new_value)) v
+    WHERE gp.id = v.id AND v.new_value > gp.latest_value
+    RETURNING gp.id`;
+  result.updated = updatedRows.length;
+  return result;
+}
+
+/**
+ * Explicitly (re)establishes the starting line for every current team
+ * member on the given goals, from their hiscores reading right now —
+ * unlike refreshGoalLatestValues, this UNCONDITIONALLY overwrites both
+ * baseline_value and latest_value, because it's only ever called from a
+ * deliberate "start tracking this from here" action (a full board reset,
+ * or a tile's goal being created/changed), never opportunistically. That's
+ * what makes it fair across a team: everyone's baseline is snapshotted at
+ * the exact same moment, rather than staggered across whenever each
+ * person's plugin happened to next report (or, for a mobile-only player,
+ * potentially never).
+ *
+ * Single round trip via a bulk upsert — safe even for every member × every
+ * goal at once (a full reset), since it's bounded by roster size, not by
+ * open-ended historical data.
+ */
+export async function seedGoalBaselines(
+  womByRsnKey: Map<string, WomStats>,
+  goals: { goalKind: "xp" | "kc"; goalKey: string }[],
+): Promise<{ seeded: number }> {
+  if (goals.length === 0) {
+    return { seeded: 0 };
   }
 
   const members = await sql`
     SELECT id, runescape_name FROM users
     WHERE team_id IS NOT NULL AND runescape_name IS NOT NULL AND runescape_name != ''`;
 
-  memberLoop: for (const member of members) {
+  const userIds: number[] = [];
+  const goalKinds: string[] = [];
+  const goalKeys: string[] = [];
+  const values: number[] = [];
+  for (const member of members) {
     const rsnKey = (member.runescape_name as string).trim().toLowerCase();
     const womEntry = womByRsnKey.get(rsnKey);
     if (!womEntry) continue;
 
-    for (const goal of activeGoals) {
-      if (writes >= MAX_WRITES_PER_PASS) break memberLoop;
-
-      const key = `${member.id}:${goal.goal_kind}:${goal.goal_key}`;
-      if (existingKeys.has(key)) continue;
-
-      const womValue = lookupWomValue(womEntry, goal.goal_kind, goal.goal_key);
+    for (const goal of goals) {
+      const womValue = lookupWomValue(womEntry, goal.goalKind, goal.goalKey);
       if (womValue === null) continue;
-
-      await sql`
-        INSERT INTO goal_progress (user_id, goal_kind, goal_key, baseline_value, latest_value)
-        VALUES (${member.id}, ${goal.goal_kind}, ${goal.goal_key}, ${womValue}, ${womValue})
-        ON CONFLICT (user_id, goal_kind, goal_key) DO NOTHING`;
-      existingKeys.add(key);
-      result.seeded++;
-      writes++;
+      userIds.push(member.id as number);
+      goalKinds.push(goal.goalKind);
+      goalKeys.push(goal.goalKey);
+      values.push(womValue);
     }
   }
 
-  return result;
+  if (userIds.length === 0) {
+    return { seeded: 0 };
+  }
+
+  const seededRows = await sql`
+    INSERT INTO goal_progress (user_id, goal_kind, goal_key, baseline_value, latest_value)
+    SELECT * FROM unnest(${userIds}::bigint[], ${goalKinds}::text[], ${goalKeys}::text[], ${values}::bigint[], ${values}::bigint[])
+    ON CONFLICT (user_id, goal_kind, goal_key) DO UPDATE SET
+      baseline_value = EXCLUDED.baseline_value,
+      latest_value = EXCLUDED.latest_value,
+      updated_at = now()
+    RETURNING user_id`;
+  return { seeded: seededRows.length };
 }
 
 const WOM_BASE_URL = "https://api.wiseoldman.net/v2";
@@ -357,11 +362,19 @@ export async function fetchWomStatsByRsnKey(): Promise<Map<string, WomStats> | n
 const GOAL_RECONCILE_THROTTLE_MS = 10 * 60 * 1000;
 
 /**
- * Opportunistically reconciles goal_progress, throttled to run at most once
- * per GOAL_RECONCILE_THROTTLE_MS. Called from getBoard (see api/board.ts)
- * so it rides along on real traffic instead of a fixed-clock cron. Never
- * throws — a WOM outage should never take the board down with it, it just
- * means this pass is skipped and the next request retries.
+ * Opportunistically corrects existing goal_progress rows, throttled to run
+ * at most once per GOAL_RECONCILE_THROTTLE_MS. Called from getBoard (see
+ * api/board.ts) so it rides along on real traffic instead of a fixed-clock
+ * cron (Vercel Hobby only allows daily crons, which could land after an
+ * event's deadline has already passed). Never throws — a WOM outage should
+ * never take the board down with it, it just means this pass is skipped
+ * and the next request retries.
+ *
+ * Deliberately correction-only — never seeds a missing row. Seeding only
+ * ever happens explicitly (resetBingoProgress, or a tile's goal being
+ * created/changed), so every team member's baseline lands at the same
+ * moment as their teammates', not staggered across however long it takes
+ * each of them to be "noticed" by an opportunistic pass like this one.
  */
 export async function maybeReconcileGoalProgress(): Promise<void> {
   const rows = await sql`SELECT goal_reconciled_at FROM board_config WHERE id = 1`;
@@ -375,7 +388,7 @@ export async function maybeReconcileGoalProgress(): Promise<void> {
 
   const womByRsnKey = await fetchWomStatsByRsnKey();
   if (!womByRsnKey) return;
-  await reconcileGoalProgress(womByRsnKey);
+  await refreshGoalLatestValues(womByRsnKey);
 }
 
 export type ProofValidation =

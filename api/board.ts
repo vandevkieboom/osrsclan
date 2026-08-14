@@ -11,7 +11,6 @@ import {
   getOrCreateBoardConfig,
   getTeamGoalProgress,
   maybeReconcileGoalProgress,
-  recordGoalProgress,
   recordProofSubmission,
   validateProofSubmission,
 } from "./_lib/board.js";
@@ -291,39 +290,6 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   });
 }
 
-/**
- * The RuneLite plugin's periodic XP/kill-count report for team-combined
- * goal tiles (see goal_kind in db/schema.sql) — no proof/review step, just a
- * running reading that getBoard sums into a team total.
- *
- * POST /api/board?resource=goal-progress
- *   Authorization: Bearer <plugin token>
- *   body: { goalKind: "xp" | "kc", goalKey: string, value: number }
- */
-async function reportGoalProgress(req: VercelRequest, res: VercelResponse) {
-  const user = await requireRequestUser(req, res);
-  if (!user) return;
-
-  const goalKind = req.body?.goalKind;
-  const goalKey =
-    typeof req.body?.goalKey === "string" ? req.body.goalKey.trim() : "";
-  const value = Number(req.body?.value);
-  if (
-    (goalKind !== "xp" && goalKind !== "kc") ||
-    !goalKey ||
-    !Number.isFinite(value) ||
-    value < 0
-  ) {
-    res.status(400).json({
-      error: "goalKind ('xp'|'kc'), goalKey and a non-negative value are required",
-    });
-    return;
-  }
-
-  await recordGoalProgress({ userId: user.id, goalKind, goalKey, value });
-  res.status(200).json({ ok: true });
-}
-
 async function getDonors(res: VercelResponse) {
   const rows = await sql`
     SELECT name, amount_gp
@@ -516,8 +482,6 @@ export default withErrorHandling(async function handler(req, res) {
   if (req.method === "POST") {
     if (req.query.resource === "plugin-proof") {
       await submitPluginProof(req, res);
-    } else if (req.query.resource === "goal-progress") {
-      await reportGoalProgress(req, res);
     } else if (typeof req.body?.type === "string") {
       await uploadToken(req, res);
     } else {
