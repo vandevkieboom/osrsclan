@@ -230,3 +230,9 @@ CREATE TABLE IF NOT EXISTS plugin_tokens (
   revoked_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_plugin_tokens_user_id ON plugin_tokens(user_id);
+-- An in-plugin "looking for group" board was tried and dropped before
+-- shipping. The table was already live on the database by the time it was
+-- reverted, so it needs an explicit drop here — removing its CREATE TABLE
+-- from this file only stops it being recreated, it doesn't remove it from
+-- a database where it already exists.
+DROP TABLE IF EXISTS lfg_posts;
