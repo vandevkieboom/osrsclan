@@ -355,11 +355,15 @@ export async function fetchWomStatsByRsnKey(): Promise<Map<string, WomStats> | n
 // Only actually hit WOM this often, no matter how many times
 // maybeReconcileGoalProgress is called — it's invoked from getBoard, which
 // every online plugin user's 1-minute refresh already hits, so without a
-// throttle this would fire a WOM request roughly once per online member
-// per minute. 10 minutes still means the backstop keeps correcting
-// throughout an event right up to its deadline, unlike a fixed daily cron
-// that might not run again until after scoring has already closed.
-const GOAL_RECONCILE_THROTTLE_MS = 10 * 60 * 1000;
+// throttle this could fire a WOM request on every single one of those
+// requests. The throttle is claimed via one shared board_config timestamp
+// (see below), so regardless of how many members are polling at once, this
+// only ever costs one bulk-hiscores call per window — cheap enough that 2
+// minutes is still a trivial request rate, and this is now the *only*
+// mechanism that ever updates xp/kc progress (no live plugin push
+// anymore), so it's worth keeping this window tight rather than treating
+// it as a rarely-needed backstop.
+const GOAL_RECONCILE_THROTTLE_MS = 2 * 60 * 1000;
 
 /**
  * Opportunistically corrects existing goal_progress rows, throttled to run

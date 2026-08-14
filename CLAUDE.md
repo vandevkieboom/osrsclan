@@ -36,7 +36,7 @@ correction+seeding function into two single-purpose ones:
 - **`refreshGoalLatestValues(womByRsnKey)`** — correction-only backstop.
   Only ever *raises* `latest_value` on rows that already exist; never lowers
   it, never touches `baseline_value`, never creates a row. Called from
-  `maybeReconcileGoalProgress()` (throttled to once per 10 min, riding along
+  `maybeReconcileGoalProgress()` (throttled to once per 2 min, riding along
   on `GET /api/board` traffic) and from the `?type=goal-reconcile` cron
   fallback in `api/wom-proxy.ts` for zero-traffic periods.
 
