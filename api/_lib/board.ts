@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { sql } from "./db.js";
 
 export interface PrizePot {
@@ -22,44 +21,6 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
     RETURNING name, size, prize_pot, broadcast_message, broadcast_updated_at`;
   return rows[0] as BoardConfigRow;
-}
-
-const CODEWORD_ROTATE_MS = 24 * 60 * 60 * 1000;
-// Excludes visually ambiguous characters (0/O, 1/I/L) since this gets read
-// off a screenshot by an admin, possibly at low resolution.
-const CODEWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-
-function generateCodeword(): string {
-  const bytes = randomBytes(5);
-  let code = "";
-  for (const b of bytes) {
-    code += CODEWORD_ALPHABET[b % CODEWORD_ALPHABET.length];
-  }
-  return `TS-${code}`;
-}
-
-/**
- * Returns the current daily verification codeword, generating a new one if
- * the last one is missing or more than a day old. The plugin burns this
- * (plus a live timestamp) into every proof screenshot — see
- * BingoVerificationOverlay — so a submitted image is visibly tied to a
- * specific day, making a stale or reused screenshot obvious to an admin
- * reviewing submissions. Lazy rotation (checked here, from getBoard, rather
- * than a scheduled job) mirrors maybeReconcileGoalProgress's own pattern:
- * whichever request happens to notice it's stale generates the next one.
- */
-export async function getOrRotateCodeword(): Promise<string> {
-  const rows = await sql`SELECT codeword, codeword_rotated_at FROM board_config WHERE id = 1`;
-  const current = rows[0]?.codeword as string | undefined;
-  const rotatedAt = rows[0]?.codeword_rotated_at as string | null | undefined;
-
-  if (current && rotatedAt && Date.now() - new Date(rotatedAt).getTime() < CODEWORD_ROTATE_MS) {
-    return current;
-  }
-
-  const next = generateCodeword();
-  await sql`UPDATE board_config SET codeword = ${next}, codeword_rotated_at = now() WHERE id = 1`;
-  return next;
 }
 
 /**

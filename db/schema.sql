@@ -55,15 +55,14 @@ INSERT INTO board_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 -- correcting right up until an event's actual deadline instead of waiting
 -- for a scheduled time that might land after scoring has already closed.
 ALTER TABLE board_config ADD COLUMN IF NOT EXISTS goal_reconciled_at TIMESTAMPTZ;
--- A rotating code the plugin burns into every proof screenshot alongside a
--- live timestamp (see BingoVerificationOverlay in the plugin), so a
--- submitted image is tied to a specific day — a screenshot from a previous
--- day, or one with no code/timestamp visible, is a clear tell to an admin
--- reviewing submissions. Rotated lazily (see getOrRotateCodeword in
--- api/_lib/board.ts) rather than on a schedule: whichever request happens
--- to notice it's stale generates the next one.
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS codeword TEXT NOT NULL DEFAULT '';
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS codeword_rotated_at TIMESTAMPTZ;
+-- A server-broadcast verification codeword was tried and dropped: same
+-- mistake as the verification_code attempt above — GET /api/board requires
+-- no authentication at all, so anyone could have read it, which defeats the
+-- point of it being something only real participants know. Superseded by a
+-- plain manually-entered field in the plugin's own config, communicated to
+-- participants directly (e.g. via Discord) rather than through the site.
+ALTER TABLE board_config DROP COLUMN IF EXISTS codeword;
+ALTER TABLE board_config DROP COLUMN IF EXISTS codeword_rotated_at;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_active;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_order;
 ALTER TABLE board_config DROP COLUMN IF EXISTS draft_pick_index;

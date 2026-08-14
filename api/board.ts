@@ -9,7 +9,6 @@ import {
 } from "./_lib/auth.js";
 import {
   getOrCreateBoardConfig,
-  getOrRotateCodeword,
   getTeamGoalProgress,
   maybeReconcileGoalProgress,
   recordGoalProgress,
@@ -282,8 +281,6 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     isLeading: t.pct === leaderPct && leaderPct > 0,
   }));
 
-  const codeword = await getOrRotateCodeword();
-
   res.status(200).json({
     config: {
       name: config.name,
@@ -292,7 +289,6 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     },
     teams,
     myTeamId: user?.teamId ?? null,
-    codeword,
   });
 }
 
