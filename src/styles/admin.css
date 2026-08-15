@@ -94,7 +94,7 @@
 .admin-empty {
   color: #8a7674;
   font-size: 13px;
-  padding: 1.5rem 0;
+  padding: 0 0 1.5rem 0;
 }
 
 .admin-select {
@@ -215,17 +215,6 @@
 .admin-tile-list-add:disabled {
   opacity: 0.6;
   cursor: default;
-}
-
-.admin-tile-list-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.admin-tile-list-actions .admin-tile-list-add {
-  align-self: flex-start;
 }
 
 .admin-row-color {

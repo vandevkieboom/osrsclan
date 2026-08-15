@@ -103,7 +103,11 @@ function GoalFields({
           onChange(
             goalKind === "item"
               ? { goalKind, goalKey: "", goalTarget: null }
-              : { goalKind, goalKey: goal.goalKey, goalTarget: goal.goalTarget ?? 1 },
+              : {
+                  goalKind,
+                  goalKey: goal.goalKey,
+                  goalTarget: goal.goalTarget ?? 1,
+                },
           );
         }}
       >
@@ -117,7 +121,9 @@ function GoalFields({
             type="text"
             className="admin-input admin-tile-goal-input"
             placeholder={
-              goal.goalKind === "xp" ? "Skill (e.g. Fishing)" : "Boss (e.g. Zulrah)"
+              goal.goalKind === "xp"
+                ? "Skill (e.g. Fishing)"
+                : "Boss (e.g. Zulrah)"
             }
             value={goal.goalKey}
             onChange={(e) => onChange({ ...goal, goalKey: e.target.value })}
@@ -220,7 +226,8 @@ function TileAddRow({
             checked={requireUniqueItems}
             onChange={(e) => setRequireUniqueItems(e.target.checked)}
           />
-          Require unique items (e.g. "4 different DK rings", not the same one 4x)
+          Require unique items (e.g. "4 different DK rings", not the same one
+          4x)
         </label>
       )}
       <div className="admin-tile-card-actions">
@@ -308,11 +315,7 @@ function TileRow({
   }
 
   function commit(next: TileFormValues) {
-    if (
-      next.name &&
-      next.iconUrl &&
-      !valuesEqual(next, valuesFromTile(tile))
-    ) {
+    if (next.name && next.iconUrl && !valuesEqual(next, valuesFromTile(tile))) {
       onSave(next);
     } else {
       setValues(valuesFromTile(tile));
@@ -553,10 +556,9 @@ export function TilesPanel() {
   const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
   const inGridTiles = tiles.filter((t) => t.position < slotCount);
   const overflowTiles = tiles.filter((t) => t.position >= slotCount);
-  const emptyPositions = Array.from(
-    { length: slotCount },
-    (_, i) => i,
-  ).filter((i) => !tileByPosition.has(i));
+  const emptyPositions = Array.from({ length: slotCount }, (_, i) => i).filter(
+    (i) => !tileByPosition.has(i),
+  );
   const firstEmptyPosition = emptyPositions[0];
 
   return (
@@ -583,17 +585,7 @@ export function TilesPanel() {
         {inGridTiles.length === 0 && addingPosition === null && (
           <div className="admin-empty">No tiles yet.</div>
         )}
-      </div>
-      {addingPosition === null && firstEmptyPosition !== undefined && (
-        <div className="admin-tile-list-actions">
-          <button
-            type="button"
-            className="admin-tile-list-add"
-            onClick={() => setAddingPosition(firstEmptyPosition)}
-            disabled={filling}
-          >
-            + Add Tile
-          </button>
+        {addingPosition === null && firstEmptyPosition !== undefined && (
           <button
             type="button"
             className="admin-new-team-btn"
@@ -604,7 +596,17 @@ export function TilesPanel() {
               ? `Filling ${fillProgress.done}/${fillProgress.total}…`
               : `+ Fill ${emptyPositions.length} Empty Slot${emptyPositions.length === 1 ? "" : "s"} Randomly`}
           </button>
-        </div>
+        )}
+      </div>
+      {addingPosition === null && firstEmptyPosition !== undefined && (
+        <button
+          type="button"
+          className="admin-tile-list-add"
+          onClick={() => setAddingPosition(firstEmptyPosition)}
+          disabled={filling}
+        >
+          + Add Tile
+        </button>
       )}
 
       {overflowTiles.length > 0 && (
