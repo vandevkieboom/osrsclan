@@ -284,11 +284,26 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     config: {
       name: config.name,
       size: config.size,
-      bingoActive: config.bingo_active,
     },
     teams,
     myTeamId: user?.teamId ?? null,
   });
+}
+
+/**
+ * A deliberately tiny, cheap, public check for "is a bingo event running
+ * right now" — the plugin polls this every minute regardless of whether
+ * bingo is active, so it needs to cost almost nothing (unlike getBoard,
+ * which queries tiles/teams/submissions and can't be blanket-cached since
+ * its response is personalized per viewer via myTeamId). Cached at the
+ * edge for 30s: this is what lets the plugin check every minute for
+ * practically free, rather than needing to slow down or back off polling
+ * this specific check to control cost.
+ */
+async function getBingoStatus(res: VercelResponse) {
+  const config = await getOrCreateBoardConfig();
+  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=15");
+  res.status(200).json({ bingoActive: config.bingo_active });
 }
 
 async function getDonors(res: VercelResponse) {
@@ -474,6 +489,8 @@ export default withErrorHandling(async function handler(req, res) {
   if (req.method === "GET") {
     if (req.query.resource === "donors") {
       await getDonors(res);
+    } else if (req.query.resource === "status") {
+      await getBingoStatus(res);
     } else {
       await getBoard(req, res);
     }

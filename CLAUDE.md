@@ -52,27 +52,33 @@ have defeated the point of moving to a hiscores-only source of truth (it
 would still let anyone with a plugin key spoof a huge value directly). See
 `osrsclanplugin/CLAUDE.md` for the plugin-side half of this same rework.
 
-## `bingo_active` — letting the plugin back off when no event is running
+## `bingo_active` — a cheap status ping, decoupled from the expensive board fetch
 
 The RuneLite plugin (`osrsclanplugin`) is a general clan tool, not a
 bingo-only one — most members keep it running for `!verify`/`!live`,
 clan broadcasts, and live-stream notifications whether or not a bingo
 event exists. Before this, its board refresh polled `GET /api/board`
-every minute forever regardless, which is real, ongoing load against
-Vercel's (free-tier) invocation quota for something that's often not even
-running.
+every minute forever regardless, which is real, ongoing load (tiles +
+teams + submissions queries) against Vercel's (free-tier) invocation
+quota for something that's often not even running.
 
 `board_config.bingo_active` (admin-toggleable from the Board Config
 panel, `BoardConfigPanel`) lets an admin explicitly say "no event right
-now." `getBoard` and the admin config endpoint both return it as
-`bingoActive`. The plugin reads it and, once it sees `false`, backs its
-board-specific polling down to once per 30 minutes instead of once per
-minute (see `BingoPlugin#maybeRefreshBoard` in the sibling repo) — a
-~30x cut for however long an event isn't running, which for a clan that
-runs occasional bingo events is most of the time. Defaults `true`
-(fail-open): a missing/old field must never silently look like
-"inactive," since that would just look like the board mysteriously
-stopped updating with no visible cause.
+now." An earlier version of this had the plugin back its *full* board
+poll down to once per 30 minutes while inactive — simple, but meant
+turning an event back on could take up to 30 minutes to be noticed,
+which is exactly backwards (re-activating is the moment you want picked
+up fast). The actual fix: `GET /api/board?resource=status` is a second,
+deliberately tiny endpoint that returns *only* `{ bingoActive }`, backed
+by `Cache-Control: s-maxage=30` — cheap enough that the plugin can poll
+it every single minute regardless of activity, for practically free.
+The plugin polls this every tick unconditionally, and only runs the
+*expensive* `GET /api/board` fetch (tiles/teams/submissions) on ticks
+where the cheap ping says an event is genuinely active. So: near-zero
+bingo-related cost while inactive, and reactivating is noticed within
+about a minute, not 30 — a strictly better trade than the interval-based
+backoff it replaced. Defaults `true` (fail-open) throughout: a
+missing/old field must never silently look like "inactive."
 
 Deliberately does **not** touch `!verify`/`!live`/broadcast/live-stream
 checks — those stay on their normal 1-minute cadence regardless of
