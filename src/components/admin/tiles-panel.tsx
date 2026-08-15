@@ -266,6 +266,7 @@ function TileRow({
   const [values, setValues] = useState(valuesFromTile(tile));
   const [itemIdsText, setItemIdsText] = useState(tile.itemIds.join(", "));
   const [prevTile, setPrevTile] = useState(tile);
+  const [expanded, setExpanded] = useState(false);
   // Compared by field value, not by reference: `tile` is a fresh object after
   // every reload() regardless of whether this particular tile's data actually
   // changed, and resetting on reference alone would wipe an in-progress edit
@@ -302,83 +303,112 @@ function TileRow({
   }
 
   return (
-    <div className="admin-row admin-tile-card">
-      <div className="admin-tile-card-top">
-        <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
-        <input
-          type="text"
-          className="admin-input admin-row-input"
-          value={values.name}
-          onChange={(e) => setValues({ ...values, name: e.target.value })}
-          onBlur={commitCurrent}
-        />
-        <input
-          type="text"
-          className="admin-input admin-tile-icon-input"
-          value={values.iconUrl}
-          onChange={(e) => setValues({ ...values, iconUrl: e.target.value })}
-          onBlur={commitCurrent}
-        />
-        <input
-          type="text"
-          className="admin-input admin-tile-category-input"
-          placeholder="Category"
-          value={values.category}
-          onChange={(e) => setValues({ ...values, category: e.target.value })}
-          onBlur={commitCurrent}
-        />
-        <input
-          type="number"
-          min={1}
-          className="admin-input admin-tile-count-input"
-          value={values.requiredCount}
-          onChange={(e) =>
-            setValues({
-              ...values,
-              requiredCount: Math.max(1, Number(e.target.value) || 1),
-            })
-          }
-          onBlur={commitCurrent}
-        />
-        <button type="button" className="admin-btn-danger" onClick={onDelete}>
+    <div className="admin-tile-card admin-tile-card--collapsible">
+      <div
+        className="admin-tile-row-header"
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <img src={tile.iconUrl} alt="" className="admin-tile-row-icon" />
+        <div className="admin-tile-row-name">{tile.name}</div>
+        {tile.category && (
+          <div className="admin-tile-row-category">{tile.category}</div>
+        )}
+        <div className="admin-tile-row-count">× {tile.requiredCount}</div>
+        <button
+          type="button"
+          className="admin-btn-danger admin-tile-row-delete"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
           ✕
         </button>
+        <div className="admin-tile-row-chevron">{expanded ? "▲" : "▼"}</div>
       </div>
-      <input
-        type="text"
-        className="admin-input admin-tile-description-input"
-        placeholder="Explain exactly what counts for this tile…"
-        value={values.description}
-        onChange={(e) => setValues({ ...values, description: e.target.value })}
-        onBlur={commitCurrent}
-      />
-      <GoalFields
-        goal={values.goal}
-        onChange={(goal) => setValues({ ...values, goal })}
-        onCommit={commitCurrent}
-      />
-      {values.goal.goalKind === "item" && (
-        <input
-          type="text"
-          className="admin-input admin-tile-description-input"
-          placeholder={ITEM_IDS_PLACEHOLDER}
-          value={itemIdsText}
-          onChange={(e) => setItemIdsText(e.target.value)}
-          onBlur={commitCurrent}
-        />
-      )}
-      {values.goal.goalKind === "item" && (
-        <label className="admin-tile-unique-toggle">
+      {expanded && (
+        <div className="admin-tile-row-body">
+          <div className="admin-tile-card-top">
+            <input
+              type="text"
+              className="admin-input admin-row-input"
+              value={values.name}
+              onChange={(e) => setValues({ ...values, name: e.target.value })}
+              onBlur={commitCurrent}
+            />
+            <input
+              type="text"
+              className="admin-input admin-tile-icon-input"
+              value={values.iconUrl}
+              onChange={(e) =>
+                setValues({ ...values, iconUrl: e.target.value })
+              }
+              onBlur={commitCurrent}
+            />
+            <input
+              type="text"
+              className="admin-input admin-tile-category-input"
+              placeholder="Category"
+              value={values.category}
+              onChange={(e) =>
+                setValues({ ...values, category: e.target.value })
+              }
+              onBlur={commitCurrent}
+            />
+            <input
+              type="number"
+              min={1}
+              className="admin-input admin-tile-count-input"
+              value={values.requiredCount}
+              onChange={(e) =>
+                setValues({
+                  ...values,
+                  requiredCount: Math.max(1, Number(e.target.value) || 1),
+                })
+              }
+              onBlur={commitCurrent}
+            />
+          </div>
           <input
-            type="checkbox"
-            checked={values.requireUniqueItems}
+            type="text"
+            className="admin-input admin-tile-description-input"
+            placeholder="Explain exactly what counts for this tile…"
+            value={values.description}
             onChange={(e) =>
-              // Not text input + onBlur here, so commit explicitly on change.
-              commit({ ...values, requireUniqueItems: e.target.checked })
+              setValues({ ...values, description: e.target.value })
             }
+            onBlur={commitCurrent}
           />
-          Require unique items (e.g. "4 different DK rings", not the same one 4x)
-        </label>
+          <GoalFields
+            goal={values.goal}
+            onChange={(goal) => setValues({ ...values, goal })}
+            onCommit={commitCurrent}
+          />
+          {values.goal.goalKind === "item" && (
+            <input
+              type="text"
+              className="admin-input admin-tile-description-input"
+              placeholder={ITEM_IDS_PLACEHOLDER}
+              value={itemIdsText}
+              onChange={(e) => setItemIdsText(e.target.value)}
+              onBlur={commitCurrent}
+            />
+          )}
+          {values.goal.goalKind === "item" && (
+            <label className="admin-tile-unique-toggle">
+              <input
+                type="checkbox"
+                checked={values.requireUniqueItems}
+                onChange={(e) =>
+                  // Not text input + onBlur here, so commit explicitly on change.
+                  commit({ ...values, requireUniqueItems: e.target.checked })
+                }
+              />
+              Require unique items (e.g. "4 different DK rings", not the same
+              one 4x)
+            </label>
+          )}
+        </div>
       )}
     </div>
   );

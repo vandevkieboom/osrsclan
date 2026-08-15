@@ -12,7 +12,7 @@ import {
 } from "../../services/admin";
 import { PLACEHOLDER_TEAMS, PLACEHOLDER_USERS } from "./placeholders";
 
-function TeamRow({
+function TeamCard({
   team,
   roster,
   onRename,
@@ -41,24 +41,26 @@ function TeamRow({
   }
 
   return (
-    <div className="admin-row">
-      <input
-        type="color"
-        className="admin-row-color"
-        value={team.accentColor}
-        onChange={(e) => onRecolor(e.target.value)}
-        title="Team color"
-      />
-      <input
-        type="text"
-        className="admin-input admin-row-input"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-      />
+    <div className="admin-team-card">
+      <div className="admin-team-card-top">
+        <input
+          type="color"
+          className="admin-row-color admin-team-card-dot"
+          value={team.accentColor}
+          onChange={(e) => onRecolor(e.target.value)}
+          title="Team color"
+        />
+        <input
+          type="text"
+          className="admin-input admin-row-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        />
+      </div>
       <select
-        className="admin-select"
+        className="admin-select admin-team-card-select"
         value={team.captainId ?? ""}
         onChange={(e) =>
           onSetCaptain(e.target.value === "" ? null : Number(e.target.value))
@@ -71,10 +73,12 @@ function TeamRow({
           </option>
         ))}
       </select>
-      <span className="admin-row-meta">{team.memberCount} members</span>
-      <button type="button" className="admin-btn-danger" onClick={onDelete}>
-        Delete
-      </button>
+      <div className="admin-team-card-footer">
+        <span className="admin-row-meta">{team.memberCount} members</span>
+        <button type="button" className="admin-btn-danger" onClick={onDelete}>
+          Delete
+        </button>
+      </div>
     </div>
   );
 }
@@ -157,9 +161,9 @@ export function TeamsPanel() {
   return (
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
-      <div className="admin-row-list">
+      <div className="admin-teams-grid">
         {teams?.map((t) => (
-          <TeamRow
+          <TeamCard
             key={t.id}
             team={t}
             roster={(users ?? []).filter((u) => u.team?.id === t.id)}
@@ -169,13 +173,11 @@ export function TeamsPanel() {
             onDelete={() => handleDelete(t.id)}
           />
         ))}
-        {teams?.length === 0 && (
-          <div className="admin-empty">No teams yet.</div>
-        )}
       </div>
+      {teams?.length === 0 && <div className="admin-empty">No teams yet.</div>}
       <button
         type="button"
-        className="admin-btn-primary"
+        className="admin-new-team-btn"
         onClick={handleCreate}
         disabled={saving}
       >

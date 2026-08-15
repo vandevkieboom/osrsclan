@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { sendBroadcast } from "../../services/admin";
 
+interface SentBroadcast {
+  message: string;
+  sentAt: string;
+}
+
 export function BroadcastPanel() {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [broadcastError, setBroadcastError] = useState<string | null>(null);
   const [broadcasting, setBroadcasting] = useState(false);
-  const [lastBroadcastAt, setLastBroadcastAt] = useState<string | null>(null);
+  const [sentBroadcasts, setSentBroadcasts] = useState<SentBroadcast[]>([]);
 
   async function handleSendBroadcast(e: React.FormEvent) {
     e.preventDefault();
@@ -15,7 +20,10 @@ export function BroadcastPanel() {
     setBroadcastError(null);
     try {
       const broadcast = await sendBroadcast(message);
-      setLastBroadcastAt(broadcast.updatedAt);
+      setSentBroadcasts((prev) => [
+        { message, sentAt: broadcast.updatedAt },
+        ...prev,
+      ]);
       setBroadcastMessage("");
     } catch (err) {
       setBroadcastError(
@@ -27,35 +35,49 @@ export function BroadcastPanel() {
   }
 
   return (
-    <form onSubmit={handleSendBroadcast} className="admin-section">
-      <div className="admin-board-form">
-        <label className="admin-field">
-          <span>Broadcast to clan</span>
-          <input
-            type="text"
-            className="admin-input"
-            placeholder="Message shown to anyone with plugin broadcasts on"
-            maxLength={200}
-            value={broadcastMessage}
-            onChange={(e) => setBroadcastMessage(e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="admin-section-save">
-        <button
-          type="submit"
-          className="admin-btn-primary"
-          disabled={broadcasting || !broadcastMessage.trim()}
-        >
-          {broadcasting ? "Sending..." : "Send"}
-        </button>
-        {lastBroadcastAt && (
-          <span className="admin-saved">
-            Sent {new Date(lastBroadcastAt).toLocaleString()}
-          </span>
+    <div className="admin-broadcast-grid">
+      <form onSubmit={handleSendBroadcast} className="admin-card">
+        <div className="admin-card-label">Send broadcast</div>
+        <textarea
+          className="admin-input admin-broadcast-textarea"
+          placeholder="Message shown to anyone with plugin broadcasts on"
+          rows={4}
+          maxLength={200}
+          value={broadcastMessage}
+          onChange={(e) => setBroadcastMessage(e.target.value)}
+          aria-label="Broadcast to clan"
+        />
+        <div className="admin-section-save">
+          <button
+            type="submit"
+            className="admin-btn-primary"
+            disabled={broadcasting || !broadcastMessage.trim()}
+          >
+            {broadcasting ? "Sending..." : "Send"}
+          </button>
+        </div>
+        {broadcastError && (
+          <div className="admin-error">{broadcastError}</div>
         )}
+      </form>
+      <div className="admin-card">
+        <div className="admin-card-label">Recent broadcasts</div>
+        <div className="admin-broadcast-history">
+          {sentBroadcasts.length === 0 && (
+            <div className="admin-empty">
+              No broadcasts sent this session yet.
+            </div>
+          )}
+          {sentBroadcasts.map((b, i) => (
+            <div key={i} className="admin-broadcast-history-item">
+              <div className="admin-broadcast-history-text">{b.message}</div>
+              <div className="admin-broadcast-history-time">
+                {new Date(b.sentAt).toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-      {broadcastError && <div className="admin-error">{broadcastError}</div>}
-    </form>
+    </div>
   );
 }

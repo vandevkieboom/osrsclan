@@ -84,81 +84,81 @@ export function BoardConfigPanel() {
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
 
-      <form onSubmit={handleSaveConfig} className="admin-section">
-        <div className="admin-board-form">
-          <label className="admin-field">
-            <span>Event name</span>
-            <input
-              type="text"
-              className="admin-input"
-              value={config.name}
-              onChange={(e) => setConfig({ ...config, name: e.target.value })}
-            />
-          </label>
-          <label className="admin-field">
-            <span>Grid size</span>
-            <select
-              className="admin-select"
-              value={config.size}
-              onChange={(e) =>
-                setConfig({ ...config, size: Number(e.target.value) })
-              }
+      <div className="admin-config-grid">
+        <form onSubmit={handleSaveConfig} className="admin-card">
+          <div className="admin-card-label">Event settings</div>
+          <div className="admin-board-form">
+            <label className="admin-field">
+              <span>Event name</span>
+              <input
+                type="text"
+                className="admin-input"
+                value={config.name}
+                onChange={(e) => setConfig({ ...config, name: e.target.value })}
+              />
+            </label>
+            <label className="admin-field">
+              <span>Grid size</span>
+              <select
+                className="admin-select"
+                value={config.size}
+                onChange={(e) =>
+                  setConfig({ ...config, size: Number(e.target.value) })
+                }
+              >
+                {SIZE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s} × {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="admin-tile-unique-toggle">
+              <input
+                type="checkbox"
+                checked={config.bingoActive}
+                onChange={(e) =>
+                  setConfig({ ...config, bingoActive: e.target.checked })
+                }
+              />
+              Bingo event active. Turn off between events to reduce the RuneLite
+              plugin's board polling. Doesn't affect chat commands, livestream
+              or broadcast notifications.
+            </label>
+          </div>
+
+          <div className="admin-section-save">
+            <button
+              type="submit"
+              className="admin-btn-primary"
+              disabled={saving}
             >
-              {SIZE_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s} × {s}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+              {saving ? "Saving..." : "Save"}
+            </button>
+            {saved && <span className="admin-saved">Saved.</span>}
+          </div>
+        </form>
 
-        <label className="admin-tile-unique-toggle">
-          <input
-            type="checkbox"
-            checked={config.bingoActive}
-            onChange={(e) =>
-              setConfig({ ...config, bingoActive: e.target.checked })
-            }
-          />
-          Bingo event active
-        </label>
-        <p className="admin-field-hint">
-          Turn off between events — the RuneLite plugin backs its board
-          polling down to an occasional check instead of every couple
-          minutes, since the plugin is a general clan tool people keep
-          running even when no bingo is happening. Doesn't affect chat
-          commands, live-stream or broadcast notifications.
-        </p>
-
-        <div className="admin-section-save">
-          <button type="submit" className="admin-btn-primary" disabled={saving}>
-            {saving ? "Saving..." : "Save"}
-          </button>
-          {saved && <span className="admin-saved">Saved.</span>}
-        </div>
-      </form>
-
-      <div className="admin-section admin-board-form">
-        <label className="admin-field">
-          <span>Start a fresh bingo</span>
+        <div className="admin-card admin-danger-card">
+          <div className="admin-danger-label">Danger zone</div>
           <p className="admin-field-hint">
-            Clears every team's tile submissions (including the uploaded
-            proof images) and everyone's xp/kc goal progress, so the board
-            reads as if nothing has been submitted yet. Tiles, teams, and
-            donations are left alone. This cannot be undone.
+            Start a fresh bingo. Clears every team's tile submissions (including
+            the uploaded proof images) and everyone's xp/kc goal progress, so
+            the board reads as if nothing has been submitted yet. Tiles, teams,
+            and donations are left alone. This cannot be undone.
           </p>
           <button
             type="button"
-            className="admin-btn-danger"
+            className="admin-btn-danger admin-btn-danger--block"
             disabled={resetting}
             onClick={handleResetBingo}
           >
             {resetting ? "Resetting..." : "Start fresh bingo"}
           </button>
-        </label>
-        {resetDone && <span className="admin-saved">Reset.</span>}
-        {resetError && <div className="admin-error">{resetError}</div>}
+          {resetDone && <span className="admin-saved">Reset.</span>}
+          {resetError && <div className="admin-error">{resetError}</div>}
+        </div>
       </div>
     </div>
   );

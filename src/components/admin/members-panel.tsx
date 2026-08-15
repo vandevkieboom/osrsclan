@@ -79,6 +79,8 @@ export function MembersPanel() {
     return name.toLowerCase().includes(search.trim().toLowerCase());
   });
 
+  const unassignedCount = (users ?? []).filter((u) => !u.team).length;
+
   return (
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
@@ -92,21 +94,42 @@ export function MembersPanel() {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
-      <div className="admin-row-list">
-        {filtered.map((u) => (
-          <MemberRow
-            key={u.id}
-            user={u}
-            teams={teams ?? []}
-            onAssign={(value) => handleAssign(u.id, value)}
-          />
-        ))}
-        {users && users.length > 0 && filtered.length === 0 && (
-          <div className="admin-empty">No members match "{search}".</div>
-        )}
-        {users?.length === 0 && (
-          <div className="admin-empty">No members yet.</div>
-        )}
+      <div className="admin-members-grid">
+        <div className="admin-members-list">
+          {filtered.map((u) => (
+            <MemberRow
+              key={u.id}
+              user={u}
+              teams={teams ?? []}
+              onAssign={(value) => handleAssign(u.id, value)}
+            />
+          ))}
+          {users && users.length > 0 && filtered.length === 0 && (
+            <div className="admin-empty">No members match "{search}".</div>
+          )}
+          {users?.length === 0 && (
+            <div className="admin-empty">No members yet.</div>
+          )}
+        </div>
+        <div className="admin-card admin-card--tight admin-roster-card">
+          <div className="admin-card-label">Team rosters</div>
+          <div className="admin-roster-list">
+            {(teams ?? []).map((t) => (
+              <div key={t.id} className="admin-roster-row">
+                <div
+                  className="admin-roster-dot"
+                  style={{ background: t.accentColor }}
+                />
+                <div className="admin-roster-name">{t.name}</div>
+                <div>{t.memberCount}</div>
+              </div>
+            ))}
+            <div className="admin-roster-unassigned">
+              <div>Unassigned</div>
+              <div>{unassignedCount}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -137,12 +137,13 @@
 }
 
 .admin-field-hint {
-  font-size: 11px;
+  font-size: 12px;
   color: #8f7a78;
+  margin-bottom: 20px;
 }
 
 .admin-section-save {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .admin-tiles-heading {
@@ -158,8 +159,9 @@
 }
 
 .admin-tile-list {
-  gap: 10px;
-  max-width: 900px;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: none;
 }
 
 .admin-row {
@@ -361,7 +363,6 @@
   font-size: 11.5px;
   color: #a08c89;
   cursor: pointer;
-  margin: -0.2rem 0 0.4rem;
 }
 
 .admin-tile-unique-toggle input[type="checkbox"] {
@@ -373,8 +374,7 @@
 
 .admin-member-search-wrap {
   position: relative;
-  max-width: 780px;
-  margin-bottom: 0.9rem;
+  margin-bottom: 20px;
 }
 
 .admin-member-search-wrap .ms-search-icon {
@@ -386,3 +386,336 @@
   padding-left: 30px;
 }
 
+/* =====================
+   Admin page — redesign
+   ===================== */
+
+.admin-card {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.admin-card--tight {
+  padding: 20px;
+}
+
+.admin-card-label,
+.admin-danger-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8f7a78;
+  margin-bottom: 14px;
+}
+
+.admin-danger-label {
+  color: #e8574a;
+}
+
+/* Broadcast tab */
+
+.admin-broadcast-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-broadcast-textarea {
+  width: 100%;
+  resize: vertical;
+  margin-bottom: 16px;
+  font-family: inherit;
+}
+
+.admin-broadcast-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-broadcast-history-item {
+  border-bottom: 1px solid #2a1315;
+  padding-bottom: 10px;
+}
+
+.admin-broadcast-history-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.admin-broadcast-history-text {
+  font-size: 12.5px;
+  color: #c9b8b6;
+}
+
+.admin-broadcast-history-time {
+  font-size: 10.5px;
+  color: #7a655f;
+  margin-top: 4px;
+}
+
+/* Teams tab */
+
+.admin-teams-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.admin-team-card {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-team-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admin-team-card-dot {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-team-card-select {
+  width: 100%;
+  max-width: none;
+  margin-bottom: 12px;
+}
+
+.admin-team-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-new-team-btn {
+  background: none;
+  border: 1px dashed #3a2224;
+  color: #c9b8b6;
+  padding: 14px;
+  width: 100%;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.admin-new-team-btn:hover {
+  border-color: #7a3034;
+  color: #a08c89;
+}
+
+.admin-new-team-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Members tab */
+
+.admin-members-grid {
+  display: grid;
+  grid-template-columns: 2.3fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-members-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.admin-roster-card {
+  position: sticky;
+  top: 16px;
+}
+
+.admin-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.admin-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #c9b8b6;
+}
+
+.admin-roster-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.admin-roster-name {
+  flex: 1;
+}
+
+.admin-roster-count {
+  color: #7a655f;
+}
+
+.admin-roster-unassigned {
+  border-top: 1px solid #2a1315;
+  margin-top: 6px;
+  padding-top: 9px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: #e8574a;
+}
+
+/* Donations tab */
+
+.admin-donations-grid {
+  display: grid;
+  grid-template-columns: 2.3fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-donations-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.admin-donation-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-stat-value {
+  font-family: "MedievalSharp", Arial, Helvetica, sans-serif;
+  font-size: 26px;
+  color: #d4a017;
+}
+
+.admin-stat-sub-name {
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.admin-stat-sub-amount {
+  font-size: 12.5px;
+  color: #7a655f;
+}
+
+/* Bingo config tab */
+
+.admin-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-danger-card {
+  border-color: #a3241a;
+}
+
+.admin-btn-danger--block {
+  width: 100%;
+  padding: 11px 18px;
+}
+
+/* Tiles tab */
+
+.admin-tile-card--collapsible {
+  border: 1px solid #2a1315;
+  background: #120809;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+}
+
+.admin-tile-row-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+
+.admin-tile-row-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.admin-tile-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-tile-row-category {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: #8f7a78;
+  background: #0c0607;
+  border: 1px solid #3a2224;
+  padding: 4px 10px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.admin-tile-row-count {
+  font-size: 11.5px;
+  color: #7a655f;
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.admin-tile-row-delete {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.admin-tile-row-chevron {
+  color: #7a655f;
+  font-size: 12px;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.admin-tile-row-body {
+  padding: 0 16px 18px 54px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

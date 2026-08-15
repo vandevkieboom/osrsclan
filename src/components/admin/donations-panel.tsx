@@ -8,6 +8,12 @@ import {
 } from "../../services/admin";
 import { PLACEHOLDER_DONATIONS } from "./placeholders";
 
+function formatGp(n: number): string {
+  return n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M gp`
+    : `${n.toLocaleString()} gp`;
+}
+
 function DonationRow({
   donation,
   onSave,
@@ -165,37 +171,64 @@ export function DonationsPanel() {
   if (!donations)
     return <div className="admin-panel">{error ?? "Loading..."}</div>;
 
+  const totalPot = donations.reduce((s, d) => s + d.amountGp, 0);
+  const topDonor = donations.reduce<Donation | null>(
+    (top, d) => (!top || d.amountGp > top.amountGp ? d : top),
+    null,
+  );
+
   return (
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
-      <div className="admin-row-list">
-        {donations.map((d) => (
-          <DonationRow
-            key={d.id}
-            donation={d}
-            onSave={(name, amountGp) => handleSave(d.id, name, amountGp)}
-            onDelete={() => handleDelete(d.id)}
-          />
-        ))}
-        {adding && (
-          <DonationAddRow
-            onSave={handleAdd}
-            onCancel={() => setAdding(false)}
-          />
-        )}
-        {donations.length === 0 && !adding && (
-          <div className="admin-empty">No donations recorded yet.</div>
-        )}
+      <div className="admin-donations-grid">
+        <div>
+          <div className="admin-donations-list">
+            {donations.map((d) => (
+              <DonationRow
+                key={d.id}
+                donation={d}
+                onSave={(name, amountGp) => handleSave(d.id, name, amountGp)}
+                onDelete={() => handleDelete(d.id)}
+              />
+            ))}
+            {adding && (
+              <DonationAddRow
+                onSave={handleAdd}
+                onCancel={() => setAdding(false)}
+              />
+            )}
+          </div>
+          {donations.length === 0 && !adding && (
+            <div className="admin-empty">No donations recorded yet.</div>
+          )}
+          {!adding && (
+            <button
+              type="button"
+              className="admin-tile-list-add"
+              onClick={() => setAdding(true)}
+            >
+              + Add Donor
+            </button>
+          )}
+        </div>
+        <div className="admin-donation-stats">
+          <div className="admin-card admin-card--tight">
+            <div className="admin-card-label">Total pot</div>
+            <div className="admin-stat-value">{formatGp(totalPot)}</div>
+          </div>
+          <div className="admin-card admin-card--tight">
+            <div className="admin-card-label">Top donor</div>
+            <div className="admin-stat-sub-name">
+              {topDonor?.name ?? "No donations yet"}
+            </div>
+            {topDonor && (
+              <div className="admin-stat-sub-amount">
+                {formatGp(topDonor.amountGp)}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-      {!adding && (
-        <button
-          type="button"
-          className="admin-tile-list-add"
-          onClick={() => setAdding(true)}
-        >
-          + Add Donor
-        </button>
-      )}
     </div>
   );
 }
