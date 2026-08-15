@@ -212,6 +212,22 @@
   border-color: #8c1f16;
 }
 
+.admin-tile-list-add:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.admin-tile-list-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.admin-tile-list-actions .admin-tile-list-add {
+  align-self: flex-start;
+}
+
 .admin-row-color {
   width: 20px;
   height: 20px;

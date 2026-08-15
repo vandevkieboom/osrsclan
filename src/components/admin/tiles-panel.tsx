@@ -10,6 +10,36 @@ import {
   type TileGoal,
 } from "../../services/admin";
 import { PLACEHOLDER_BOARD_CONFIG, PLACEHOLDER_TILES } from "./placeholders";
+import { ranks } from "../../data/ranks-data";
+
+// Real item name+icon pairs borrowed from the ranking page's own item list,
+// so a freshly created tile already shows something concrete on the board
+// instead of a blank placeholder — the admin can still rename/re-icon/delete
+// it afterward via the row's expanded edit form. Only "collection-item"
+// entries are used: that check means the name is (usually) a single literal
+// item (e.g. "Fire cape"), unlike other rank entries whose name is a
+// composite achievement description (e.g. "Easy combat achievements") that
+// wouldn't read as a real bingo tile name. A handful of collection-item
+// entries are themselves named as an achievement's progress fraction (e.g.
+// "1/3 Megarares", "1/2 CoX prayer scrolls") rather than an item, so those
+// are filtered out too.
+const RANDOM_TILE_SOURCE_ITEMS = Array.from(
+  new Map(
+    ranks
+      .flatMap((r) => r.items)
+      .filter(
+        (i) =>
+          i.apiCheck?.type === "collection-item" && !/^\d+\/\d+\b/.test(i.name),
+      )
+      .map((i) => [i.name, i]),
+  ).values(),
+);
+
+function pickRandomTileSource(usedNames: Set<string>) {
+  const pool = RANDOM_TILE_SOURCE_ITEMS.filter((i) => !usedNames.has(i.name));
+  const source = pool.length > 0 ? pool : RANDOM_TILE_SOURCE_ITEMS;
+  return source[Math.floor(Math.random() * source.length)];
+}
 
 // Item ids are edited as a free-text comma-separated list ("1234, 5678"),
 // which keeps the form as light as the category/description fields next to it.
@@ -419,6 +449,11 @@ export function TilesPanel() {
   const [tiles, setTiles] = useState<AdminTile[] | null>(null);
   const [addingPosition, setAddingPosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filling, setFilling] = useState(false);
+  const [fillProgress, setFillProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   function reload() {
     Promise.all([fetchBoardConfig(), fetchAdminTiles()])
@@ -457,6 +492,45 @@ export function TilesPanel() {
     }
   }
 
+  async function handleFillEmptySlots(emptyPositions: number[]) {
+    if (
+      !window.confirm(
+        `Fill all ${emptyPositions.length} empty slot${emptyPositions.length === 1 ? "" : "s"} with random items from the rankings list? You can rename, re-icon, or delete any of them afterward.`,
+      )
+    )
+      return;
+    setFilling(true);
+    setFillProgress({ done: 0, total: emptyPositions.length });
+    setError(null);
+    const usedNames = new Set((tiles ?? []).map((t) => t.name));
+    try {
+      for (let i = 0; i < emptyPositions.length; i++) {
+        const item = pickRandomTileSource(usedNames);
+        usedNames.add(item.name);
+        await createTile({
+          position: emptyPositions[i],
+          name: item.name,
+          iconUrl: item.img,
+          requiredCount: 1,
+          category: "Item drop",
+          description: "",
+          itemIds: [],
+          requireUniqueItems: false,
+          goal: { goalKind: "item", goalKey: "", goalTarget: null },
+        });
+        setFillProgress({ done: i + 1, total: emptyPositions.length });
+      }
+      reload();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fill empty slots",
+      );
+    } finally {
+      setFilling(false);
+      setFillProgress(null);
+    }
+  }
+
   async function handleDeleteTile(id: number) {
     if (
       !window.confirm(
@@ -479,10 +553,11 @@ export function TilesPanel() {
   const tileByPosition = new Map(tiles.map((t) => [t.position, t]));
   const inGridTiles = tiles.filter((t) => t.position < slotCount);
   const overflowTiles = tiles.filter((t) => t.position >= slotCount);
-  const firstEmptyPosition = Array.from(
+  const emptyPositions = Array.from(
     { length: slotCount },
     (_, i) => i,
-  ).find((i) => !tileByPosition.has(i));
+  ).filter((i) => !tileByPosition.has(i));
+  const firstEmptyPosition = emptyPositions[0];
 
   return (
     <div className="admin-panel">
@@ -510,13 +585,26 @@ export function TilesPanel() {
         )}
       </div>
       {addingPosition === null && firstEmptyPosition !== undefined && (
-        <button
-          type="button"
-          className="admin-tile-list-add"
-          onClick={() => setAddingPosition(firstEmptyPosition)}
-        >
-          + Add Tile
-        </button>
+        <div className="admin-tile-list-actions">
+          <button
+            type="button"
+            className="admin-tile-list-add"
+            onClick={() => setAddingPosition(firstEmptyPosition)}
+            disabled={filling}
+          >
+            + Add Tile
+          </button>
+          <button
+            type="button"
+            className="admin-new-team-btn"
+            onClick={() => handleFillEmptySlots(emptyPositions)}
+            disabled={filling}
+          >
+            {filling && fillProgress
+              ? `Filling ${fillProgress.done}/${fillProgress.total}…`
+              : `+ Fill ${emptyPositions.length} Empty Slot${emptyPositions.length === 1 ? "" : "s"} Randomly`}
+          </button>
+        </div>
       )}
 
       {overflowTiles.length > 0 && (
