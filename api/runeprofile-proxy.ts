@@ -462,6 +462,14 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
  */
 async function getBroadcast(res: VercelResponse) {
   const config = await getOrCreateBoardConfig();
+  // Same edge-caching pattern as twitch-live.ts's stream check: broadcasts
+  // change far less often than that (an admin posts one a handful of times
+  // a month), so every plugin's once-a-minute poll hitting this with zero
+  // caching was pure waste — this lets Vercel's edge serve most of those
+  // polls without invoking the function or touching the database at all,
+  // at the cost of a new broadcast taking up to ~60-90s longer to reach
+  // everyone, same trade already accepted for live-stream notifications.
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
   res.status(200).json({
     message: config.broadcast_message,
     updatedAt: config.broadcast_updated_at,

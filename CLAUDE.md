@@ -52,6 +52,49 @@ have defeated the point of moving to a hiscores-only source of truth (it
 would still let anyone with a plugin key spoof a huge value directly). See
 `osrsclanplugin/CLAUDE.md` for the plugin-side half of this same rework.
 
+## `bingo_active` — letting the plugin back off when no event is running
+
+The RuneLite plugin (`osrsclanplugin`) is a general clan tool, not a
+bingo-only one — most members keep it running for `!verify`/`!live`,
+clan broadcasts, and live-stream notifications whether or not a bingo
+event exists. Before this, its board refresh polled `GET /api/board`
+every minute forever regardless, which is real, ongoing load against
+Vercel's (free-tier) invocation quota for something that's often not even
+running.
+
+`board_config.bingo_active` (admin-toggleable from the Board Config
+panel, `BoardConfigPanel`) lets an admin explicitly say "no event right
+now." `getBoard` and the admin config endpoint both return it as
+`bingoActive`. The plugin reads it and, once it sees `false`, backs its
+board-specific polling down to once per 30 minutes instead of once per
+minute (see `BingoPlugin#maybeRefreshBoard` in the sibling repo) — a
+~30x cut for however long an event isn't running, which for a clan that
+runs occasional bingo events is most of the time. Defaults `true`
+(fail-open): a missing/old field must never silently look like
+"inactive," since that would just look like the board mysteriously
+stopped updating with no visible cause.
+
+Deliberately does **not** touch `!verify`/`!live`/broadcast/live-stream
+checks — those stay on their normal 1-minute cadence regardless of
+`bingo_active`, since they're general clan features whose promptness
+people actually notice, not bingo-specific.
+
+## Broadcast endpoint caching
+
+`GET /api/runeprofile-proxy?resource=broadcast` (backs the plugin's
+"Clan broadcasts" toggle) had **no response caching at all** despite
+every online plugin polling it once a minute, unauthenticated, forever —
+found while looking into general plugin request volume. Fixed with the
+same `Cache-Control: s-maxage=60, stale-while-revalidate=30` pattern
+`api/twitch-live.ts` already used for its live-stream check: Vercel's
+edge now serves most of those polls without invoking the function or
+touching the database, since a broadcast (an admin posting a message a
+handful of times a month) tolerates being up to ~60-90s stale far more
+easily than it tolerates the previous zero-caching cost. This is the
+preferred lever over slowing down client poll intervals — it decouples
+"how often each client checks" from "how many times the backend actually
+runs," rather than trading delay for request volume directly.
+
 ## Scope / design philosophy — bingo tiles
 
 Tile types are staying to exactly three on purpose: **item drops,

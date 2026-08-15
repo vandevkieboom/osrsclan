@@ -38,6 +38,7 @@ async function getConfig(res: VercelResponse) {
     config: {
       name: c.name,
       size: c.size,
+      bingoActive: c.bingo_active,
     },
   });
 }
@@ -60,6 +61,7 @@ async function sendBroadcast(req: VercelRequest, res: VercelResponse) {
 async function updateConfig(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const size = Number(req.body?.size);
+  const bingoActive = Boolean(req.body?.bingoActive ?? true);
 
   if (!name) {
     res.status(400).json({ error: "Event name is required" });
@@ -75,17 +77,18 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
   // zero rows instead of recreating it.
   await getOrCreateBoardConfig();
   const rows = await sql`
-    INSERT INTO board_config (id, name, size)
-    VALUES (1, ${name}, ${size})
+    INSERT INTO board_config (id, name, size, bingo_active)
+    VALUES (1, ${name}, ${size}, ${bingoActive})
     ON CONFLICT (id) DO UPDATE SET
-      name = EXCLUDED.name, size = EXCLUDED.size,
+      name = EXCLUDED.name, size = EXCLUDED.size, bingo_active = EXCLUDED.bingo_active,
       updated_at = now()
-    RETURNING name, size`;
+    RETURNING name, size, bingo_active`;
   const c = rows[0];
   res.status(200).json({
     config: {
       name: c.name,
       size: c.size,
+      bingoActive: c.bingo_active,
     },
   });
 }

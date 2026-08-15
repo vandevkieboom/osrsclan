@@ -113,6 +113,24 @@ export function BoardConfigPanel() {
           </label>
         </div>
 
+        <label className="admin-tile-unique-toggle">
+          <input
+            type="checkbox"
+            checked={config.bingoActive}
+            onChange={(e) =>
+              setConfig({ ...config, bingoActive: e.target.checked })
+            }
+          />
+          Bingo event active
+        </label>
+        <p className="admin-field-hint">
+          Turn off between events — the RuneLite plugin backs its board
+          polling down to an occasional check instead of every couple
+          minutes, since the plugin is a general clan tool people keep
+          running even when no bingo is happening. Doesn't affect chat
+          commands, live-stream or broadcast notifications.
+        </p>
+
         <div className="admin-section-save">
           <button type="submit" className="admin-btn-primary" disabled={saving}>
             {saving ? "Saving..." : "Save"}

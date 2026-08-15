@@ -27,6 +27,10 @@ export interface Donation {
 export interface BoardConfig {
   name: string;
   size: number;
+  /** Lets the RuneLite plugin back off its board polling to a slow, occasional
+   * check instead of every couple minutes forever — the plugin is a general
+   * clan tool, not bingo-only, so most installs otherwise poll the board year-round. */
+  bingoActive: boolean;
 }
 
 export interface AdminTile {

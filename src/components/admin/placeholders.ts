@@ -65,6 +65,7 @@ export const PLACEHOLDER_DONATIONS: Donation[] = [
 export const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
   size: 5,
+  bingoActive: true,
 };
 export const PLACEHOLDER_TILES: AdminTile[] = [
   {

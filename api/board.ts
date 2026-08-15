@@ -284,6 +284,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
     config: {
       name: config.name,
       size: config.size,
+      bingoActive: config.bingo_active,
     },
     teams,
     myTeamId: user?.teamId ?? null,

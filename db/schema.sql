@@ -86,6 +86,16 @@ ALTER TABLE board_config DROP COLUMN IF EXISTS verification_code;
 -- it's already shown.
 ALTER TABLE board_config ADD COLUMN IF NOT EXISTS broadcast_message TEXT NOT NULL DEFAULT '';
 ALTER TABLE board_config ADD COLUMN IF NOT EXISTS broadcast_updated_at TIMESTAMPTZ;
+-- Lets an admin explicitly mark "no bingo event is running right now" —
+-- the plugin is a general clan tool (chat commands, live-stream/broadcast
+-- notifications), not bingo-only, so most installs otherwise keep polling
+-- the board every couple minutes forever regardless of whether bingo is
+-- even happening. Defaults true (fail-open): an old plugin build or a
+-- response missing this field entirely must never be silently treated as
+-- "inactive," which would just look like the board mysteriously stopped
+-- updating. Only an explicit false (an admin turning it off) backs the
+-- plugin's board polling down — see BingoPlugin#scheduledRefresh.
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS bingo_active BOOLEAN NOT NULL DEFAULT true;
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,
