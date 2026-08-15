@@ -161,6 +161,7 @@ export function TeamsPanel() {
   return (
     <div className="admin-panel">
       {error && <div className="admin-error">{error}</div>}
+      {teams?.length === 0 && <div className="admin-empty">No teams yet.</div>}
       <div className="admin-teams-grid">
         {teams?.map((t) => (
           <TeamCard
@@ -174,7 +175,6 @@ export function TeamsPanel() {
           />
         ))}
       </div>
-      {teams?.length === 0 && <div className="admin-empty">No teams yet.</div>}
       <button
         type="button"
         className="admin-new-team-btn"
