@@ -7,7 +7,6 @@ import { ranks } from "../data/ranks-data";
 import { useAuth } from "../context/auth-context";
 import {
   fetchRuneProfile,
-  getBossKc,
   type RuneProfile,
 } from "../services/runeprofile";
 import {
@@ -15,6 +14,7 @@ import {
   computeClanRankProgress,
   getRequirementProgress,
 } from "../services/rank-checker";
+import { checkClanRequirement } from "../services/clan-requirement";
 import type { CheckResult } from "../types/item";
 import { ClanLeaderboard } from "../components/clan-leaderboard";
 import {
@@ -290,44 +290,13 @@ export const ClanRankings = () => {
                     <div className="profile-lookup-success">
                       Clan Req:{" "}
                       {(() => {
-                        const enhancedSeedCount =
-                          profile.itemMap.get("enhanced crystal weapon seed") ??
-                          0;
-                        const armourSeeds = Math.max(
-                          profile.itemMap.get("crystal armour seed") ?? 0,
-                          profile.itemMap.get("crystal armor seed") ?? 0,
-                        );
-                        if (enhancedSeedCount >= 1 && armourSeeds >= 6) {
+                        const result = checkClanRequirement(profile);
+                        if (result.met) {
                           return (
                             <span
                               style={{ color: "var(--green)", fontWeight: 600 }}
                             >
-                              ✓ {enhancedSeedCount} Enhanced Crystal Weapon Seed
-                              {enhancedSeedCount > 1 ? "s" : ""} + {armourSeeds}{" "}
-                              Crystal Armour Seed
-                              {armourSeeds > 1 ? "s" : ""}
-                            </span>
-                          );
-                        }
-                        const cgKc = getBossKc(profile.bossKcMap, [
-                          "corrupted gauntlet",
-                          "the corrupted gauntlet",
-                        ]);
-                        if (cgKc >= 800) {
-                          return (
-                            <span
-                              style={{ color: "var(--green)", fontWeight: 600 }}
-                            >
-                              ✓ Corrupted Gauntlet ({cgKc} kc)
-                            </span>
-                          );
-                        }
-                        if ((profile.itemMap.get("twisted bow") ?? 0) >= 1) {
-                          return (
-                            <span
-                              style={{ color: "var(--green)", fontWeight: 600 }}
-                            >
-                              ✓ Twisted Bow
+                              ✓ {result.reason}
                             </span>
                           );
                         }

@@ -16,7 +16,9 @@ import {
   buildRuneProfile,
   type CombatAchievementTasksResponse,
   type FullAccountResponse,
+  type RuneProfile,
 } from "../src/services/runeprofile.js";
+import { checkClanRequirement } from "../src/services/clan-requirement.js";
 
 const RP_BASE = "https://api.runeprofile.com/v1";
 const API_KEY = process.env.RUNEPROFILE_API_KEY ?? "";
@@ -314,8 +316,97 @@ async function refreshLeaderboard(res: VercelResponse) {
   });
 }
 
+type ResolvedMember =
+  | { ok: true; displayName: string; role: string; profile: RuneProfile }
+  | { ok: false; status: number; error: string; reason?: string };
+
 /**
- * The RuneLite plugin's `!verify <name>` chat command — runs the exact same
+ * Shared "resolve an RSN to a live RuneProfile" prefix for both `lookupRank`
+ * and `getClanRequirement` below — WOM group roster lookup (WOM has no
+ * single-player-by-name lookup within a group, so this fetches the same full
+ * roster refreshLeaderboard() does, just once instead of in a batch loop),
+ * then the RuneProfile full+combat-achievement-tasks fetch, then
+ * buildRuneProfile. Kept as one function so the two callers below can't
+ * silently drift on how a member gets resolved.
+ */
+async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
+  const rolesRes = await fetch(
+    `https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`,
+    { headers: WOM_HEADERS },
+  );
+  if (!rolesRes.ok) {
+    return { ok: false, status: 502, error: "Failed to load the clan's member list." };
+  }
+  const group = (await rolesRes.json()) as {
+    memberships?: Array<{
+      player: { displayName: string; username: string };
+      role: string;
+    }>;
+  };
+  const membership = (group.memberships ?? []).find(
+    (m) =>
+      m.player.username?.toLowerCase() === rsn.toLowerCase() ||
+      m.player.displayName?.toLowerCase() === rsn.toLowerCase(),
+  );
+  if (!membership) {
+    return {
+      ok: false,
+      status: 404,
+      error: `${rsn} isn't in the clan's Wise Old Man group.`,
+    };
+  }
+  // RuneProfile needs the real, properly-cased name — same distinction
+  // refreshLeaderboard() above already has to account for.
+  const displayName = membership.player.displayName;
+  const encoded = encodeURIComponent(displayName);
+
+  const fullRes = await fetch(`${RP_BASE}/accounts/${encoded}/full`, {
+    headers: RP_HEADERS,
+  });
+  if (fullRes.status === 404) {
+    return {
+      ok: false,
+      status: 404,
+      error: `${displayName} isn't set up on RuneProfile.`,
+      // Lets callers distinguish "never synced" from any other failure
+      // without string-matching the message above.
+      reason: "not-on-runeprofile",
+    };
+  }
+  if (fullRes.status === 429) {
+    return {
+      ok: false,
+      status: 429,
+      error: "Rate limit hit — wait a moment and try again.",
+    };
+  }
+  if (!fullRes.ok) {
+    return { ok: false, status: 502, error: "Failed to fetch RuneProfile data." };
+  }
+  const data = (await fullRes.json()) as FullAccountResponse;
+
+  const tasksRes = await fetch(
+    `${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`,
+    { headers: RP_HEADERS },
+  );
+  const tasksData = tasksRes.ok
+    ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
+    : null;
+
+  const profile = buildRuneProfile(data, tasksData, null);
+  return { ok: true, displayName, role: membership.role, profile };
+}
+
+function sendResolveError(res: VercelResponse, resolved: Extract<ResolvedMember, { ok: false }>) {
+  res
+    .status(resolved.status)
+    .json(resolved.reason ? { error: resolved.error, reason: resolved.reason } : { error: resolved.error });
+}
+
+/**
+ * The RuneLite plugin's `!rank <name>` chat command (formerly `!verify` —
+ * renamed once the plugin grew a separate, stricter `!verify` for the clan
+ * gear/kc gate, see getClanRequirement below) — runs the exact same
  * rank-progress computation as the site's "Auto-Verify" button on the Clan
  * Ranks page (computeClanRankProgress over a live RuneProfile fetch), just
  * server-side for a single RSN instead of client-side in the browser. Only
@@ -335,70 +426,12 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // WOM has no single-player-by-name lookup within a group, so this fetches
-  // the same full roster refreshLeaderboard() does, just once instead of in
-  // a batch loop — fine for an on-demand single lookup.
-  const rolesRes = await fetch(
-    `https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`,
-    { headers: WOM_HEADERS },
-  );
-  if (!rolesRes.ok) {
-    res.status(502).json({ error: "Failed to load the clan's member list." });
+  const resolved = await resolveMemberProfile(rsn);
+  if (!resolved.ok) {
+    sendResolveError(res, resolved);
     return;
   }
-  const group = (await rolesRes.json()) as {
-    memberships?: Array<{
-      player: { displayName: string; username: string };
-      role: string;
-    }>;
-  };
-  const membership = (group.memberships ?? []).find(
-    (m) =>
-      m.player.username?.toLowerCase() === rsn.toLowerCase() ||
-      m.player.displayName?.toLowerCase() === rsn.toLowerCase(),
-  );
-  if (!membership) {
-    res
-      .status(404)
-      .json({ error: `${rsn} isn't in the clan's Wise Old Man group.` });
-    return;
-  }
-  // RuneProfile needs the real, properly-cased name — same distinction
-  // refreshLeaderboard() above already has to account for.
-  const displayName = membership.player.displayName;
-  const encoded = encodeURIComponent(displayName);
-
-  const fullRes = await fetch(`${RP_BASE}/accounts/${encoded}/full`, {
-    headers: RP_HEADERS,
-  });
-  if (fullRes.status === 404) {
-    res.status(404).json({
-      error: `${displayName} isn't set up on RuneProfile.`,
-      // Lets the plugin distinguish "never synced" from any other failure
-      // without string-matching the message above.
-      reason: "not-on-runeprofile",
-    });
-    return;
-  }
-  if (fullRes.status === 429) {
-    res
-      .status(429)
-      .json({ error: "Rate limit hit — wait a moment and try again." });
-    return;
-  }
-  if (!fullRes.ok) {
-    res.status(502).json({ error: "Failed to fetch RuneProfile data." });
-    return;
-  }
-  const data = (await fullRes.json()) as FullAccountResponse;
-
-  const tasksRes = await fetch(
-    `${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`,
-    { headers: RP_HEADERS },
-  );
-  const tasksData = tasksRes.ok
-    ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
-    : null;
+  const { displayName, role, profile } = resolved;
 
   const verificationRows = await sql`
     SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${displayName.toLowerCase()}`;
@@ -406,9 +439,8 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
     verificationRows.map((r) => r.item_name as string),
   );
 
-  const profile = buildRuneProfile(data, tasksData, null);
   const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
-  const currentRankInfo = getRankForRole(membership.role);
+  const currentRankInfo = getRankForRole(role);
 
   // What's left for the *next* tier up — same "satisfied" rule
   // getRankStats uses internally (manually verified, or an apiCheck that
@@ -455,6 +487,37 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
 }
 
 /**
+ * The RuneLite plugin's `!verify <name>` chat command — the clan's hard
+ * bingo-eligibility gate (see src/services/clan-requirement.ts), separate
+ * from and stricter than the rank-tier ladder `lookupRank` above reports.
+ * This used to only exist as an inline check on the Clan Rankings page
+ * (time-served-page.tsx), computed client-side against a profile the page
+ * had already fetched — this just runs the same shared function
+ * server-side for a single RSN. Deliberately public, no auth — same
+ * reasoning as lookupRank above.
+ */
+async function getClanRequirement(req: VercelRequest, res: VercelResponse) {
+  const rsn = typeof req.query.rsn === "string" ? req.query.rsn.trim() : "";
+  if (!rsn) {
+    res.status(400).json({ error: "rsn is required" });
+    return;
+  }
+
+  const resolved = await resolveMemberProfile(rsn);
+  if (!resolved.ok) {
+    sendResolveError(res, resolved);
+    return;
+  }
+
+  const result = checkClanRequirement(resolved.profile);
+  res.status(200).json({
+    rsn: resolved.displayName,
+    meets: result.met,
+    reason: result.reason,
+  });
+}
+
+/**
  * The RuneLite plugin's periodic broadcast poll (see BingoApiClient#fetchBroadcast
  * and BingoPlugin#checkBroadcast). Deliberately public, no auth — same
  * reasoning as lookupRank above: an admin broadcast isn't gated anywhere
@@ -467,9 +530,13 @@ async function getBroadcast(res: VercelResponse) {
   // a month), so every plugin's once-a-minute poll hitting this with zero
   // caching was pure waste — this lets Vercel's edge serve most of those
   // polls without invoking the function or touching the database at all,
-  // at the cost of a new broadcast taking up to ~60-90s longer to reach
-  // everyone, same trade already accepted for live-stream notifications.
-  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
+  // at the cost of a new broadcast taking up to ~30s longer to reach
+  // everyone. Was s-maxage=60/swr=30 (~60-90s worst case) — tightened after
+  // a clan admin found that window too slow for a second broadcast sent
+  // shortly after a first one. Still cheap enough to keep short: broadcasts
+  // are rare, so a shorter cache window doesn't meaningfully raise
+  // invocation/DB load, it just narrows the staleness gap.
+  res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=15");
   res.status(200).json({
     message: config.broadcast_message,
     updatedAt: config.broadcast_updated_at,
@@ -494,6 +561,11 @@ export default withErrorHandling(async function handler(req, res) {
 
   if (req.query.resource === "lookup-rank") {
     await lookupRank(req, res);
+    return;
+  }
+
+  if (req.query.resource === "clan-req") {
+    await getClanRequirement(req, res);
     return;
   }
 
