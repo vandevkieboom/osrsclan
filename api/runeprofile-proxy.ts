@@ -17,6 +17,7 @@ import {
   type CombatAchievementTasksResponse,
   type FullAccountResponse,
   type RuneProfile,
+  type WomPlayerResponse,
 } from "../src/services/runeprofile.js";
 import { checkClanRequirement } from "../src/services/clan-requirement.js";
 
@@ -385,16 +386,37 @@ async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
   }
   const data = (await fullRes.json()) as FullAccountResponse;
 
-  const tasksRes = await fetch(
-    `${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`,
-    { headers: RP_HEADERS },
-  );
-  const tasksData = tasksRes.ok
-    ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
-    : null;
+  // Run alongside each other rather than sequentially - neither depends on the other's result.
+  const [tasksData, womData] = await Promise.all([
+    fetch(`${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`, { headers: RP_HEADERS })
+      .then((res) => (res.ok ? (res.json() as Promise<CombatAchievementTasksResponse>) : null))
+      .catch(() => null),
+    fetchWomPlayerData(displayName),
+  ]);
 
-  const profile = buildRuneProfile(data, tasksData, null);
+  const profile = buildRuneProfile(data, tasksData, womData);
   return { ok: true, displayName, role: membership.role, profile };
+}
+
+// Boss kc isn't in RuneProfile's own payload at all - it only tracks collection log/skills/quests/CAs.
+// The client-side fetchRuneProfile() (src/services/runeprofile.ts) already knew this and pulled boss kc
+// from a separate Wise Old Man player lookup; resolveMemberProfile above used to skip this entirely
+// (passing null for womData), which meant every boss-kc apiCheck here silently saw 0 kc regardless of
+// the real value - never noticed until getClanRequirement's Corrupted Gauntlet check actually depended
+// on it. A missing/failed WOM lookup degrades to "no boss kc data" rather than failing the whole
+// request, same as the client-side version's .catch(() => null).
+async function fetchWomPlayerData(username: string): Promise<WomPlayerResponse | null> {
+  try {
+    const res = await fetch(`https://api.wiseoldman.net/v2/players/${encodeURIComponent(username)}`, {
+      headers: WOM_HEADERS,
+    });
+    if (!res.ok) {
+      return null;
+    }
+    return (await res.json()) as WomPlayerResponse;
+  } catch {
+    return null;
+  }
 }
 
 function sendResolveError(res: VercelResponse, resolved: Extract<ResolvedMember, { ok: false }>) {
