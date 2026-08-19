@@ -20,6 +20,13 @@ import {
   type WomPlayerResponse,
 } from "../src/services/runeprofile.js";
 import { checkClanRequirement } from "../src/services/clan-requirement.js";
+import { postNewActivities } from "./_lib/activity-feed.js";
+
+// RuneProfile's clan-activities feed (used by both `resource=activity-post`
+// below and, at leaderboard-refresh scale, the fan-out above) has been
+// observed taking 15-35s+ for a broad multi-type query — well past the
+// platform's 10s default, so this raises the ceiling for the whole file.
+export const config = { maxDuration: 60 };
 
 const RP_BASE = "https://api.runeprofile.com/v1";
 const API_KEY = process.env.RUNEPROFILE_API_KEY ?? "";
@@ -600,6 +607,21 @@ export default withErrorHandling(async function handler(req, res) {
       return;
     }
     await refreshLeaderboard(res);
+    return;
+  }
+
+  if (req.query.resource === "activity-post") {
+    // Not Vercel's own cron (Hobby only runs that daily, far too slow for a
+    // near-real-time feed) — this is hit by an external scheduler instead
+    // (cron-job.org or similar, every few minutes), authenticated with its
+    // own secret rather than reusing CRON_SECRET.
+    const expected = process.env.ACTIVITY_CRON_SECRET;
+    if (!expected || req.headers.authorization !== `Bearer ${expected}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const result = await postNewActivities();
+    res.status(200).json(result);
     return;
   }
 

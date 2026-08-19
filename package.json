@@ -8,7 +8,6 @@
     "dev": "vite",
     "dev:vercel": "vercel dev",
     "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
-    "activity:post": "node --env-file=.env.local scripts/post-activity.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",

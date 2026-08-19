@@ -1,25 +1,11 @@
+import { sql } from "./db.js";
+
 // Polls RuneProfile's public clan-activities feed (the same endpoint
 // src/page/activity-page.tsx calls directly from the browser) and posts any
-// activity newer than the last one we've seen to a Discord webhook. Run on a
-// schedule by .github/workflows/post-activity.yml — Vercel's Hobby plan cron
-// only fires once a day, too slow for a "near real-time" activity feed, so
-// this runs outside Vercel instead.
-import { neon } from "@neondatabase/serverless";
-
-const connectionString = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL (or POSTGRES_URL) environment variable is not set",
-  );
-}
-
-const webhookUrl = process.env.DISCORD_ACTIVITY_WEBHOOK_URL;
-if (!webhookUrl) {
-  console.log("DISCORD_ACTIVITY_WEBHOOK_URL not set, skipping this run.");
-  process.exit(0);
-}
-
-const sql = neon(connectionString);
+// activity newer than the last one we've seen to a Discord webhook. Called
+// from the `activity-post` resource in runeprofile-proxy.ts, itself invoked
+// on a schedule by an external cron service (see README) rather than
+// Vercel's own cron, which on the Hobby plan only fires once a day.
 
 const CLAN = "Time Served";
 const POLL_LIMIT = 50;
@@ -36,7 +22,7 @@ const ALL_TYPES = [
 ].join(",");
 
 // Same as ACCOUNT_ICONS in activity-page.tsx.
-const ACCOUNT_ICONS = {
+const ACCOUNT_ICONS: Record<string, string> = {
   ironman: "https://oldschool.runescape.wiki/images/Ironman_chat_badge.png",
   hardcore_ironman: "https://oldschool.runescape.wiki/images/Hardcore_ironman_chat_badge.png",
   ultimate_ironman: "https://oldschool.runescape.wiki/images/Ultimate_ironman_chat_badge.png",
@@ -44,7 +30,7 @@ const ACCOUNT_ICONS = {
   hardcore_group_ironman: "https://oldschool.runescape.wiki/images/Hardcore_group_ironman_chat_badge.png",
 };
 
-const CA_TIERS = {
+const CA_TIERS: Record<number, string> = {
   1: "Easy",
   2: "Medium",
   3: "Hard",
@@ -53,10 +39,10 @@ const CA_TIERS = {
   6: "Grandmaster",
 };
 
-// Same per-type accent colors as HIGHLIGHT_COLORS in activity-page.tsx —
-// the left bar Discord renders from `color` should match the site's own
+// Same per-type accent colors as HIGHLIGHT_COLORS in activity-page.tsx — the
+// left bar Discord renders from `color` should match the site's own
 // per-type colors, not an independent palette.
-const HIGHLIGHT_COLORS = {
+const HIGHLIGHT_COLORS: Record<string, number> = {
   new_item_obtained: 0x5b9bd5,
   valuable_drop: 0xd4b158,
   achievement_diary_tier_completed: 0x5fbf6a,
@@ -65,26 +51,52 @@ const HIGHLIGHT_COLORS = {
 };
 const DEFAULT_COLOR = 0xf0e8e6;
 
-function skillDisplayName(name) {
+interface RuneProfileActivity {
+  type: string;
+  data: {
+    name?: string;
+    level?: number;
+    itemId?: number;
+    value?: number;
+    tierId?: number;
+    xp?: number;
+  };
+  enriched?: Record<string, string | number | boolean | null | undefined>;
+  createdAt: string;
+  account: {
+    username: string;
+    accountType: { key: string };
+  };
+}
+
+interface DiscordEmbed {
+  author: { name: string; icon_url?: string; url: string };
+  description: string;
+  color: number;
+  thumbnail?: { url: string };
+  timestamp: string;
+}
+
+function skillDisplayName(name: string): string {
   const lower = name.toLowerCase();
   if (lower === "runecraft") return "Runecrafting";
   return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 }
 
-function skillIconUrl(skillName) {
+function skillIconUrl(skillName: string): string {
   const key = skillName.toLowerCase() === "runecraft" ? "runecrafting" : skillName.toLowerCase();
   return `https://cdn.jsdelivr.net/gh/wise-old-man/wise-old-man@master/app/public/img/metrics/${key}.png`;
 }
 
-function itemIconUrl(itemId) {
+function itemIconUrl(itemId: number): string {
   return `https://static.runelite.net/cache/item/icon/${itemId}.png`;
 }
 
-function capitalizeFirst(s) {
+function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function formatXp(xp) {
+function formatXp(xp: number): string {
   if (xp >= 1_000_000_000) return `${+(xp / 1_000_000_000).toFixed(1)}B`;
   if (xp >= 1_000_000) return `${+(xp / 1_000_000).toFixed(1)}M`;
   if (xp >= 1_000) return `${+(xp / 1_000).toFixed(1)}K`;
@@ -93,15 +105,15 @@ function formatXp(xp) {
 
 // Builds a Discord embed for one RuneProfile activity, mirroring the
 // per-type descriptions in activity-page.tsx's ActivityRow.
-function buildEmbed(activity) {
+function buildEmbed(activity: RuneProfileActivity): DiscordEmbed {
   const { type, data, enriched, createdAt, account } = activity;
   const username = account.username;
-  const accountIcon = ACCOUNT_ICONS[account.accountType?.key?.toLowerCase()] ?? null;
+  const accountIcon = ACCOUNT_ICONS[account.accountType?.key?.toLowerCase()];
   const profileUrl = `https://timeserved.vercel.app/profile?${new URLSearchParams({ rsn: username })}`;
   const color = HIGHLIGHT_COLORS[type] ?? DEFAULT_COLOR;
 
-  let thumbnail = null;
-  let description;
+  let thumbnail: string | null = null;
+  let description: string;
 
   if (type === "level_up") {
     thumbnail = skillIconUrl(data.name ?? "");
@@ -142,7 +154,7 @@ function buildEmbed(activity) {
     // name/title in its fixed blue, but since the name isn't repeated
     // anywhere else (see `description` below), there's no duplicate to
     // clash with a plain white version.
-    author: { name: username, icon_url: accountIcon ?? undefined, url: profileUrl },
+    author: { name: username, icon_url: accountIcon, url: profileUrl },
     description: capitalizeFirst(description),
     color,
     thumbnail: thumbnail ? { url: thumbnail } : undefined,
@@ -150,7 +162,7 @@ function buildEmbed(activity) {
   };
 }
 
-async function postEmbeds(embeds) {
+async function postEmbeds(webhookUrl: string, embeds: DiscordEmbed[]) {
   // Discord accepts up to 10 embeds per message; batch and pace requests to
   // stay well under the per-webhook rate limit.
   for (let i = 0; i < embeds.length; i += 10) {
@@ -167,7 +179,12 @@ async function postEmbeds(embeds) {
   }
 }
 
-async function main() {
+export async function postNewActivities(): Promise<{ posted: number; message: string }> {
+  const webhookUrl = process.env.DISCORD_ACTIVITY_WEBHOOK_URL;
+  if (!webhookUrl) {
+    return { posted: 0, message: "DISCORD_ACTIVITY_WEBHOOK_URL not set, skipping." };
+  }
+
   const stateRows = await sql`SELECT last_posted_at FROM activity_poller_state WHERE id = 1`;
   const lastPostedAt = new Date(stateRows[0]?.last_posted_at ?? 0);
 
@@ -183,29 +200,25 @@ async function main() {
   if (!res.ok) {
     throw new Error(`RuneProfile activities fetch failed: ${res.status} ${await res.text()}`);
   }
-  const data = await res.json();
+  const data = (await res.json()) as { activities?: RuneProfileActivity[] };
   const activities = data.activities ?? [];
 
   const fresh = activities
     .filter((a) => new Date(a.createdAt) > lastPostedAt)
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   if (fresh.length === 0) {
-    console.log("No new activity since", lastPostedAt.toISOString());
-    return;
+    return { posted: 0, message: `No new activity since ${lastPostedAt.toISOString()}` };
   }
 
+  let message = `Posted ${fresh.length} activities`;
   if (fresh.length === POLL_LIMIT) {
-    console.warn(
-      `Fetched activities filled the ${POLL_LIMIT}-item page limit — some activity between polls may have been missed.`,
-    );
+    message += ` (hit the ${POLL_LIMIT}-item page limit — some activity between polls may have been missed)`;
   }
 
-  await postEmbeds(fresh.map(buildEmbed));
+  await postEmbeds(webhookUrl, fresh.map(buildEmbed));
 
   const newest = fresh[fresh.length - 1].createdAt;
   await sql`UPDATE activity_poller_state SET last_posted_at = ${newest} WHERE id = 1`;
-  console.log(`Posted ${fresh.length} activities, advanced cursor to ${newest}`);
+  return { posted: fresh.length, message: `${message}, advanced cursor to ${newest}` };
 }
-
-await main();
