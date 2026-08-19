@@ -227,6 +227,17 @@ CREATE TABLE IF NOT EXISTS leaderboard_cache (
 );
 INSERT INTO leaderboard_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
+-- Tracks the newest RuneProfile clan activity already posted to Discord by
+-- scripts/post-activity.mjs (run on a schedule via
+-- .github/workflows/post-activity.yml, since Vercel's Hobby cron only runs
+-- daily). Seeded to "now" below so turning this on doesn't dump the clan's
+-- entire activity history into the channel at once.
+CREATE TABLE IF NOT EXISTS activity_poller_state (
+  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  last_posted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO activity_poller_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
 -- Long-lived per-user tokens so the RuneLite bingo plugin can submit tile
 -- proofs on a member's behalf. A browser session cookie can't be used — the
 -- plugin is a Java process, not a browser — so it sends

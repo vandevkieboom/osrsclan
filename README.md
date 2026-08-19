@@ -31,6 +31,20 @@ See `.env.local` (not in git) for the current values. Required:
 - `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNELS` — live status of clan members
 - `CRON_SECRET` — secures the daily cron job (`vercel.json`) that refreshes the RuneProfile leaderboard
 - `BLOB_READ_WRITE_TOKEN` — Vercel Blob storage for bingo tile screenshots (usually set automatically by Vercel)
+- `DISCORD_BINGO_WEBHOOK_URL` — (optional) Discord webhook posted to when an admin approves a bingo tile submission, screenshot included. Vercel env var, same project.
+- `DISCORD_ACTIVITY_WEBHOOK_URL` — (optional) Discord webhook for `scripts/post-activity.mjs`. Not a Vercel env var — this one's needed as a **GitHub Actions repo secret** (`Settings → Secrets and variables → Actions`), since that script runs from `.github/workflows/post-activity.yml`, not from Vercel. `DATABASE_URL` needs to be added there too, as its own repo secret.
+
+## Discord activity feed (`scripts/post-activity.mjs`)
+
+Polls the same public RuneProfile clan-activities endpoint the Activity page
+uses and posts anything new to a Discord webhook, tracking progress in the
+`activity_poller_state` table so nothing gets posted twice. Runs every 5
+minutes via `.github/workflows/post-activity.yml` rather than Vercel's cron,
+since Vercel's Hobby plan only allows daily cron invocations — far too
+infrequent for a "near real-time" feed. Text/embeds only (item icons, not
+screenshots) — RuneProfile's activity feed doesn't carry images.
+
+Test locally with `pnpm activity:post` (reads `.env.local`).
 
 ## Other scripts
 

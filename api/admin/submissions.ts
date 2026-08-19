@@ -3,6 +3,55 @@ import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
 import { withErrorHandling } from "../_lib/handler.js";
 
+// Fired on approval, not submission — a rejected screenshot (wrong item,
+// duplicate) should never have hit the channel in the first place. Failure
+// here is logged and swallowed rather than surfaced to the admin: a Discord
+// outage or missing webhook config shouldn't block the actual approval,
+// which already succeeded in the database by the time this runs.
+async function postBingoDropWebhook(submissionId: number) {
+  const webhookUrl = process.env.DISCORD_BINGO_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  try {
+    const rows = await sql`
+      SELECT s.proof_url, s.item_id, t.name AS team_name, ti.name AS tile_name,
+             ti.icon_url, u.discord_global_name, u.discord_username, u.runescape_name
+      FROM submissions s
+      JOIN teams t ON t.id = s.team_id
+      JOIN tiles ti ON ti.id = s.tile_id
+      LEFT JOIN users u ON u.id = s.submitted_by
+      WHERE s.id = ${submissionId}`;
+    const row = rows[0];
+    if (!row) return;
+
+    const submittedBy =
+      row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? "Unknown";
+    const thumbnail = row.item_id
+      ? `https://static.runelite.net/cache/item/icon/${row.item_id}.png`
+      : row.icon_url;
+
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        embeds: [
+          {
+            description: `**${submittedBy}** (${row.team_name}) completed **${row.tile_name}**`,
+            color: 0x5fbf6a,
+            thumbnail: thumbnail ? { url: thumbnail } : undefined,
+            image: row.proof_url ? { url: row.proof_url } : undefined,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      console.error(`Bingo drop webhook returned ${res.status}: ${await res.text()}`);
+    }
+  } catch (err) {
+    console.error("Failed to post bingo drop webhook:", err);
+  }
+}
+
 async function listSubmissions(req: VercelRequest, res: VercelResponse) {
   const status =
     typeof req.query.status === "string" ? req.query.status : "pending";
@@ -140,6 +189,11 @@ async function reviewSubmission(
     res.status(404).json({ error: "Pending submission not found" });
     return;
   }
+
+  if (decision === "approved") {
+    await postBingoDropWebhook(id);
+  }
+
   res.status(200).json({ ok: true });
 }
 
