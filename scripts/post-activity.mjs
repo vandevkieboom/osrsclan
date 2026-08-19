@@ -35,6 +35,15 @@ const ALL_TYPES = [
   "maxed",
 ].join(",");
 
+// Same as ACCOUNT_ICONS in activity-page.tsx.
+const ACCOUNT_ICONS = {
+  ironman: "https://oldschool.runescape.wiki/images/Ironman_chat_badge.png",
+  hardcore_ironman: "https://oldschool.runescape.wiki/images/Hardcore_ironman_chat_badge.png",
+  ultimate_ironman: "https://oldschool.runescape.wiki/images/Ultimate_ironman_chat_badge.png",
+  group_ironman: "https://oldschool.runescape.wiki/images/Group_ironman_chat_badge.png",
+  hardcore_group_ironman: "https://oldschool.runescape.wiki/images/Hardcore_group_ironman_chat_badge.png",
+};
+
 const CA_TIERS = {
   1: "Easy",
   2: "Medium",
@@ -44,22 +53,17 @@ const CA_TIERS = {
   6: "Grandmaster",
 };
 
-// Per-type accent colors — the left bar Discord renders from `color`.
-// new_item_obtained/valuable_drop use gold (rarity signal, per the
-// Discord-Embed-Redesign "Option A" mockup); others keep their
-// activity-page.tsx HIGHLIGHT_COLORS value.
+// Same per-type accent colors as HIGHLIGHT_COLORS in activity-page.tsx —
+// the left bar Discord renders from `color` should match the site's own
+// per-type colors, not an independent palette.
 const HIGHLIGHT_COLORS = {
-  new_item_obtained: 0xd4a017,
-  valuable_drop: 0xd4a017,
+  new_item_obtained: 0x5b9bd5,
+  valuable_drop: 0xd4b158,
   achievement_diary_tier_completed: 0x5fbf6a,
   level_up: 0xe8574a,
   xp_milestone: 0xe8574a,
 };
 const DEFAULT_COLOR = 0xf0e8e6;
-
-function capitalize(s) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 function skillDisplayName(name) {
   const lower = name.toLowerCase();
@@ -76,6 +80,10 @@ function itemIconUrl(itemId) {
   return `https://static.runelite.net/cache/item/icon/${itemId}.png`;
 }
 
+function capitalizeFirst(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function formatXp(xp) {
   if (xp >= 1_000_000_000) return `${+(xp / 1_000_000_000).toFixed(1)}B`;
   if (xp >= 1_000_000) return `${+(xp / 1_000_000).toFixed(1)}M`;
@@ -88,7 +96,8 @@ function formatXp(xp) {
 function buildEmbed(activity) {
   const { type, data, enriched, createdAt, account } = activity;
   const username = account.username;
-  const womUrl = `https://wiseoldman.net/players/${encodeURIComponent(username)}`;
+  const accountIcon = ACCOUNT_ICONS[account.accountType?.key?.toLowerCase()] ?? null;
+  const profileUrl = `https://timeserved.vercel.app/profile?${new URLSearchParams({ rsn: username })}`;
   const color = HIGHLIGHT_COLORS[type] ?? DEFAULT_COLOR;
 
   let thumbnail = null;
@@ -128,9 +137,13 @@ function buildEmbed(activity) {
   }
 
   return {
-    title: username,
-    url: womUrl,
-    description: capitalize(description),
+    // `author` puts the account-type badge + name in a header row once, and
+    // links to their site profile — Discord always renders a linked
+    // name/title in its fixed blue, but since the name isn't repeated
+    // anywhere else (see `description` below), there's no duplicate to
+    // clash with a plain white version.
+    author: { name: username, icon_url: accountIcon ?? undefined, url: profileUrl },
+    description: capitalizeFirst(description),
     color,
     thumbnail: thumbnail ? { url: thumbnail } : undefined,
     timestamp: createdAt,
