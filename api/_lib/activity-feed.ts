@@ -203,8 +203,13 @@ export async function postNewActivities(): Promise<{ posted: number; message: st
   // Refreshed every poll cycle regardless of what's new for Discord —
   // src/page/activity-page.tsx reads from this table instead of calling
   // RuneProfile directly, so it needs the latest snapshot even on a
-  // "nothing new to post" cycle.
-  await sql`UPDATE activity_feed_cache SET activities = ${JSON.stringify(activities)}::jsonb, updated_at = now() WHERE id = 1`;
+  // "nothing new to post" cycle. Skipped when RuneProfile returns an empty
+  // page (observed happening transiently, unrelated to any real gap in
+  // activity) so a flaky response doesn't blank out the site's cache —
+  // better to serve slightly stale data than none at all.
+  if (activities.length > 0) {
+    await sql`UPDATE activity_feed_cache SET activities = ${JSON.stringify(activities)}::jsonb, updated_at = now() WHERE id = 1`;
+  }
 
   const fresh = activities
     .filter((a) => new Date(a.createdAt) > lastPostedAt)
