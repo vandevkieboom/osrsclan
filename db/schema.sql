@@ -228,15 +228,32 @@ CREATE TABLE IF NOT EXISTS leaderboard_cache (
 INSERT INTO leaderboard_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- Tracks the newest RuneProfile clan activity already posted to Discord by
--- scripts/post-activity.mjs (run on a schedule via
--- .github/workflows/post-activity.yml, since Vercel's Hobby cron only runs
--- daily). Seeded to "now" below so turning this on doesn't dump the clan's
--- entire activity history into the channel at once.
+-- postNewActivities() (api/_lib/activity-feed.ts), invoked via
+-- GET /api/runeprofile-proxy?resource=activity-post on an external schedule
+-- (Vercel's own Hobby cron only runs daily). Seeded to "now" below so
+-- turning this on doesn't dump the clan's entire activity history into the
+-- channel at once.
 CREATE TABLE IF NOT EXISTS activity_poller_state (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   last_posted_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO activity_poller_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Raw RuneProfile activity feed, refreshed every poll cycle by the same
+-- function/RuneProfile call as activity_poller_state above. The Activity
+-- page (src/page/activity-page.tsx) reads from this instead of calling
+-- RuneProfile directly from the browser — RuneProfile's own API has been
+-- observed taking anywhere from under a second to 60s+ for the same query,
+-- unpredictably, so a page load waiting on it directly was the original
+-- "activity page hangs for minutes" complaint. This cache is at most one
+-- poll cycle stale (a few minutes), which in practice is faster than
+-- RuneProfile often responds to a live request anyway.
+CREATE TABLE IF NOT EXISTS activity_feed_cache (
+  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  activities JSONB NOT NULL DEFAULT '[]',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO activity_feed_cache (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- Long-lived per-user tokens so the RuneLite bingo plugin can submit tile
 -- proofs on a member's behalf. A browser session cookie can't be used — the

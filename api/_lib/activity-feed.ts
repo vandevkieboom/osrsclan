@@ -51,7 +51,7 @@ const HIGHLIGHT_COLORS: Record<string, number> = {
 };
 const DEFAULT_COLOR = 0xf0e8e6;
 
-interface RuneProfileActivity {
+export interface RuneProfileActivity {
   type: string;
   data: {
     name?: string;
@@ -181,9 +181,6 @@ async function postEmbeds(webhookUrl: string, embeds: DiscordEmbed[]) {
 
 export async function postNewActivities(): Promise<{ posted: number; message: string }> {
   const webhookUrl = process.env.DISCORD_ACTIVITY_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return { posted: 0, message: "DISCORD_ACTIVITY_WEBHOOK_URL not set, skipping." };
-  }
 
   const stateRows = await sql`SELECT last_posted_at FROM activity_poller_state WHERE id = 1`;
   const lastPostedAt = new Date(stateRows[0]?.last_posted_at ?? 0);
@@ -203,12 +200,22 @@ export async function postNewActivities(): Promise<{ posted: number; message: st
   const data = (await res.json()) as { activities?: RuneProfileActivity[] };
   const activities = data.activities ?? [];
 
+  // Refreshed every poll cycle regardless of what's new for Discord —
+  // src/page/activity-page.tsx reads from this table instead of calling
+  // RuneProfile directly, so it needs the latest snapshot even on a
+  // "nothing new to post" cycle.
+  await sql`UPDATE activity_feed_cache SET activities = ${JSON.stringify(activities)}::jsonb, updated_at = now() WHERE id = 1`;
+
   const fresh = activities
     .filter((a) => new Date(a.createdAt) > lastPostedAt)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   if (fresh.length === 0) {
     return { posted: 0, message: `No new activity since ${lastPostedAt.toISOString()}` };
+  }
+
+  if (!webhookUrl) {
+    return { posted: 0, message: "DISCORD_ACTIVITY_WEBHOOK_URL not set, skipping Discord post." };
   }
 
   let message = `Posted ${fresh.length} activities`;
@@ -221,4 +228,21 @@ export async function postNewActivities(): Promise<{ posted: number; message: st
   const newest = fresh[fresh.length - 1].createdAt;
   await sql`UPDATE activity_poller_state SET last_posted_at = ${newest} WHERE id = 1`;
   return { posted: fresh.length, message: `${message}, advanced cursor to ${newest}` };
+}
+
+const FEED_PAGE_SIZE = 20;
+
+// Read-only: serves src/page/activity-page.tsx's requests from the cache
+// postNewActivities() maintains, instead of that page calling RuneProfile
+// directly (see activity_feed_cache in db/schema.sql for why).
+export async function getCachedActivityFeed(
+  typesFilter: string[] | null,
+): Promise<{ activities: RuneProfileActivity[]; updatedAt: string | null }> {
+  const rows = await sql`SELECT activities, updated_at FROM activity_feed_cache WHERE id = 1`;
+  const all = (rows[0]?.activities as RuneProfileActivity[] | undefined) ?? [];
+  const filtered = typesFilter ? all.filter((a) => typesFilter.includes(a.type)) : all;
+  return {
+    activities: filtered.slice(0, FEED_PAGE_SIZE),
+    updatedAt: rows[0]?.updated_at ?? null,
+  };
 }

@@ -20,7 +20,7 @@ import {
   type WomPlayerResponse,
 } from "../src/services/runeprofile.js";
 import { checkClanRequirement } from "../src/services/clan-requirement.js";
-import { postNewActivities } from "./_lib/activity-feed.js";
+import { postNewActivities, getCachedActivityFeed } from "./_lib/activity-feed.js";
 
 // RuneProfile's clan-activities feed (used by both `resource=activity-post`
 // below and, at leaderboard-refresh scale, the fan-out above) has been
@@ -547,6 +547,23 @@ async function getClanRequirement(req: VercelRequest, res: VercelResponse) {
 }
 
 /**
+ * Backs src/page/activity-page.tsx — reads from the activity_feed_cache
+ * table (kept fresh by postNewActivities(), see activity-feed.ts) instead
+ * of calling RuneProfile directly from the browser. Public, no auth: same
+ * data the RuneProfile call it replaces was already unauthenticated.
+ */
+async function getActivityFeed(req: VercelRequest, res: VercelResponse) {
+  const typesParam = typeof req.query.types === "string" ? req.query.types : "";
+  const typesFilter = typesParam ? typesParam.split(",") : null;
+  const { activities, updatedAt } = await getCachedActivityFeed(typesFilter);
+  // Short cache window: the underlying data only changes once per poll
+  // cycle (a few minutes), so this just absorbs a burst of page loads
+  // without adding staleness beyond what the poll cycle already has.
+  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=30");
+  res.status(200).json({ activities, updatedAt });
+}
+
+/**
  * The RuneLite plugin's periodic broadcast poll (see BingoApiClient#fetchBroadcast
  * and BingoPlugin#checkBroadcast). Deliberately public, no auth — same
  * reasoning as lookupRank above: an admin broadcast isn't gated anywhere
@@ -580,6 +597,11 @@ export default withErrorHandling(async function handler(req, res) {
 
   if (req.query.resource === "broadcast") {
     await getBroadcast(res);
+    return;
+  }
+
+  if (req.query.resource === "activity-feed") {
+    await getActivityFeed(req, res);
     return;
   }
 

@@ -5,9 +5,6 @@ import { SiteFooter } from "../components/site-footer";
 import { fetchGroupRoles } from "../services/wom";
 import { getRankForRole } from "../services/profile";
 
-const CLAN = "Time Served";
-const LIMIT = 20;
-
 interface ActivityAccount {
   username: string;
   accountType: { id: number; key: string; name: string };
@@ -31,53 +28,35 @@ interface RuneProfileActivity {
 
 interface ActivitiesResponse {
   activities: RuneProfileActivity[];
-  nextCursor: string;
-  prevCursor: string;
-  hasMore: boolean;
-  hasPrev: boolean;
+  updatedAt: string | null;
 }
 
-// RuneProfile's own API can take 15-30s+ to respond to a broad multi-type
-// query (observed directly, not something the site's request pattern
-// causes) and occasionally seems to hang far longer than that with no
-// response at all. Without a timeout, a plain fetch() just sits in
-// "Loading..." for however long that takes — this is what was behind
-// reports of the page hanging for minutes. Aborting after 20s turns that
-// into a clear, actionable error instead of an indefinite spinner.
-const FETCH_TIMEOUT_MS = 20_000;
+// Backed by activity_feed_cache (see db/schema.sql and
+// api/_lib/activity-feed.ts) rather than calling RuneProfile directly —
+// RuneProfile's own API has been observed taking anywhere from under a
+// second to 60s+ for the same query, unpredictably, which was the original
+// "activity page hangs for minutes" complaint. This is a fast same-origin
+// DB read, so a timeout is just cheap insurance against a cold start or
+// transient hiccup, not a real expectation of RuneProfile-scale latency.
+const FETCH_TIMEOUT_MS = 10_000;
 
-async function fetchClanActivities(
-  types: string,
-  cursor: string,
-  direction: "next" | "prev",
-): Promise<ActivitiesResponse> {
-  const params = new URLSearchParams({
-    limit: String(LIMIT),
-    activityTypes: types,
-    direction,
-    cursor,
-  });
+async function fetchClanActivities(types: string): Promise<ActivitiesResponse> {
+  const params = new URLSearchParams(types ? { types } : {});
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   let res: Response;
   try {
-    res = await fetch(
-      `https://api.runeprofile.com/v1/clans/${encodeURIComponent(CLAN)}/activities?${params}`,
-      { signal: controller.signal },
-    );
+    res = await fetch(`/api/runeprofile-proxy?resource=activity-feed&${params}`, {
+      signal: controller.signal,
+    });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
-      throw new Error(
-        "RuneProfile is taking too long to respond — please try again.",
-        { cause: err },
-      );
+      throw new Error("Taking too long to respond — please try again.", { cause: err });
     }
     throw err;
   } finally {
     clearTimeout(timeoutId);
   }
-  if (res.status === 429)
-    throw new Error("Rate limited — please wait a moment.");
   if (!res.ok) throw new Error(`Failed to load activity (${res.status}).`);
   return res.json() as Promise<ActivitiesResponse>;
 }
@@ -458,7 +437,7 @@ function ActivityFeed({
     setError(null);
     setResult(null);
 
-    fetchClanActivities(getTypesParam(activityType), "", "next")
+    fetchClanActivities(getTypesParam(activityType))
       .then((data) => {
         if (!cancelled) setResult(data);
       })
