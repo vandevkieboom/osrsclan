@@ -29,6 +29,12 @@ async function postBingoDropWebhook(submissionId: number) {
     const thumbnail = row.item_id
       ? `https://static.runelite.net/cache/item/icon/${row.item_id}.png`
       : row.icon_url;
+    // Only link when we actually have an RSN — the site's profile page
+    // resolves ?rsn= against the clan's WOM roster, so linking a Discord
+    // display-name fallback would just 404.
+    const profileUrl = row.runescape_name
+      ? `https://timeserved.vercel.app/profile?${new URLSearchParams({ rsn: row.runescape_name })}`
+      : undefined;
 
     const res = await fetch(webhookUrl, {
       method: "POST",
@@ -36,7 +42,7 @@ async function postBingoDropWebhook(submissionId: number) {
       body: JSON.stringify({
         embeds: [
           {
-            title: submittedBy,
+            author: { name: submittedBy, url: profileUrl },
             description: `Completed **${row.tile_name}** for **${row.team_name}**`,
             color: 0x5fbf6a,
             thumbnail: thumbnail ? { url: thumbnail } : undefined,

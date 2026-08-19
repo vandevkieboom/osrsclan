@@ -21,15 +21,6 @@ const ALL_TYPES = [
   "maxed",
 ].join(",");
 
-// Same as ACCOUNT_ICONS in activity-page.tsx.
-const ACCOUNT_ICONS: Record<string, string> = {
-  ironman: "https://oldschool.runescape.wiki/images/Ironman_chat_badge.png",
-  hardcore_ironman: "https://oldschool.runescape.wiki/images/Hardcore_ironman_chat_badge.png",
-  ultimate_ironman: "https://oldschool.runescape.wiki/images/Ultimate_ironman_chat_badge.png",
-  group_ironman: "https://oldschool.runescape.wiki/images/Group_ironman_chat_badge.png",
-  hardcore_group_ironman: "https://oldschool.runescape.wiki/images/Hardcore_group_ironman_chat_badge.png",
-};
-
 const CA_TIERS: Record<number, string> = {
   1: "Easy",
   2: "Medium",
@@ -70,7 +61,7 @@ export interface RuneProfileActivity {
 }
 
 interface DiscordEmbed {
-  author: { name: string; icon_url?: string; url: string };
+  author: { name: string; url: string };
   description: string;
   color: number;
   thumbnail?: { url: string };
@@ -108,7 +99,6 @@ function formatXp(xp: number): string {
 function buildEmbed(activity: RuneProfileActivity): DiscordEmbed {
   const { type, data, enriched, createdAt, account } = activity;
   const username = account.username;
-  const accountIcon = ACCOUNT_ICONS[account.accountType?.key?.toLowerCase()];
   const profileUrl = `https://timeserved.vercel.app/profile?${new URLSearchParams({ rsn: username })}`;
   const color = HIGHLIGHT_COLORS[type] ?? DEFAULT_COLOR;
 
@@ -154,7 +144,7 @@ function buildEmbed(activity: RuneProfileActivity): DiscordEmbed {
     // name/title in its fixed blue, but since the name isn't repeated
     // anywhere else (see `description` below), there's no duplicate to
     // clash with a plain white version.
-    author: { name: username, icon_url: accountIcon, url: profileUrl },
+    author: { name: username, url: profileUrl },
     description: capitalizeFirst(description),
     color,
     thumbnail: thumbnail ? { url: thumbnail } : undefined,
