@@ -37,6 +37,15 @@ interface ActivitiesResponse {
   hasPrev: boolean;
 }
 
+// RuneProfile's own API can take 15-30s+ to respond to a broad multi-type
+// query (observed directly, not something the site's request pattern
+// causes) and occasionally seems to hang far longer than that with no
+// response at all. Without a timeout, a plain fetch() just sits in
+// "Loading..." for however long that takes — this is what was behind
+// reports of the page hanging for minutes. Aborting after 20s turns that
+// into a clear, actionable error instead of an indefinite spinner.
+const FETCH_TIMEOUT_MS = 20_000;
+
 async function fetchClanActivities(
   types: string,
   cursor: string,
@@ -48,9 +57,25 @@ async function fetchClanActivities(
     direction,
     cursor,
   });
-  const res = await fetch(
-    `https://api.runeprofile.com/v1/clans/${encodeURIComponent(CLAN)}/activities?${params}`,
-  );
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://api.runeprofile.com/v1/clans/${encodeURIComponent(CLAN)}/activities?${params}`,
+      { signal: controller.signal },
+    );
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(
+        "RuneProfile is taking too long to respond — please try again.",
+        { cause: err },
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
   if (res.status === 429)
     throw new Error("Rate limited — please wait a moment.");
   if (!res.ok) throw new Error(`Failed to load activity (${res.status}).`);
@@ -425,6 +450,7 @@ function ActivityFeed({
   const [result, setResult] = useState<ActivitiesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -447,12 +473,23 @@ function ActivityFeed({
     return () => {
       cancelled = true;
     };
-  }, [activityType]);
+  }, [activityType, retryCount]);
 
   return (
     <div className="activity-feed">
       {loading && <div className="activity-state">Loading...</div>}
-      {error && <div className="activity-state activity-error">{error}</div>}
+      {error && (
+        <div className="activity-state activity-error">
+          {error}{" "}
+          <button
+            type="button"
+            className="activity-retry-button"
+            onClick={() => setRetryCount((n) => n + 1)}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {!loading && !error && result?.activities.length === 0 && (
         <div className="activity-state">No recent activity found.</div>
       )}
