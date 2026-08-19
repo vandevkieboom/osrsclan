@@ -36,10 +36,12 @@ async function postBingoDropWebhook(submissionId: number) {
       body: JSON.stringify({
         embeds: [
           {
-            description: `**${submittedBy}** (${row.team_name}) completed **${row.tile_name}**`,
+            title: submittedBy,
+            description: `Completed **${row.tile_name}** for **${row.team_name}**`,
             color: 0x5fbf6a,
             thumbnail: thumbnail ? { url: thumbnail } : undefined,
             image: row.proof_url ? { url: row.proof_url } : undefined,
+            timestamp: new Date().toISOString(),
           },
         ],
       }),

@@ -44,15 +44,22 @@ const CA_TIERS = {
   6: "Grandmaster",
 };
 
-// Same per-type accent colors as HIGHLIGHT_COLORS in activity-page.tsx.
+// Per-type accent colors — the left bar Discord renders from `color`.
+// new_item_obtained/valuable_drop use gold (rarity signal, per the
+// Discord-Embed-Redesign "Option A" mockup); others keep their
+// activity-page.tsx HIGHLIGHT_COLORS value.
 const HIGHLIGHT_COLORS = {
-  new_item_obtained: 0x5b9bd5,
-  valuable_drop: 0xd4b158,
+  new_item_obtained: 0xd4a017,
+  valuable_drop: 0xd4a017,
   achievement_diary_tier_completed: 0x5fbf6a,
   level_up: 0xe8574a,
   xp_milestone: 0xe8574a,
 };
 const DEFAULT_COLOR = 0xf0e8e6;
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 function skillDisplayName(name) {
   const lower = name.toLowerCase();
@@ -121,8 +128,9 @@ function buildEmbed(activity) {
   }
 
   return {
-    author: { name: username, url: womUrl },
-    description: `**${username}** ${description}`,
+    title: username,
+    url: womUrl,
+    description: capitalize(description),
     color,
     thumbnail: thumbnail ? { url: thumbnail } : undefined,
     timestamp: createdAt,
