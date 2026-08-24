@@ -120,7 +120,7 @@ export const ranks: Rank[] = [
       },
       {
         name: "Trident of the seas",
-        img: "https://oldschool.runescape.wiki/images/Trident_of_the_seas_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Trident_of_the_Seas_detail.png",
         alt: "Trident of the seas",
         apiCheck: {
           type: "collection-any-of",
@@ -389,7 +389,7 @@ export const ranks: Rank[] = [
       },
       {
         name: "Thread of elidinis",
-        img: "https://oldschool.runescape.wiki/images/Thread_of_elidinis_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Thread_of_Elidinis_detail.png",
         alt: "Thread of elidinis",
         apiCheck: {
           type: "collection-item",
@@ -718,7 +718,7 @@ export const ranks: Rank[] = [
       },
       {
         name: "Blessed dizana's quiver",
-        img: "https://oldschool.runescape.wiki/images/Blessed_dizana%27s_quiver_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Blessed_Dizana%27s_quiver_detail.png",
         alt: "Blessed dizana's quiver",
       },
       {
