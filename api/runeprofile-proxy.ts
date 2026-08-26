@@ -20,12 +20,10 @@ import {
   type WomPlayerResponse,
 } from "../src/services/runeprofile.js";
 import { checkClanRequirement } from "../src/services/clan-requirement.js";
-import { postNewActivities, getCachedActivityFeed } from "./_lib/activity-feed.js";
 
-// RuneProfile's clan-activities feed (used by both `resource=activity-post`
-// below and, at leaderboard-refresh scale, the fan-out above) has been
-// observed taking 15-35s+ for a broad multi-type query — well past the
-// platform's 10s default, so this raises the ceiling for the whole file.
+// refreshLeaderboard's fan-out below has been observed taking well past the
+// platform's 10s default when it hits RuneProfile for the whole roster, so
+// this raises the ceiling for the whole file.
 export const config = { maxDuration: 60 };
 
 const RP_BASE = "https://api.runeprofile.com/v1";
@@ -547,23 +545,6 @@ async function getClanRequirement(req: VercelRequest, res: VercelResponse) {
 }
 
 /**
- * Backs src/page/activity-page.tsx — reads from the activity_feed_cache
- * table (kept fresh by postNewActivities(), see activity-feed.ts) instead
- * of calling RuneProfile directly from the browser. Public, no auth: same
- * data the RuneProfile call it replaces was already unauthenticated.
- */
-async function getActivityFeed(req: VercelRequest, res: VercelResponse) {
-  const typesParam = typeof req.query.types === "string" ? req.query.types : "";
-  const typesFilter = typesParam ? typesParam.split(",") : null;
-  const { activities, updatedAt } = await getCachedActivityFeed(typesFilter);
-  // Short cache window: the underlying data only changes once per poll
-  // cycle (a few minutes), so this just absorbs a burst of page loads
-  // without adding staleness beyond what the poll cycle already has.
-  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=30");
-  res.status(200).json({ activities, updatedAt });
-}
-
-/**
  * The RuneLite plugin's periodic broadcast poll (see BingoApiClient#fetchBroadcast
  * and BingoPlugin#checkBroadcast). Deliberately public, no auth — same
  * reasoning as lookupRank above: an admin broadcast isn't gated anywhere
@@ -600,11 +581,6 @@ export default withErrorHandling(async function handler(req, res) {
     return;
   }
 
-  if (req.query.resource === "activity-feed") {
-    await getActivityFeed(req, res);
-    return;
-  }
-
   if (req.query.resource === "leaderboard") {
     await getLeaderboard(res);
     return;
@@ -629,21 +605,6 @@ export default withErrorHandling(async function handler(req, res) {
       return;
     }
     await refreshLeaderboard(res);
-    return;
-  }
-
-  if (req.query.resource === "activity-post") {
-    // Not Vercel's own cron (Hobby only runs that daily, far too slow for a
-    // near-real-time feed) — this is hit by an external scheduler instead
-    // (cron-job.org or similar, every few minutes), authenticated with its
-    // own secret rather than reusing CRON_SECRET.
-    const expected = process.env.ACTIVITY_CRON_SECRET;
-    if (!expected || req.headers.authorization !== `Bearer ${expected}`) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-    const result = await postNewActivities();
-    res.status(200).json(result);
     return;
   }
 

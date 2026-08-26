@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { to: "/rankings", label: "Rankings" },
   { to: "/hiscores", label: "Hiscores" },
   { to: "/bingo", label: "Bingo" },
-  { to: "/activity", label: "Activity" },
 ];
 
 interface SiteHeaderProps {

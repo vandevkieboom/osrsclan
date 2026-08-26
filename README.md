@@ -1,6 +1,6 @@
 # Clan Rankings
 
-Web app for the clan: rankings/tier list, hiscores, activity, bingo events, and clan profiles. React/Vite frontend with a Vercel serverless backend and a Neon Postgres database.
+Web app for the clan: rankings/tier list, hiscores, bingo events, and clan profiles. React/Vite frontend with a Vercel serverless backend and a Neon Postgres database.
 
 ## Architecture
 
@@ -32,29 +32,6 @@ See `.env.local` (not in git) for the current values. Required:
 - `CRON_SECRET` — secures the daily cron job (`vercel.json`) that refreshes the RuneProfile leaderboard
 - `BLOB_READ_WRITE_TOKEN` — Vercel Blob storage for bingo tile screenshots (usually set automatically by Vercel)
 - `DISCORD_BINGO_WEBHOOK_URL` — (optional) Discord webhook posted to when an admin approves a bingo tile submission, screenshot included.
-- `DISCORD_ACTIVITY_WEBHOOK_URL` — (optional) Discord webhook for the activity feed (see below).
-- `ACTIVITY_CRON_SECRET` — secures `GET /api/runeprofile-proxy?resource=activity-post` against the external scheduler that triggers it (see below). Separate from `CRON_SECRET` on purpose — different trigger, different secret.
-
-## Discord activity feed (`GET /api/runeprofile-proxy?resource=activity-post`)
-
-Polls the same public RuneProfile clan-activities endpoint the Activity page
-uses and posts anything new to a Discord webhook, tracking progress in the
-`activity_poller_state` table so nothing gets posted twice.
-
-This deliberately isn't Vercel's own cron — Hobby only allows daily cron
-invocations, far too infrequent for a "near real-time" feed. Instead, an
-external scheduler (e.g. [cron-job.org](https://cron-job.org), free) should
-hit this endpoint every few minutes:
-
-```
-GET https://timeserved.vercel.app/api/runeprofile-proxy?resource=activity-post
-Authorization: Bearer <ACTIVITY_CRON_SECRET>
-```
-
-Only run **one** scheduler against this endpoint — it isn't safe to run
-concurrently with another instance of itself, since two overlapping runs can
-both read the same `activity_poller_state.last_posted_at` before either
-updates it, posting the same activities twice.
 
 ## Other scripts
 

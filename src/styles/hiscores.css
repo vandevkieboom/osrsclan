@@ -31,10 +31,6 @@
   margin-left: auto;
 }
 
-.activity-select-wrap {
-  justify-content: flex-start;
-}
-
 .player-search-wrap {
   position: relative;
   display: inline-flex;
@@ -148,7 +144,7 @@
   transform: rotate(180deg);
 }
 
-/* Activity page's dropdown isn't a <details> element, so its arrow is a
+/* The multi-select dropdown isn't a <details> element, so its arrow is a
    plain <img> toggled via a JS-controlled class instead of [open]. */
 .dropdown-arrow-icon {
   width: 10px;

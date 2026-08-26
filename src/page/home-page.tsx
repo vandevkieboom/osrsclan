@@ -184,20 +184,6 @@ export function HomePage() {
               </div>
             </div>
           </Link>
-          <Link to="/activity" className="home-card">
-            <img
-              src="https://oldschool.runescape.wiki/images/Chronicle_detail.png"
-              className="home-card-icon"
-              alt=""
-            />
-            <div className="home-card-body">
-              <div className="home-card-title">Activity</div>
-              <div className="home-card-desc">
-                Live clan feed showing rare drops, level-ups, quests, and combat
-                achievements as they happen.
-              </div>
-            </div>
-          </Link>
         </div>
 
         {donors.length > 0 && (
