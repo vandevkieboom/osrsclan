@@ -8,6 +8,7 @@ import {
   requireUser,
 } from "./_lib/auth.js";
 import {
+  getBoardConfigMemoised,
   getOrCreateBoardConfig,
   getTeamGoalProgress,
   maybeReconcileGoalProgress,
@@ -15,6 +16,16 @@ import {
   validateProofSubmission,
 } from "./_lib/board.js";
 import { withErrorHandling } from "./_lib/handler.js";
+
+// Bounded rather than trusted: a typo here should not be able to render the
+// board on every single request, nor to freeze it for an hour.
+const BOARD_CACHE_SECONDS = (() => {
+  const parsed = Number(process.env.BOARD_CACHE_SECONDS);
+  if (!Number.isFinite(parsed)) return 20;
+  return Math.min(300, Math.max(5, Math.round(parsed)));
+})();
+
+const BOARD_CACHE_CONTROL = `s-maxage=${BOARD_CACHE_SECONDS}, stale-while-revalidate=${BOARD_CACHE_SECONDS * 3}`;
 
 const PROOF_CONTENT_TYPES: Record<string, string> = {
   "image/png": "png",
@@ -27,13 +38,41 @@ const PROOF_CONTENT_TYPES: Record<string, string> = {
 // function's request body at ~4.5MB. Stay clearly under that.
 const MAX_PLUGIN_PROOF_BYTES = 4 * 1024 * 1024;
 
-// The leaderboard is public — anyone can see team standings (and every
-// team's board, read-only) without logging in. A session is only needed to
-// know which team is "yours" for submit-proof permission checks. The RuneLite
-// plugin reads this same endpoint (authenticating by bearer token) to learn
-// which tiles its team still needs and which item ids to watch for.
-async function getBoard(req: VercelRequest, res: VercelResponse) {
-  const user = await getRequestUser(req);
+/**
+ * The full board: every team's tiles, rosters, progress and submissions.
+ *
+ * This is by far the most expensive response the site produces — five
+ * queries and a payload of a hundred kilobytes or more once an event has
+ * real submissions on it — and during an event every online plugin wants it
+ * again every time anything changes. One person's drop therefore used to
+ * cost one full board render *per online member*, which is the wrong shape
+ * entirely: the answer is the same for all of them.
+ *
+ * So it is now byte-identical for every caller and edge-cached. It carries no
+ * `myTeamId` and reads no session, which is what makes one cached copy able
+ * to serve the whole clan: a single origin render now answers everybody for
+ * the length of the cache window instead of being repeated per member. Nothing
+ * became more public in the process — this endpoint never required
+ * authentication and every team's board was already readable by anyone.
+ *
+ * Callers that need to know which team is *theirs* ask for it separately and
+ * rarely: the website already has it on the session user
+ * (`useAuth().user.team`), and the plugin fetches `?resource=my-team` once a
+ * session. That is a handful of tiny requests against many large ones.
+ */
+async function getBoard(res: VercelResponse, slim: boolean) {
+  // Short enough that a teammate's drop still lands on everyone's board
+  // within about the same minute the plugin would have noticed it anyway,
+  // long enough to collapse the simultaneous refetch that a single change
+  // triggers across every online member.
+  //
+  // An environment variable rather than a constant because this is the single
+  // most expensive response the site produces, and if compute ever runs hot
+  // mid-event this is the fastest thing to turn down - no deploy, no plugin
+  // release, effective on the next request. Raising it trades board freshness
+  // for compute directly: at double the window the site renders the board half
+  // as often.
+  res.setHeader("Cache-Control", BOARD_CACHE_CONTROL);
 
   const config = await getOrCreateBoardConfig();
   const slotCount = config.size * config.size;
@@ -64,6 +103,14 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
   // The reconcile pass runs first (throttled — see maybeReconcileGoalProgress)
   // so a correction it makes shows up in this same response instead of
   // waiting for the next request.
+  //
+  // The plugin poll endpoint now triggers this too, and is the *primary*
+  // trigger — it runs unconditionally, whereas this fetch only happens when
+  // the board has changed, and this pass is itself one of the things that
+  // changes it. Keeping it here as well costs one throttled row read and
+  // covers the case the poll endpoint can't: somebody opening the bingo page
+  // in a browser at a moment when no plugin anywhere is online to have kept
+  // the numbers current.
   const hasGoalTiles = tiles.some((t) => t.goalKind !== "item");
   if (hasGoalTiles) {
     try {
@@ -285,9 +332,108 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
       name: config.name,
       size: config.size,
     },
-    teams,
-    myTeamId: user?.teamId ?? null,
+    // The stamp this particular render corresponds to, so a caller can record
+    // what it actually received rather than what it expected to receive.
+    //
+    // Without it there is a race: the plugin learns a new stamp from the poll
+    // endpoint, asks for the board, and gets a cached copy rendered *just*
+    // before the change — then files it under the new stamp and, seeing that
+    // same stamp on every later poll, never corrects itself. A board stuck one
+    // change behind, indefinitely. Echoing the stamp closes it: a stale copy
+    // arrives carrying its own older stamp, still doesn't match the poll's,
+    // and gets re-fetched on the next tick.
+    boardChangedAt: config.board_changed_at,
+    teams: slim ? teams.map(slimTeam) : teams,
+    // Always null: see this function's doc. Kept in the payload so older
+    // plugin builds, which read it, get a defined value rather than a
+    // missing field.
+    myTeamId: null,
   });
+}
+
+/**
+ * The board with everything the RuneLite plugin doesn't read stripped out.
+ *
+ * The plugin's own parser already ignores these fields — it just wasn't
+ * stopping the site from sending them. That is not free: the heavy part of a
+ * board response is the per-proof detail (a blob URL and a Discord avatar URL
+ * are each about a hundred characters, and there is one set per proof, per
+ * tile, per team), and during an event that response goes out again on every
+ * change, to everyone. Dropping what nobody reads takes the payload down by
+ * most of its size for exactly zero behaviour change.
+ *
+ * Kept deliberately as a projection of the full response rather than a second
+ * query path: there is then no way for the two to disagree about a tile's
+ * status or a team's standing, which is the failure that would actually
+ * matter.
+ */
+function slimTeam(team: {
+  id: number;
+  name: string;
+  accentColor: string | null;
+  completeCount: number;
+  totalTiles: number;
+  pct: number;
+  isLeading: boolean;
+  tiles: ReturnType<typeof buildSlimTile>[] | unknown[];
+}) {
+  return {
+    id: team.id,
+    name: team.name,
+    accentColor: team.accentColor,
+    completeCount: team.completeCount,
+    totalTiles: team.totalTiles,
+    pct: team.pct,
+    isLeading: team.isLeading,
+    tiles: (team.tiles as Parameters<typeof buildSlimTile>[0][]).map(
+      buildSlimTile,
+    ),
+  };
+}
+
+function buildSlimTile(tile: {
+  tileId: number;
+  position: number;
+  name: string;
+  requiredCount: number;
+  approvedCount: number;
+  pendingCount: number;
+  status: string;
+  itemIds: number[];
+  goalKind: string;
+  goalKey: string;
+  goalTarget: number | null;
+  teamProgress: number | null;
+}) {
+  return {
+    tileId: tile.tileId,
+    position: tile.position,
+    name: tile.name,
+    requiredCount: tile.requiredCount,
+    approvedCount: tile.approvedCount,
+    pendingCount: tile.pendingCount,
+    status: tile.status,
+    itemIds: tile.itemIds,
+    goalKind: tile.goalKind,
+    goalKey: tile.goalKey,
+    goalTarget: tile.goalTarget,
+    teamProgress: tile.teamProgress,
+  };
+}
+
+/**
+ * Which team the caller is on — the one genuinely per-member thing the board
+ * response used to carry, split out so the board itself can be cached once
+ * for everybody.
+ *
+ * Tiny and uncacheable by nature, but also asked for very rarely: the plugin
+ * fetches it on startup, on an API key change, and then at most every half
+ * hour. Team assignment happens before an event rather than during one, so
+ * that is comfortably prompt.
+ */
+async function getMyTeam(req: VercelRequest, res: VercelResponse) {
+  const user = await getRequestUser(req);
+  res.status(200).json({ teamId: user?.teamId ?? null });
 }
 
 /**
@@ -300,10 +446,25 @@ async function getBoard(req: VercelRequest, res: VercelResponse) {
  * practically free, rather than needing to slow down or back off polling
  * this specific check to control cost.
  */
+/**
+ * Superseded by GET /api/plugin-poll, which returns this plus the broadcast
+ * and live-stream answers the plugin used to fetch as two further separate
+ * requests on the same tick. Kept for plugin installs that haven't updated
+ * yet — they'll keep polling this until they do.
+ *
+ * Cache header is set before the read and the read can no longer produce a
+ * 5xx, because Vercel's edge won't cache an error response: an endpoint this
+ * heavily polled that starts failing stops absorbing traffic at precisely
+ * the moment it needs to most, and every polling client is promoted to a
+ * real function invocation. See api/plugin-poll.ts.
+ */
 async function getBingoStatus(res: VercelResponse) {
-  const config = await getOrCreateBoardConfig();
-  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=15");
-  res.status(200).json({ bingoActive: config.bingo_active });
+  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=90");
+  const { row } = await getBoardConfigMemoised();
+  res.status(200).json({
+    bingoActive: row?.bingo_active ?? false,
+    boardChangedAt: row?.board_changed_at ?? null,
+  });
 }
 
 async function getDonors(res: VercelResponse) {
@@ -491,8 +652,13 @@ export default withErrorHandling(async function handler(req, res) {
       await getDonors(res);
     } else if (req.query.resource === "status") {
       await getBingoStatus(res);
+    } else if (req.query.resource === "my-team") {
+      await getMyTeam(req, res);
     } else {
-      await getBoard(req, res);
+      // A separate cache entry from the full board, which is fine: two origin
+      // renders per cache window instead of one, against a payload several
+      // times smaller for every plugin in the clan.
+      await getBoard(res, req.query.view === "plugin");
     }
     return;
   }

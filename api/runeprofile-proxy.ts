@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
-import { getOrCreateBoardConfig } from "./_lib/board.js";
+import { getBoardConfigMemoised } from "./_lib/board.js";
 import { withErrorHandling } from "./_lib/handler.js";
 // This backend function intentionally imports frontend domain/service
 // modules directly rather than duplicating rank-progress logic — there's no
@@ -21,10 +21,21 @@ import {
 } from "../src/services/runeprofile.js";
 import { checkClanRequirement } from "../src/services/clan-requirement.js";
 
-// refreshLeaderboard's fan-out below has been observed taking well past the
-// platform's 10s default when it hits RuneProfile for the whole roster, so
-// this raises the ceiling for the whole file.
-export const config = { maxDuration: 60 };
+// refreshLeaderboard's fan-out below takes minutes against a roster this size
+// — RuneProfile's rate limit forces it to go slowly (see the concurrency notes
+// in that function) — so this raises the ceiling for the whole file.
+//
+// 60s was not enough and had not been for a long time: at ~500 members the
+// fan-out needs around four minutes, so the function was being killed before
+// it ever reached the write at the end, and the leaderboard silently stopped
+// updating. It now also finishes early and saves what it has rather than
+// relying on this ceiling being generous enough (see REFRESH_DEADLINE_MS), so
+// a roster that keeps growing degrades into "takes two nights to come round"
+// instead of "stops working and says nothing".
+//
+// Almost all of that time is spent awaiting network, not burning CPU, so a
+// long run here costs very little against the compute quota.
+export const config = { maxDuration: 300 };
 
 const RP_BASE = "https://api.runeprofile.com/v1";
 const API_KEY = process.env.RUNEPROFILE_API_KEY ?? "";
@@ -127,7 +138,15 @@ async function getLeaderboard(res: VercelResponse) {
 // can never drift from what a self-lookup shows. Only ever invoked by the
 // daily Vercel Cron defined in vercel.json (see the auth check in `handler`)
 // — never on a visitor's request path.
+// Stop fetching and save at this point, comfortably inside maxDuration above.
+// Whatever has been refreshed this run is merged over the previous snapshot and
+// written; the next run picks up where this one stopped. The leaderboard is
+// therefore always complete and never more than a run or two stale, rather
+// than being all-or-nothing on a fan-out that may not fit in one invocation.
+const REFRESH_DEADLINE_MS = 240_000;
+
 async function refreshLeaderboard(res: VercelResponse) {
+  const startedAt = Date.now();
   const rolesRes = await fetch(
     `https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`,
     {
@@ -155,6 +174,17 @@ async function refreshLeaderboard(res: VercelResponse) {
   const usernames = Array.from(roleByName.keys());
   const noDisplayNameCount = membershipCount - usernames.length;
 
+  // The previous snapshot and where the last run stopped. Entries are merged
+  // by name rather than rebuilt from scratch, so a run that only gets through
+  // part of the roster still leaves every other member's row intact.
+  const cacheRows = await sql`
+    SELECT entries, refresh_offset FROM leaderboard_cache WHERE id = 1`;
+  const previousEntries =
+    (cacheRows[0]?.entries as LeaderboardEntry[] | undefined) ?? [];
+  const byName = new Map(previousEntries.map((e) => [e.name, e]));
+  const startOffset = Math.max(0, Number(cacheRows[0]?.refresh_offset ?? 0)) %
+    Math.max(1, usernames.length);
+
   // One bulk query up front rather than one per member — feeds the same
   // manually-verified-item data the Rankings page's admin toggle writes to.
   const verificationRows =
@@ -166,7 +196,8 @@ async function refreshLeaderboard(res: VercelResponse) {
     verifiedByRsn.set(row.rsn_key, set);
   }
 
-  const entries: LeaderboardEntry[] = [];
+  let processed = 0;
+  let ranOutOfTime = false;
   // RuneProfile enforces a token-bucket-style rate limit that an
   // authenticated key raises but doesn't remove: 4 workers firing 2 parallel
   // requests each every 150ms burns through the bucket in ~15s and then
@@ -204,7 +235,15 @@ async function refreshLeaderboard(res: VercelResponse) {
 
   async function worker() {
     while (cursor < usernames.length) {
-      const username = usernames[cursor++];
+      if (Date.now() - startedAt > REFRESH_DEADLINE_MS) {
+        ranOutOfTime = true;
+        return;
+      }
+      // Wraps, so successive runs sweep the whole roster rather than always
+      // re-refreshing the same members at the front of it and never reaching
+      // the back.
+      const username = usernames[(startOffset + cursor++) % usernames.length];
+      processed++;
       if (cursor > 1) await sleep(STAGGER_MS);
       try {
         const encoded = encodeURIComponent(username);
@@ -285,7 +324,7 @@ async function refreshLeaderboard(res: VercelResponse) {
           return sum + stats.satisfiedCount + creditedUntrackable;
         }, 0);
 
-        entries.push({
+        byName.set(data.username || username, {
           name: data.username || username,
           totalSatisfied,
           rankName: rankInfo?.name ?? null,
@@ -304,20 +343,44 @@ async function refreshLeaderboard(res: VercelResponse) {
     Array.from({ length: Math.min(CONCURRENCY, usernames.length) }, worker),
   );
 
+  // Anyone no longer in the clan drops off, even if this run never reached
+  // them — otherwise a member who left would sit on the leaderboard until a
+  // run happened to sweep past their position.
+  // Compared case-insensitively: entries are keyed by the name RuneProfile
+  // returns and the roster is keyed by the name Wise Old Man returns, and the
+  // two agreeing exactly on capitalisation is an assumption, not a guarantee.
+  // Getting that wrong would quietly drop a member from the leaderboard on
+  // every run with nothing to show for it.
+  const stillInClan = new Set(usernames.map((u) => u.toLowerCase()));
+  const entries = Array.from(byName.values()).filter((e) =>
+    stillInClan.has(e.name.toLowerCase()),
+  );
+
   entries.sort(
     (a, b) =>
       b.totalSatisfied - a.totalSatisfied || a.name.localeCompare(b.name),
   );
 
+  const nextOffset = usernames.length
+    ? (startOffset + processed) % usernames.length
+    : 0;
+
   await sql`
-    INSERT INTO leaderboard_cache (id, entries, updated_at)
-    VALUES (1, ${JSON.stringify(entries)}::jsonb, now())
-    ON CONFLICT (id) DO UPDATE SET entries = EXCLUDED.entries, updated_at = EXCLUDED.updated_at`;
+    INSERT INTO leaderboard_cache (id, entries, updated_at, refresh_offset)
+    VALUES (1, ${JSON.stringify(entries)}::jsonb, now(), ${nextOffset})
+    ON CONFLICT (id) DO UPDATE SET
+      entries = EXCLUDED.entries,
+      updated_at = EXCLUDED.updated_at,
+      refresh_offset = EXCLUDED.refresh_offset`;
 
   res.status(200).json({
     ok: true,
     count: entries.length,
     membershipCount,
+    refreshedThisRun: processed,
+    complete: !ranOutOfTime,
+    nextOffset,
+    elapsedMs: Date.now() - startedAt,
     skipped: { noDisplayName: noDisplayNameCount, ...skipCounts },
   });
 }
@@ -335,21 +398,48 @@ type ResolvedMember =
  * buildRuneProfile. Kept as one function so the two callers below can't
  * silently drift on how a member gets resolved.
  */
-async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
+type GroupMembership = {
+  player: { displayName: string; username: string };
+  role: string;
+};
+
+// The clan's WOM roster: ~500 members, the same answer for every caller, and
+// it changes when somebody joins or leaves — i.e. rarely. Every `!rank`,
+// every `!verify`, and every login's RuneProfile-sync reminder was
+// re-fetching and re-parsing the whole thing, because WOM has no
+// single-player-within-a-group lookup. Memoised per warm function instance
+// instead: a stale entry can at worst mean a member who joined in the last
+// few minutes isn't found yet, and they'll be found on the next attempt.
+const ROSTER_MEMO_MS = 5 * 60 * 1000;
+let rosterMemo: { memberships: GroupMembership[]; at: number } | null = null;
+
+async function fetchClanRoster(): Promise<GroupMembership[] | null> {
+  if (rosterMemo && Date.now() - rosterMemo.at < ROSTER_MEMO_MS) {
+    return rosterMemo.memberships;
+  }
   const rolesRes = await fetch(
     `https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`,
     { headers: WOM_HEADERS },
   );
   if (!rolesRes.ok) {
-    return { ok: false, status: 502, error: "Failed to load the clan's member list." };
+    // Keep serving the last good roster through a WOM blip rather than
+    // telling every caller the clan's member list is unavailable.
+    return rosterMemo?.memberships ?? null;
   }
   const group = (await rolesRes.json()) as {
-    memberships?: Array<{
-      player: { displayName: string; username: string };
-      role: string;
-    }>;
+    memberships?: GroupMembership[];
   };
-  const membership = (group.memberships ?? []).find(
+  const memberships = group.memberships ?? [];
+  rosterMemo = { memberships, at: Date.now() };
+  return memberships;
+}
+
+async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
+  const memberships = await fetchClanRoster();
+  if (!memberships) {
+    return { ok: false, status: 502, error: "Failed to load the clan's member list." };
+  }
+  const membership = memberships.find(
     (m) =>
       m.player.username?.toLowerCase() === rsn.toLowerCase() ||
       m.player.displayName?.toLowerCase() === rsn.toLowerCase(),
@@ -469,6 +559,15 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
   const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
   const currentRankInfo = getRankForRole(role);
 
+  // `!rank <name>` gets run on the same handful of people repeatedly (and
+  // once per login by the RuneProfile-sync reminder), and this is one of the
+  // most expensive endpoints on the site — a WOM roster lookup plus three
+  // upstream profile fetches. A minute of edge caching collapses a burst of
+  // lookups for the same name into one, while staying short enough that
+  // someone who just re-synced RuneProfile and re-checks doesn't see a stale
+  // answer for any length of time worth noticing.
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=60");
+
   // What's left for the *next* tier up — same "satisfied" rule
   // getRankStats uses internally (manually verified, or an apiCheck that
   // actually passes), just listing the item names instead of only a count.
@@ -537,6 +636,8 @@ async function getClanRequirement(req: VercelRequest, res: VercelResponse) {
   }
 
   const result = checkClanRequirement(resolved.profile);
+  // Same reasoning as lookupRank's cache header above.
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=60");
   res.status(200).json({
     rsn: resolved.displayName,
     meets: result.met,
@@ -551,22 +652,18 @@ async function getClanRequirement(req: VercelRequest, res: VercelResponse) {
  * else on the site, so there's nothing here for a plugin key to protect.
  */
 async function getBroadcast(res: VercelResponse) {
-  const config = await getOrCreateBoardConfig();
-  // Same edge-caching pattern as twitch-live.ts's stream check: broadcasts
-  // change far less often than that (an admin posts one a handful of times
-  // a month), so every plugin's once-a-minute poll hitting this with zero
-  // caching was pure waste — this lets Vercel's edge serve most of those
-  // polls without invoking the function or touching the database at all,
-  // at the cost of a new broadcast taking up to ~30s longer to reach
-  // everyone. Was s-maxage=60/swr=30 (~60-90s worst case) — tightened after
-  // a clan admin found that window too slow for a second broadcast sent
-  // shortly after a first one. Still cheap enough to keep short: broadcasts
-  // are rare, so a shorter cache window doesn't meaningfully raise
-  // invocation/DB load, it just narrows the staleness gap.
-  res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=15");
+  // Set before the read: Vercel's edge does not cache an error response, so
+  // an endpoint every online plugin polls once a minute must never be able to
+  // answer with one — a failing poll endpoint stops absorbing traffic exactly
+  // when it needs to most, and turns every polling client into a direct
+  // function invocation. See api/plugin-poll.ts, which supersedes this for
+  // updated plugins by returning the broadcast alongside the other two things
+  // the plugin used to fetch separately on the same tick.
+  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=90");
+  const { row } = await getBoardConfigMemoised();
   res.status(200).json({
-    message: config.broadcast_message,
-    updatedAt: config.broadcast_updated_at,
+    message: row?.broadcast_message ?? "",
+    updatedAt: row?.broadcast_updated_at ?? null,
   });
 }
 

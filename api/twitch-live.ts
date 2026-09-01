@@ -1,37 +1,24 @@
+import { fetchLiveStreams, type LiveStream } from "./_lib/twitch.js";
 import { withErrorHandling } from "./_lib/handler.js";
 
-const CLIENT_ID = process.env.TWITCH_CLIENT_ID ?? "";
-const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET ?? "";
-const CHANNELS = (process.env.TWITCH_CHANNELS ?? "")
-  .split(",")
-  .map((c) => c.trim().toLowerCase())
-  .filter(Boolean);
+export type { LiveStream };
 
-interface TwitchTokenResponse {
-  access_token: string;
-}
+/**
+ * Superseded for the RuneLite plugin by GET /api/plugin-poll, which returns
+ * this same list alongside the two other things the plugin used to fetch
+ * separately on the same tick. Kept because (a) the site's own homepage
+ * widget reads it, and (b) plugin installs update on their own schedule, so
+ * older versions keep polling this for as long as they keep running.
+ *
+ * Both remaining callers are cheap now: the Twitch app token is cached
+ * between invocations (see _lib/twitch.ts) rather than re-minted per request,
+ * and every response — success, misconfiguration, or upstream failure — sets
+ * the same cache header, so a Twitch outage can no longer collapse the edge
+ * cache hit rate and promote every polling client to a real invocation.
+ */
+const CACHE_CONTROL = "s-maxage=60, stale-while-revalidate=120";
 
-interface TwitchStream {
-  user_name: string;
-  user_login: string;
-  game_name: string;
-  title: string;
-  viewer_count: number;
-  thumbnail_url: string;
-}
-
-interface TwitchStreamsResponse {
-  data: TwitchStream[];
-}
-
-export interface LiveStream {
-  username: string;
-  displayName: string;
-  game: string;
-  title: string;
-  viewers: number;
-  thumbnail: string;
-}
+let lastGood: LiveStream[] = [];
 
 export default withErrorHandling(async function handler(req, res) {
   if (req.method !== "GET") {
@@ -39,55 +26,18 @@ export default withErrorHandling(async function handler(req, res) {
     return;
   }
 
-  if (!CLIENT_ID || !CLIENT_SECRET || CHANNELS.length === 0) {
-    res.status(200).json({ streams: [] });
+  res.setHeader("Cache-Control", CACHE_CONTROL);
+
+  const streams = await fetchLiveStreams();
+  if (streams === null) {
+    // Upstream failed. Serve the last list this instance actually saw rather
+    // than an empty one — an empty list is a claim ("nobody is streaming")
+    // that would make every plugin re-announce those same streamers as newly
+    // live once Twitch came back.
+    res.status(200).json({ streams: lastGood });
     return;
   }
 
-  try {
-    const tokenRes = await fetch(
-      `https://id.twitch.tv/oauth2/token?client_id=${encodeURIComponent(CLIENT_ID)}&client_secret=${encodeURIComponent(CLIENT_SECRET)}&grant_type=client_credentials`,
-      { method: "POST" },
-    );
-    if (!tokenRes.ok) {
-      res.status(200).json({ streams: [] });
-      return;
-    }
-    const tokenData = (await tokenRes.json()) as TwitchTokenResponse;
-    const token = tokenData.access_token;
-
-    const params = CHANNELS.map(
-      (c) => `user_login=${encodeURIComponent(c)}`,
-    ).join("&");
-    const streamsRes = await fetch(
-      `https://api.twitch.tv/helix/streams?${params}`,
-      {
-        headers: {
-          "Client-ID": CLIENT_ID,
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
-    if (!streamsRes.ok) {
-      res.status(200).json({ streams: [] });
-      return;
-    }
-    const streamsData = (await streamsRes.json()) as TwitchStreamsResponse;
-
-    const streams: LiveStream[] = streamsData.data.map((s) => ({
-      username: s.user_login,
-      displayName: s.user_name,
-      game: s.game_name,
-      title: s.title,
-      viewers: s.viewer_count,
-      thumbnail: s.thumbnail_url
-        .replace("{width}", "320")
-        .replace("{height}", "180"),
-    }));
-
-    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
-    res.status(200).json({ streams });
-  } catch {
-    res.status(200).json({ streams: [] });
-  }
+  lastGood = streams;
+  res.status(200).json({ streams });
 });

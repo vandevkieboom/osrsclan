@@ -20,31 +20,142 @@ import {
 
 type View = "leaderboard" | "board" | "admin";
 
+/** "just now" / "12s ago" / "3m ago" — deliberately coarse past a minute. */
+function formatAgo(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return `${Math.floor(minutes / 60)}h ago`;
+}
+
 export function BingoPage() {
   const { user, isAdmin } = useAuth();
   const [view, setView] = useState<View>("leaderboard");
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadingTileId, setUploadingTileId] = useState<number | null>(null);
-  const [boardTeamId, setBoardTeamId] = useState<number | null>(null);
+  // Only ever set by the user actually clicking a team tab. The default is
+  // derived below rather than stored, because the two things it depends on
+  // (the session, for "my team", and the board, for "some team") arrive
+  // independently and in no guaranteed order — seeding state from whichever
+  // landed first meant a slow session load left you looking at some other
+  // team's board with no way to tell that wasn't deliberate.
+  const [pickedTeamId, setPickedTeamId] = useState<number | null>(null);
+
+  // When this page last got a board, and a ticking "x ago" off it. The board
+  // is fetched on load, not polled, so without this the page silently looks
+  // live while being minutes old — which is exactly the thing that generates
+  // "why isn't this updating?" during an event. The in-game panel already
+  // shows its own sync age; this is the website's version of it.
+  const [loadedAt, setLoadedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Keep the board live while somebody is actually looking at it.
+  //
+  // This page used to fetch once on load and then sit there, so your own
+  // submissions appeared instantly (those refetch on the spot) but a
+  // teammate's never did until you reloaded - during an event, which is the
+  // one time the board matters, it was quietly minutes out of date. A board
+  // that doesn't move while you watch it is the whole reason people ask
+  // whether something is broken.
+  //
+  // Cheap, because of two things. The response is cached at the edge for 20s
+  // and is identical for every viewer, so a room full of people watching the
+  // board costs about the same as one person watching it. And it stops dead
+  // when the tab isn't visible - nobody needs a live board in a background
+  // tab, and that is where most open tabs spend their time.
+  // 60s, matching the plugin's cadence for members competing in an event, so
+  // the whole system has one answer: things land within about a minute.
+  //
+  // Not faster, because faster buys nothing. The response is edge-cached for
+  // 20s, so polling more often than that just hits the cache again - it
+  // doubles the request count for no reduction in server work and no
+  // difference anyone can perceive mid-drop.
+  const BOARD_POLL_MS = 60_000;
+  useEffect(() => {
+    if (view === "admin") return;
+
+    let timer: number | undefined;
+    let lastInteraction = Date.now();
+
+    // A visible tab isn't the same as a watched one. Someone parking the board
+    // on a second monitor and going to bed would otherwise poll all night, so
+    // polling stops after a spell of no input and picks straight back up on
+    // the next one - by which point they get a fresh board anyway.
+    const IDLE_CUTOFF_MS = 15 * 60_000;
+    const noteInteraction = () => {
+      const wasIdle = Date.now() - lastInteraction > IDLE_CUTOFF_MS;
+      lastInteraction = Date.now();
+      if (wasIdle) reloadBoard();
+    };
+
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastInteraction > IDLE_CUTOFF_MS) return;
+      reloadBoard();
+    };
+
+    const start = () => {
+      window.clearInterval(timer);
+      timer = window.setInterval(tick, BOARD_POLL_MS);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        // Coming back to the tab should show the current board straight away,
+        // not whatever it was showing when it was hidden.
+        reloadBoard();
+        start();
+      } else {
+        window.clearInterval(timer);
+      }
+    };
+
+    const interactionEvents = ["pointerdown", "keydown", "scroll"] as const;
+
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    for (const evt of interactionEvents) {
+      window.addEventListener(evt, noteInteraction, { passive: true });
+    }
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      for (const evt of interactionEvents) {
+        window.removeEventListener(evt, noteInteraction);
+      }
+    };
+    // Deliberately keyed on `view` alone: reloadBoard is redefined every
+    // render, so depending on it would tear down and rebuild the interval on
+    // every render, which is exactly what this must not do.
+  }, [view]);
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(
     null,
   );
 
-  function reloadBoard() {
-    fetchBoard()
+  // Which team is "mine" comes from the session, not from the board response:
+  // the board is now one cached copy shared by every viewer (see getBoard in
+  // api/board.ts), so it can't carry anything per-viewer.
+  const myTeamId = user?.team?.id ?? null;
+
+  function reloadBoard(fresh = false) {
+    fetchBoard(fresh)
       .then((data) => {
         setBoard(data);
-        setBoardTeamId(
-          (prev) => prev ?? data.myTeamId ?? data.teams[0]?.id ?? null,
-        );
+        setLoadedAt(Date.now());
       })
       .catch((err: unknown) => {
         if (import.meta.env.DEV) {
           setBoard(PLACEHOLDER_BOARD);
-          setBoardTeamId((prev) => prev ?? PLACEHOLDER_BOARD.myTeamId);
           return;
         }
         setError(err instanceof Error ? err.message : "Failed to load board");
@@ -75,7 +186,7 @@ export function BingoPage() {
     setError(null);
     try {
       await submitTileProof(tileId, file);
-      reloadBoard();
+      reloadBoard(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit proof");
       throw err;
@@ -92,7 +203,7 @@ export function BingoPage() {
     try {
       await reviewSubmission(id, decision, itemId);
       reloadSubmissions();
-      reloadBoard();
+      reloadBoard(true);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to review submission",
@@ -135,11 +246,12 @@ export function BingoPage() {
     );
   }
 
+  const boardTeamId = pickedTeamId ?? myTeamId;
   const boardTeam =
     board.teams.find((t) => t.id === boardTeamId) ?? board.teams[0] ?? null;
   const selectedTile =
     boardTeam?.tiles.find((t) => t.tileId === selectedTileId) ?? null;
-  const canSubmitToBoardTeam = !!boardTeam && boardTeam.id === board.myTeamId;
+  const canSubmitToBoardTeam = !!boardTeam && boardTeam.id === myTeamId;
 
   return (
     <>
@@ -149,7 +261,24 @@ export function BingoPage() {
         <div className="page-head">
           <div className="page-head-row">
             <div className="page-head-text">
-              <div className="page-eyebrow">Clan Event</div>
+              <div className="page-eyebrow">
+                Clan Event
+                {loadedAt !== null && (
+                  <>
+                    {" · "}
+                    <span className="bingo-freshness">
+                      {formatAgo(now - loadedAt)}
+                    </span>{" "}
+                    <button
+                      type="button"
+                      className="bingo-refresh"
+                      onClick={() => reloadBoard(true)}
+                    >
+                      Refresh
+                    </button>
+                  </>
+                )}
+              </div>
               <h1 className="page-title">{board.config.name}</h1>
               <p className="page-sub">
                 First team to complete every tile on their board wins. Click a
@@ -243,7 +372,7 @@ export function BingoPage() {
                   type="button"
                   className={`bingo-team-pill${team.id === boardTeam.id ? " active" : ""}`}
                   onClick={() => {
-                    setBoardTeamId(team.id);
+                    setPickedTeamId(team.id);
                     setSelectedTileId(null);
                   }}
                 >

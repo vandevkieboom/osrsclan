@@ -115,6 +115,8 @@ export async function getSessionUser(
   return toSessionUser(rows[0]);
 }
 
+const LAST_USED_WRITE_INTERVAL_MS = 60 * 60 * 1000;
+
 /**
  * Resolves the caller from an `Authorization: Bearer <token>` header backed by
  * the plugin_tokens table, for clients that can't hold a browser session
@@ -132,9 +134,10 @@ export async function getPluginUser(
   if (!token) return null;
 
   const rows = await sql`
-    SELECT pt.id AS token_id, u.id, u.discord_id, u.discord_username,
-           u.discord_global_name, u.discord_avatar_hash, u.is_admin, u.team_id,
-           u.runescape_name, u.remember_rankings, t.name AS team_name
+    SELECT pt.id AS token_id, pt.last_used_at, u.id, u.discord_id,
+           u.discord_username, u.discord_global_name, u.discord_avatar_hash,
+           u.is_admin, u.team_id, u.runescape_name, u.remember_rankings,
+           t.name AS team_name
     FROM plugin_tokens pt
     JOIN users u ON u.id = pt.user_id
     LEFT JOIN teams t ON t.id = u.team_id
@@ -142,7 +145,19 @@ export async function getPluginUser(
 
   if (rows.length === 0) return null;
 
-  await sql`UPDATE plugin_tokens SET last_used_at = now() WHERE id = ${rows[0].token_id}`;
+  // last_used_at exists so an admin can spot a token nobody uses any more —
+  // hour-granularity is entirely sufficient for that. Writing it on *every*
+  // authenticated request meant one row update per plugin per minute for as
+  // long as an event ran, purely to overwrite a timestamp with a nearly
+  // identical one. Skipping the write when the stored value is already recent
+  // keeps the same answer at a tiny fraction of the write volume.
+  const lastUsed = rows[0].last_used_at as string | null;
+  if (
+    !lastUsed ||
+    Date.now() - new Date(lastUsed).getTime() > LAST_USED_WRITE_INTERVAL_MS
+  ) {
+    await sql`UPDATE plugin_tokens SET last_used_at = now() WHERE id = ${rows[0].token_id}`;
+  }
   return toSessionUser(rows[0]);
 }
 

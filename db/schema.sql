@@ -249,3 +249,118 @@ CREATE INDEX IF NOT EXISTS idx_plugin_tokens_user_id ON plugin_tokens(user_id);
 -- from this file only stops it being recreated, it doesn't remove it from
 -- a database where it already exists.
 DROP TABLE IF EXISTS lfg_posts;
+
+-- ---------------------------------------------------------------------------
+-- Board change stamp — lets the plugin skip the expensive board fetch
+-- ---------------------------------------------------------------------------
+-- Every online plugin used to re-fetch the whole board (tiles + teams +
+-- rosters + every submission) once a minute for as long as an event was
+-- running, whether or not a single thing had changed since its last fetch.
+-- With a few dozen members online that is tens of thousands of invocations
+-- and gigabytes of response body per day, spent almost entirely on
+-- re-sending an identical payload.
+--
+-- `board_changed_at` is a single timestamp that moves whenever anything the
+-- board response is built from actually changes. The plugin reads it from
+-- the cheap, edge-cached status ping it already polls every minute, and only
+-- runs the real board fetch when it differs from the one it last fetched.
+-- Freshness is unchanged — a real change is still picked up on the very next
+-- minute tick — but an unchanged board now costs nothing at all.
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS board_changed_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+-- Maintained by triggers rather than by a bumpBoardVersion() call at each of
+-- the ~20 places that write to these tables, deliberately: a *missed* call
+-- site is invisible in testing and shows up in production as a board that
+-- silently never updates, which is precisely the failure this whole change
+-- must not introduce. A trigger cannot be forgotten.
+--
+-- now() is the transaction timestamp, so it is constant within a statement
+-- *and* within a multi-statement transaction. That makes the WHERE clause
+-- self-limiting: the first changed row in a transaction moves the stamp, and
+-- every subsequent row in that same transaction matches `board_changed_at <
+-- now()` as false and updates nothing. So a bulk update of a whole roster's
+-- goal_progress costs one write here, not one per row.
+CREATE OR REPLACE FUNCTION bump_board_changed_at() RETURNS trigger AS $$
+BEGIN
+  UPDATE board_config SET board_changed_at = now()
+   WHERE id = 1 AND board_changed_at < now();
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- INSERT/DELETE always count as a change; UPDATE only counts when a column
+-- value actually differs, so the every-2-minutes goal reconcile pass (which
+-- re-writes only rows whose hiscores value genuinely went up — see
+-- refreshGoalLatestValues in api/_lib/board.ts) doesn't invalidate every
+-- plugin's cached board on a pass where nobody actually gained anything.
+DROP TRIGGER IF EXISTS tiles_bump_board ON tiles;
+CREATE TRIGGER tiles_bump_board
+  AFTER INSERT OR DELETE ON tiles
+  FOR EACH ROW EXECUTE FUNCTION bump_board_changed_at();
+DROP TRIGGER IF EXISTS tiles_bump_board_update ON tiles;
+CREATE TRIGGER tiles_bump_board_update
+  AFTER UPDATE ON tiles
+  FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION bump_board_changed_at();
+
+DROP TRIGGER IF EXISTS teams_bump_board ON teams;
+CREATE TRIGGER teams_bump_board
+  AFTER INSERT OR DELETE ON teams
+  FOR EACH ROW EXECUTE FUNCTION bump_board_changed_at();
+DROP TRIGGER IF EXISTS teams_bump_board_update ON teams;
+CREATE TRIGGER teams_bump_board_update
+  AFTER UPDATE ON teams
+  FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION bump_board_changed_at();
+
+DROP TRIGGER IF EXISTS submissions_bump_board ON submissions;
+CREATE TRIGGER submissions_bump_board
+  AFTER INSERT OR DELETE ON submissions
+  FOR EACH ROW EXECUTE FUNCTION bump_board_changed_at();
+DROP TRIGGER IF EXISTS submissions_bump_board_update ON submissions;
+CREATE TRIGGER submissions_bump_board_update
+  AFTER UPDATE ON submissions
+  FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION bump_board_changed_at();
+
+DROP TRIGGER IF EXISTS goal_progress_bump_board ON goal_progress;
+CREATE TRIGGER goal_progress_bump_board
+  AFTER INSERT OR DELETE ON goal_progress
+  FOR EACH ROW EXECUTE FUNCTION bump_board_changed_at();
+DROP TRIGGER IF EXISTS goal_progress_bump_board_update ON goal_progress;
+CREATE TRIGGER goal_progress_bump_board_update
+  AFTER UPDATE ON goal_progress
+  FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*)
+  EXECUTE FUNCTION bump_board_changed_at();
+
+-- users only matters here for the fields the board response actually renders
+-- (team membership and the display name shown on a submission) — a login
+-- touching last_seen or a rankings preference must not invalidate every
+-- plugin's board.
+DROP TRIGGER IF EXISTS users_bump_board ON users;
+CREATE TRIGGER users_bump_board
+  AFTER INSERT OR DELETE ON users
+  FOR EACH ROW EXECUTE FUNCTION bump_board_changed_at();
+DROP TRIGGER IF EXISTS users_bump_board_update ON users;
+CREATE TRIGGER users_bump_board_update
+  AFTER UPDATE ON users
+  FOR EACH ROW WHEN (
+    OLD.team_id IS DISTINCT FROM NEW.team_id
+    OR OLD.runescape_name IS DISTINCT FROM NEW.runescape_name
+    OR OLD.discord_global_name IS DISTINCT FROM NEW.discord_global_name
+    OR OLD.discord_username IS DISTINCT FROM NEW.discord_username
+    OR OLD.discord_avatar_hash IS DISTINCT FROM NEW.discord_avatar_hash
+  )
+  EXECUTE FUNCTION bump_board_changed_at();
+
+-- Where the last leaderboard refresh stopped. The refresh fans out to
+-- RuneProfile for the entire roster and, at this clan's size, needs several
+-- minutes -- which is longer than a single function invocation is allowed to
+-- run. It used to be all-or-nothing: the write happened only at the very end,
+-- so once the roster outgrew the time limit the function was killed first and
+-- the leaderboard silently stopped updating altogether.
+--
+-- It now stops at a deadline, merges what it managed over the previous
+-- snapshot, and records how far it got so the next night continues from there
+-- rather than restarting at the top of the roster forever.
+ALTER TABLE leaderboard_cache ADD COLUMN IF NOT EXISTS refresh_offset INT NOT NULL DEFAULT 0;

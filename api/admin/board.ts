@@ -4,6 +4,7 @@ import { requireAdmin } from "../_lib/auth.js";
 import {
   fetchWomStatsByRsnKey,
   getOrCreateBoardConfig,
+  invalidateBoardConfigMemo,
   resetBingoProgress,
   seedGoalBaselines,
   setBroadcast,
@@ -55,6 +56,7 @@ async function sendBroadcast(req: VercelRequest, res: VercelResponse) {
     return;
   }
   const broadcast = await setBroadcast(message);
+  invalidateBoardConfigMemo();
   res.status(200).json({ broadcast });
 }
 
@@ -76,13 +78,19 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
   // it was ever deleted by hand, a plain "WHERE id = 1" would silently touch
   // zero rows instead of recreating it.
   await getOrCreateBoardConfig();
+  // board_changed_at is maintained by triggers on every table the board is
+  // built from (see db/schema.sql), but board_config itself can't carry one —
+  // a trigger on this table that updates this table recurses. Since the name
+  // and size are part of what the board renders, this is the one place that
+  // has to stamp it by hand.
   const rows = await sql`
     INSERT INTO board_config (id, name, size, bingo_active)
     VALUES (1, ${name}, ${size}, ${bingoActive})
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name, size = EXCLUDED.size, bingo_active = EXCLUDED.bingo_active,
-      updated_at = now()
+      updated_at = now(), board_changed_at = now()
     RETURNING name, size, bingo_active`;
+  invalidateBoardConfigMemo();
   const c = rows[0];
   res.status(200).json({
     config: {

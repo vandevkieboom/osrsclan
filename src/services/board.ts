@@ -54,6 +54,11 @@ export interface BoardData {
     size: number;
   };
   teams: BoardTeam[];
+  /**
+   * Always null — the board is one cached copy shared by every viewer, so it
+   * carries nothing per-viewer. Use `useAuth().user?.team?.id` instead. Kept
+   * on the type because the API still sends the field.
+   */
   myTeamId: number | null;
 }
 
@@ -62,8 +67,19 @@ export interface Donor {
   donatedGp: number;
 }
 
-export async function fetchBoard(): Promise<BoardData> {
-  const res = await fetch("/api/board");
+/**
+ * @param fresh bypass the CDN copy. The board is edge-cached for a few
+ *   seconds so that one change doesn't cost one render per viewer (see
+ *   getBoard in api/board.ts), which is right for ordinary page loads and
+ *   wrong immediately after *you* did something: seeing your own submission
+ *   missing from the board you just submitted it to reads as a bug, not as a
+ *   cache. A unique query string gives those few reloads an uncached answer,
+ *   at the cost of one extra render each — they only happen on a real user
+ *   action, so there are very few of them.
+ */
+export async function fetchBoard(fresh = false): Promise<BoardData> {
+  const url = fresh ? `/api/board?fresh=${Date.now()}` : "/api/board";
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to load board (${res.status})`);
   return res.json() as Promise<BoardData>;
 }

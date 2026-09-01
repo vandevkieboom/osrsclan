@@ -7,17 +7,78 @@ export interface BoardConfigRow {
   broadcast_message: string;
   broadcast_updated_at: string | null;
   bingo_active: boolean;
+  board_changed_at: string;
 }
 
-// board_config is a singleton (id = 1). This upserts a default row into
-// existence if it's ever missing (e.g. someone deleted it by hand in the
-// database) instead of every caller crashing on an empty result set.
+// board_config is a singleton (id = 1), and it is by far the most-read row in
+// the database — every plugin poll needs it.
+//
+// This used to be an `INSERT ... ON CONFLICT DO UPDATE`, purely so that a
+// row deleted by hand would be recreated. That made a *write* out of what is
+// overwhelmingly a read: with a few dozen plugins online it was tens of
+// thousands of pointless writes a day to a single row, each one generating
+// WAL and dead tuples for autovacuum to clean up, on a database whose compute
+// quota is the binding constraint. Now it reads first and only ever writes on
+// the genuinely-missing case it was written for.
 export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
+    SELECT name, size, broadcast_message, broadcast_updated_at,
+           bingo_active, board_changed_at
+    FROM board_config WHERE id = 1`;
+  if (rows.length > 0) {
+    return rows[0] as BoardConfigRow;
+  }
+
+  const created = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, size, broadcast_message, broadcast_updated_at, bingo_active`;
-  return rows[0] as BoardConfigRow;
+    RETURNING name, size, broadcast_message, broadcast_updated_at,
+              bingo_active, board_changed_at`;
+  return created[0] as BoardConfigRow;
+}
+
+// How long a warm function instance may reuse a board_config it already read
+// rather than querying again. Only the high-frequency plugin poll path uses
+// this (see api/plugin-poll.ts) — admin reads and the full board fetch always
+// go to the database — so the worst case it can produce is a plugin seeing a
+// just-toggled bingo_active or a just-sent broadcast up to this much later,
+// on top of the edge cache window that already applies to the same response.
+const CONFIG_MEMO_MS = 10_000;
+
+let configMemo: { row: BoardConfigRow; at: number } | null = null;
+
+/**
+ * board_config for the plugin poll path, memoised per warm function instance.
+ *
+ * Vercel's Fluid compute runs many concurrent requests on one instance, so a
+ * burst of poll requests that all miss the edge cache at the same moment
+ * previously became a burst of identical single-row queries. This collapses
+ * them into one. `lastGood` additionally survives a database outage: the poll
+ * endpoint would rather serve a slightly stale-but-correct answer with a
+ * cacheable 200 than a 500 that the edge refuses to cache and that therefore
+ * turns every polling client into a direct function invocation — see
+ * api/plugin-poll.ts for why that distinction is the whole point.
+ */
+export async function getBoardConfigMemoised(): Promise<{
+  row: BoardConfigRow | null;
+  stale: boolean;
+}> {
+  if (configMemo && Date.now() - configMemo.at < CONFIG_MEMO_MS) {
+    return { row: configMemo.row, stale: false };
+  }
+  try {
+    const row = await getOrCreateBoardConfig();
+    configMemo = { row, at: Date.now() };
+    return { row, stale: false };
+  } catch (err) {
+    console.error("board_config read failed, falling back:", err);
+    return { row: configMemo?.row ?? null, stale: true };
+  }
+}
+
+/** Drops the memo so an admin write is visible to this instance immediately. */
+export function invalidateBoardConfigMemo(): void {
+  configMemo = null;
 }
 
 /**
@@ -368,12 +429,21 @@ const GOAL_RECONCILE_THROTTLE_MS = 2 * 60 * 1000;
 
 /**
  * Opportunistically corrects existing goal_progress rows, throttled to run
- * at most once per GOAL_RECONCILE_THROTTLE_MS. Called from getBoard (see
- * api/board.ts) so it rides along on real traffic instead of a fixed-clock
- * cron (Vercel Hobby only allows daily crons, which could land after an
- * event's deadline has already passed). Never throws — a WOM outage should
- * never take the board down with it, it just means this pass is skipped
- * and the next request retries.
+ * at most once per GOAL_RECONCILE_THROTTLE_MS. Rides along on real traffic
+ * rather than a fixed-clock cron (Vercel Hobby only allows daily crons,
+ * which could land after an event's deadline has already passed). Never
+ * throws — a WOM outage should never take the board down with it, it just
+ * means this pass is skipped and the next request retries.
+ *
+ * The *primary* caller is the plugin poll endpoint (api/plugin-poll.ts), and
+ * that matters rather than being incidental: getBoard is now only fetched
+ * when the board has actually changed (see board_changed_at in
+ * db/schema.sql), and this pass is itself one of the things that changes it,
+ * so hanging it off getBoard alone would make the two circular — xp/kc
+ * progress would freeze the moment it stopped changing for other reasons and
+ * never restart. The poll endpoint runs unconditionally, so it can't stall
+ * that way. getBoard calls it too, which costs one throttled row read and
+ * covers a browser opening the bingo page while no plugin is online.
  *
  * Deliberately correction-only — never seeds a missing row. Seeding only
  * ever happens explicitly (resetBingoProgress, or a tile's goal being
@@ -382,14 +452,23 @@ const GOAL_RECONCILE_THROTTLE_MS = 2 * 60 * 1000;
  * each of them to be "noticed" by an opportunistic pass like this one.
  */
 export async function maybeReconcileGoalProgress(): Promise<void> {
+  // Throttle check first, and on its own: this function is called from the
+  // plugin poll endpoint, so the overwhelming majority of calls are going to
+  // be throttled out, and those need to cost exactly one indexed single-row
+  // read and nothing else. Checking for active goal tiles up front instead
+  // would add a second query to every one of those no-op calls.
   const rows = await sql`SELECT goal_reconciled_at FROM board_config WHERE id = 1`;
   const lastRun = rows[0]?.goal_reconciled_at as string | null;
   if (lastRun && Date.now() - new Date(lastRun).getTime() < GOAL_RECONCILE_THROTTLE_MS) {
     return;
   }
-  // Claimed before the network call so concurrent requests arriving during
-  // the fetch don't all decide it's also their turn.
+
+  // Nothing to reconcile against if the board has no xp/kc tiles at all,
+  // which is the common case between events. Claiming the throttle anyway
+  // keeps that check to once per interval rather than once per poll.
   await sql`UPDATE board_config SET goal_reconciled_at = now() WHERE id = 1`;
+  const activeGoals = await getActiveGoals();
+  if (activeGoals.length === 0) return;
 
   const womByRsnKey = await fetchWomStatsByRsnKey();
   if (!womByRsnKey) return;
