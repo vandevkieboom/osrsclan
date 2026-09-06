@@ -55,6 +55,12 @@ export function skillIconUrl(goalKey: string): string | null {
   return file ? `https://oldschool.runescape.wiki/images/${file}_icon.png` : null;
 }
 
+/** Whether a WOM metric key names a skill (xp-based) rather than a boss
+ * (kc-based) — used to format a SOTW/BOTW's numbers correctly. */
+export function isSkillMetric(metric: string): boolean {
+  return metric.trim().toLowerCase() in SKILL_ICON_FILES;
+}
+
 export interface IconableTile {
   itemIds: number[];
   goalKind: "item" | "xp" | "kc";

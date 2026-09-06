@@ -1,5 +1,6 @@
 import { withErrorHandling } from "./_lib/handler.js";
 import { refreshGoalLatestValues, fetchWomStatsByRsnKey } from "./_lib/board.js";
+import { isSkillMetric } from "./_lib/icons.js";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
 // Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts, and
@@ -120,6 +121,67 @@ export default withErrorHandling(async function handler(req, res) {
     }
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
     res.status(upstream.status).json(await upstream.json());
+  } else if (type === "event-summary") {
+    // Backs the RuneLite plugin's `!event` command. Deliberately separate
+    // from `type=event` above (which the website's Events tab uses) rather
+    // than changing that endpoint's shape: this needs to report *every*
+    // currently-ongoing competition, not silently pick one, since the clan
+    // does sometimes overlap a BOTW and a SOTW rather than always running
+    // them one at a time. `comps.find(...)` (singular) would show one and
+    // give no indication a second was even running.
+    //
+    // Also fixes a real staleness bug the singular endpoint has: falling
+    // back to comps[0] when nothing is ongoing or upcoming means it can
+    // surface a competition that finished long ago as if it were current —
+    // exactly what would happen during a bingo, or any other quiet week
+    // with nothing running on WOM. This reports "none" explicitly instead.
+    const compsRes = await fetch(
+      `${BASE_URL}/groups/${GROUP_ID}/competitions?limit=20`,
+      { headers: WOM_HEADERS },
+    );
+    if (compsRes.status === 429) {
+      res
+        .status(429)
+        .json({ error: "Rate limit hit — wait a moment and try again." });
+      return;
+    }
+    if (!compsRes.ok) {
+      res.status(compsRes.status).json(await compsRes.json());
+      return;
+    }
+    const comps = (await compsRes.json()) as Array<{
+      id: number;
+      status: string;
+    }>;
+
+    const ongoing = comps.filter((c) => c.status === "ongoing");
+    const upcoming = comps.filter((c) => c.status === "upcoming");
+    const targets = ongoing.length > 0 ? ongoing : upcoming;
+    const status = ongoing.length > 0 ? "ongoing" : upcoming.length > 0 ? "upcoming" : "none";
+
+    if (targets.length === 0) {
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+      res.status(200).json({ status, competitions: [] });
+      return;
+    }
+
+    const details = await Promise.all(
+      targets.map((t) =>
+        fetch(`${BASE_URL}/competitions/${t.id}`, { headers: WOM_HEADERS }).then((r) =>
+          r.ok ? r.json() : null,
+        ),
+      ),
+    );
+    // metricType decided here, once, from the one canonical skill list
+    // (api/_lib/icons.ts) rather than the plugin keeping its own copy just
+    // for this — that list already has to stay in sync between the website
+    // and the plugin for tile icons, and a third copy is a third place to
+    // drift.
+    const competitions = (details.filter(Boolean) as Array<{ metric: string }>).map(
+      (c) => ({ ...c, metricType: isSkillMetric(c.metric) ? "xp" : "kc" }),
+    );
+    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
+    res.status(200).json({ status, competitions });
   } else if (type === "player") {
     const { username } = req.query;
     if (typeof username !== "string" || !username.trim()) {
