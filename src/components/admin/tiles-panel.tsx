@@ -167,13 +167,13 @@ function ItemRequirementRowsEditor({
   return (
     <div className="admin-tile-item-reqs">
       <p className="admin-tile-item-reqs-hint">
-        Advanced item requirements (optional) — overrides <em>completion logic</em> (the
-        required-count/unique-items rules above) when set, deciding what counts as done instead
-        of a simple count. It does <strong>not</strong> replace the Item IDs field — keep every
-        item listed there too, or the RuneLite plugin won't recognize any of these drops at all
-        and auto-submission will silently stop working for this tile. Items sharing a "set" name
-        are an OR (any one full set completes the tile); items with no set are always required
-        (an AND).
+        Advanced item requirements (optional): when set, this replaces the
+        required-count/unique-items rules above for deciding when the tile is
+        done. It does <strong>not</strong> replace the Item IDs field, keep
+        every item listed there too, or the RuneLite plugin won't recognize
+        these drops and auto-submission will stop working for this tile.
+        Items sharing a "set" name are an OR (any one full set completes the
+        tile); items with no set are always required (an AND).
       </p>
       {rows.map((row, i) => (
         <div

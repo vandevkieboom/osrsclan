@@ -210,6 +210,7 @@ export function BingoPage() {
     decision: "approved" | "rejected",
     itemId?: number,
   ) {
+    setError(null);
     try {
       await reviewSubmission(id, decision, itemId);
       reloadSubmissions();
@@ -465,7 +466,12 @@ export function BingoPage() {
                 </button>
               </div>
             </div>
-            <AdminReview submissions={submissions} sort={submissionSort} onReview={handleReview} />
+            <AdminReview
+              submissions={submissions}
+              sort={submissionSort}
+              onReview={handleReview}
+              onOpenLightbox={setLightboxUrl}
+            />
           </>
         )}
       </div>

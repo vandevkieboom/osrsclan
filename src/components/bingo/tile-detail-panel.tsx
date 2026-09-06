@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { BoardTile } from "../../services/board";
 import { initialsOf } from "./bingo-helpers";
+import { ItemRequirementsProgress } from "./item-requirements-progress";
 
 export function TileDetailPanel({
   tile,
@@ -97,19 +98,34 @@ export function TileDetailPanel({
         <div className="bingo-detail-description">{tile.description}</div>
       )}
 
-      {isItemGoal && tile.requiredCount > 1 && (
-        <>
-          <div className="bingo-detail-progress-label">
-            {tile.approvedCount} / {tile.requiredCount} contributed toward this
-            tile
-          </div>
-          <div className="bingo-detail-progress-track">
-            <div
-              className="bingo-detail-progress-fill"
-              style={{ width: `${pct}%`, background: accentColor }}
-            />
-          </div>
-        </>
+      {isItemGoal && tile.itemRequirementsStatus ? (
+        // A tile using item_requirements (AND/OR item conditions — see
+        // db/schema.sql) decides completeness per-group, not by counting
+        // approved submissions against the tile's flat requiredCount — that
+        // field is a leftover from before advanced requirements existed on
+        // this tile and no longer means anything once they're set, so the
+        // flat "X / Y contributed" bar below would show a number with no
+        // relationship to what actually completes the tile.
+        <div className="bingo-detail-section-label">
+          Requirements
+          <ItemRequirementsProgress status={tile.itemRequirementsStatus} />
+        </div>
+      ) : (
+        isItemGoal &&
+        tile.requiredCount > 1 && (
+          <>
+            <div className="bingo-detail-progress-label">
+              {tile.approvedCount} / {tile.requiredCount} contributed toward
+              this tile
+            </div>
+            <div className="bingo-detail-progress-track">
+              <div
+                className="bingo-detail-progress-fill"
+                style={{ width: `${pct}%`, background: accentColor }}
+              />
+            </div>
+          </>
+        )
       )}
 
       {!isItemGoal && (

@@ -258,16 +258,19 @@ async function reviewSubmission(
       }
       // Excludes this row itself (still 'pending' at this point, so it would
       // otherwise count against its own cap) — see checkItemRequirements.
+      // Deliberately does not reject once reqStatus.complete: a tile that is
+      // already done via one group (e.g. a single-item "Set B") cannot be
+      // made any less done by approving a genuine drop for another group
+      // ("Set A") that happened to arrive afterward. Blocking that outright
+      // used to throw away real contributions with no way to record them —
+      // approving here can only ever add credit, never un-complete anything,
+      // so there is no actual harm in letting it through.
       const reqStatus = await checkItemRequirements(
         capRow.team_id,
         capRow.tile_id,
         itemRequirements,
         id,
       );
-      if (reqStatus.complete) {
-        res.status(409).json({ error: "That tile is already complete" });
-        return;
-      }
       const itemStatus = reqStatus.perItem.find((i) => i.itemId === effectiveItemId)!;
       if (itemStatus.currentAmount >= itemStatus.requiredAmount) {
         res.status(409).json({

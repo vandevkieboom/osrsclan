@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AdminSubmission } from "../../services/admin";
 import type { ItemRequirementsStatus } from "../../services/board";
+import { ItemRequirementsProgress } from "./item-requirements-progress";
 
 interface AdminReviewProps {
   submissions: AdminSubmission[] | null;
@@ -15,6 +16,7 @@ interface AdminReviewProps {
     decision: "approved" | "rejected",
     itemId?: number,
   ) => void;
+  onOpenLightbox: (url: string) => void;
 }
 
 interface Group {
@@ -76,67 +78,18 @@ function groupOldestFirst(submissions: AdminSubmission[]): Group[] {
   }));
 }
 
-/** "Set A: Enhanced crystal weapon seed 0/1, ..." — the per-group/per-item
- * breakdown for an item_requirements tile, so a reviewer can see at a glance
- * which "OR" set is closest to done without re-deriving it from raw counts. */
-function ItemRequirementsProgress({ status }: { status: ItemRequirementsStatus }) {
-  const ungrouped = status.perItem.filter((i) => !i.group);
-  // Keyed lowercase to match evaluateItemRequirements' own case-insensitive
-  // grouping (api/_lib/board.ts) — otherwise "Set A" and "set a" would
-  // evaluate as one set server-side but render as two here. Display keeps
-  // whichever casing was seen first, rather than forcing lowercase on screen.
-  const groups = new Map<string, { display: string; items: typeof status.perItem }>();
-  for (const i of status.perItem) {
-    if (!i.group) continue;
-    const key = i.group.toLowerCase();
-    const entry = groups.get(key) ?? { display: i.group, items: [] };
-    entry.items.push(i);
-    groups.set(key, entry);
-  }
-
-  const row = (i: (typeof status.perItem)[number]) => {
-    const done = i.currentAmount >= i.requiredAmount;
-    return (
-      <span
-        key={i.itemId}
-        className={`bingo-admin-req-pill${done ? " bingo-admin-req-pill--done" : ""}`}
-      >
-        {i.name} {i.currentAmount}/{i.requiredAmount}
-      </span>
-    );
-  };
-
-  return (
-    <div className="bingo-admin-group-context bingo-admin-req-progress">
-      {ungrouped.length > 0 && <span className="bingo-admin-req-set">{ungrouped.map(row)}</span>}
-      {[...groups.entries()].map(([key, { display, items }]) => {
-        const setDone = items.every((i) => i.currentAmount >= i.requiredAmount);
-        return (
-          <span
-            key={key}
-            className={`bingo-admin-req-set${setDone ? " bingo-admin-req-set--done" : ""}`}
-          >
-            <em>{display}:</em> {items.map(row)}
-          </span>
-        );
-      })}
-      {groups.size > 1 && (
-        <span className="bingo-admin-req-hint">complete any one set</span>
-      )}
-    </div>
-  );
-}
-
 function SubmissionRow({
   sub,
   requireUniqueItems,
   itemRequirementsStatus,
   onReview,
+  onOpenLightbox,
 }: {
   sub: AdminSubmission;
   requireUniqueItems: boolean;
   itemRequirementsStatus: ItemRequirementsStatus | null;
   onReview: AdminReviewProps["onReview"];
+  onOpenLightbox: AdminReviewProps["onOpenLightbox"];
 }) {
   // Pre-filled when the plugin already tagged it; editable either way, since
   // an admin reviewing a manual upload can type in what they see themselves.
@@ -165,6 +118,9 @@ function SubmissionRow({
   const knownName = itemRequirementsStatus?.perItem.find(
     (i) => i.itemId === sub.itemId,
   )?.name;
+  // Narrowed to a local so the `onClick` closure below still knows it's a
+  // string — TS drops property-access narrowing across a function boundary.
+  const proofUrl = sub.proofUrl;
 
   return (
     <div className="bingo-admin-row">
@@ -214,15 +170,19 @@ function SubmissionRow({
           />
         )
       )}
-      {sub.proofUrl && (
-        <a
-          href={sub.proofUrl}
-          target="_blank"
-          rel="noreferrer"
+      {proofUrl && (
+        // A button that opens the same click-to-zoom Lightbox the player
+        // board's screenshot grid uses, not a raw new-tab link — a plain
+        // <a href> handed the browser the file at whatever resolution it was
+        // captured at (a full desktop capture can be 2500px+), with no way to
+        // cap or dismiss it short of closing the tab.
+        <button
+          type="button"
           className="bingo-admin-proof-link"
+          onClick={() => onOpenLightbox(proofUrl)}
         >
           View proof
-        </a>
+        </button>
       )}
       <button
         type="button"
@@ -248,7 +208,12 @@ function SubmissionRow({
   );
 }
 
-export function AdminReview({ submissions, sort, onReview }: AdminReviewProps) {
+export function AdminReview({
+  submissions,
+  sort,
+  onReview,
+  onOpenLightbox,
+}: AdminReviewProps) {
   if (!submissions || submissions.length === 0) {
     return <div className="bingo-admin-empty">No pending submissions.</div>;
   }
@@ -293,6 +258,7 @@ export function AdminReview({ submissions, sort, onReview }: AdminReviewProps) {
               requireUniqueItems={group.requireUniqueItems}
               itemRequirementsStatus={group.itemRequirementsStatus}
               onReview={onReview}
+              onOpenLightbox={onOpenLightbox}
             />
           ))}
         </div>

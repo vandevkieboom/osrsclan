@@ -218,6 +218,12 @@
 }
 
 .admin-tile-delete-all {
+  /* Matches .admin-tile-list-add's size — .admin-btn-danger's own padding is
+     tuned for the smaller per-row delete buttons elsewhere, which reads as
+     an odd size mismatch sitting right next to +Add Tile. Scoped here rather
+     than changed on .admin-btn-danger itself, which those other buttons
+     still rely on. */
+  padding: 10px 18px;
   margin-left: 0.6rem;
 }
 
