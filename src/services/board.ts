@@ -9,6 +9,25 @@ export interface BoardProof {
   createdAt: string;
 }
 
+export interface ItemRequirement {
+  itemId: number;
+  name: string;
+  requiredAmount: number;
+  group: string | null;
+}
+
+export interface ItemRequirementStatus extends ItemRequirement {
+  currentAmount: number;
+}
+
+/** Per-item/per-group completion for a tile using item_requirements (see
+ * db/schema.sql) — null for every tile still on the flat item_ids/
+ * required_count model. */
+export interface ItemRequirementsStatus {
+  complete: boolean;
+  perItem: ItemRequirementStatus[];
+}
+
 export interface BoardTile {
   tileId: number;
   position: number;
@@ -31,6 +50,11 @@ export interface BoardTile {
   goalKey: string;
   goalTarget: number | null;
   teamProgress: number | null;
+  /** Explicit icon override (an OSRS item id) the RuneLite plugin prefers
+   * over its default. The website itself keeps using `iconUrl` regardless —
+   * this only exists for the type to mirror what the API now sends. */
+  iconItemId: number | null;
+  itemRequirementsStatus: ItemRequirementsStatus | null;
 }
 
 export interface BoardTeam {
@@ -94,6 +118,7 @@ export async function fetchDonors(): Promise<Donor[]> {
 export async function submitTileProof(
   tileId: number,
   file: File,
+  itemId?: number,
 ): Promise<void> {
   const blob = await upload(
     `proofs/${tileId}-${Date.now()}-${file.name}`,
@@ -107,7 +132,7 @@ export async function submitTileProof(
   const res = await fetch("/api/board", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tileId, proofUrl: blob.url }),
+    body: JSON.stringify({ tileId, proofUrl: blob.url, itemId }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);

@@ -141,6 +141,14 @@ export function BingoPage() {
   const [submissions, setSubmissions] = useState<AdminSubmission[] | null>(
     null,
   );
+  // Review-queue narrowing — at a 200-person clan's scale the flat pending
+  // list can span every team and every tile at once, so an admin needs a way
+  // to focus. "grouped" (default) matches api/admin/submissions.ts's own
+  // default order (tile then team, best for spotting duplicates); "oldest"
+  // ignores grouping for clearing a launch-day backlog fastest.
+  const [submissionTeamFilter, setSubmissionTeamFilter] = useState<number | null>(null);
+  const [submissionTileFilter, setSubmissionTileFilter] = useState<number | null>(null);
+  const [submissionSort, setSubmissionSort] = useState<"grouped" | "oldest">("grouped");
 
   // Which team is "mine" comes from the session, not from the board response:
   // the board is now one cached copy shared by every viewer (see getBoard in
@@ -172,20 +180,36 @@ export function BingoPage() {
       Promise.resolve(null).then(setSubmissions);
       return;
     }
-    fetchAdminSubmissions("pending")
+    fetchAdminSubmissions("pending", {
+      teamId: submissionTeamFilter ?? undefined,
+      tileId: submissionTileFilter ?? undefined,
+      sort: submissionSort,
+    })
       .then(setSubmissions)
       .catch(() =>
         setSubmissions(import.meta.env.DEV ? PLACEHOLDER_SUBMISSIONS : null),
       );
   }
 
-  useEffect(reloadSubmissions, [isAdmin, view]);
+  useEffect(reloadSubmissions, [
+    isAdmin,
+    view,
+    submissionTeamFilter,
+    submissionTileFilter,
+    submissionSort,
+  ]);
 
-  async function handleSubmitProof(tileId: number, file: File) {
+  // Options for the review-queue filters, derived from the board already on
+  // hand rather than a separate admin/teams or admin/tiles fetch — every
+  // team carries the same tile set, so any one team's tiles name them all.
+  const submissionTeamOptions = board?.teams ?? [];
+  const submissionTileOptions = board?.teams?.[0]?.tiles ?? [];
+
+  async function handleSubmitProof(tileId: number, file: File, itemId?: number) {
     setUploadingTileId(tileId);
     setError(null);
     try {
-      await submitTileProof(tileId, file);
+      await submitTileProof(tileId, file, itemId);
       reloadBoard(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit proof");
@@ -411,9 +435,9 @@ export function BingoPage() {
                   isLoggedIn={!!user}
                   viewingTeamName={boardTeam.name}
                   isUploading={uploadingTileId === selectedTile?.tileId}
-                  onSubmit={async (file) => {
+                  onSubmit={async (file, itemId) => {
                     if (!selectedTile) return;
-                    await handleSubmitProof(selectedTile.tileId, file);
+                    await handleSubmitProof(selectedTile.tileId, file, itemId);
                   }}
                   onOpenLightbox={setLightboxUrl}
                 />
@@ -423,7 +447,57 @@ export function BingoPage() {
         )}
 
         {view === "admin" && isAdmin && (
-          <AdminReview submissions={submissions} onReview={handleReview} />
+          <>
+            <div className="bingo-admin-filters">
+              <select
+                className="admin-select"
+                value={submissionTeamFilter ?? ""}
+                onChange={(e) =>
+                  setSubmissionTeamFilter(e.target.value ? Number(e.target.value) : null)
+                }
+                aria-label="Filter by team"
+              >
+                <option value="">All teams</option>
+                {submissionTeamOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="admin-select"
+                value={submissionTileFilter ?? ""}
+                onChange={(e) =>
+                  setSubmissionTileFilter(e.target.value ? Number(e.target.value) : null)
+                }
+                aria-label="Filter by tile"
+              >
+                <option value="">All tiles</option>
+                {submissionTileOptions.map((t) => (
+                  <option key={t.tileId} value={t.tileId}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <div className="bingo-admin-sort-toggle">
+                <button
+                  type="button"
+                  className={submissionSort === "grouped" ? "admin-btn-primary" : "admin-btn-ghost"}
+                  onClick={() => setSubmissionSort("grouped")}
+                >
+                  Grouped
+                </button>
+                <button
+                  type="button"
+                  className={submissionSort === "oldest" ? "admin-btn-primary" : "admin-btn-ghost"}
+                  onClick={() => setSubmissionSort("oldest")}
+                >
+                  Oldest first
+                </button>
+              </div>
+            </div>
+            <AdminReview submissions={submissions} onReview={handleReview} />
+          </>
         )}
       </div>
 

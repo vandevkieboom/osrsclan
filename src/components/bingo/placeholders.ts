@@ -35,6 +35,8 @@ function placeholderTiles(teamId: number): BoardTile[] {
       goalKey: "",
       goalTarget: null,
       teamProgress: null,
+      iconItemId: null,
+      itemRequirementsStatus: null,
       proofs:
         status === "none"
           ? []
@@ -143,6 +145,7 @@ export const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
     createdAt: "2026-08-02T00:00:00.000Z",
     itemId: null,
     alreadyApprovedItemIds: [],
+    itemRequirementsStatus: null,
   },
   {
     id: 2,
@@ -158,5 +161,6 @@ export const PLACEHOLDER_SUBMISSIONS: AdminSubmission[] = [
     createdAt: "2026-08-02T00:00:00.000Z",
     itemId: null,
     alreadyApprovedItemIds: [],
+    itemRequirementsStatus: null,
   },
 ];

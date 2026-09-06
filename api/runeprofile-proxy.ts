@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
-import { getBoardConfigMemoised } from "./_lib/board.js";
 import { withErrorHandling } from "./_lib/handler.js";
 // This backend function intentionally imports frontend domain/service
 // modules directly rather than duplicating rank-progress logic — there's no
@@ -645,36 +644,9 @@ async function getClanRequirement(req: VercelRequest, res: VercelResponse) {
   });
 }
 
-/**
- * The RuneLite plugin's periodic broadcast poll (see BingoApiClient#fetchBroadcast
- * and BingoPlugin#checkBroadcast). Deliberately public, no auth — same
- * reasoning as lookupRank above: an admin broadcast isn't gated anywhere
- * else on the site, so there's nothing here for a plugin key to protect.
- */
-async function getBroadcast(res: VercelResponse) {
-  // Set before the read: Vercel's edge does not cache an error response, so
-  // an endpoint every online plugin polls once a minute must never be able to
-  // answer with one — a failing poll endpoint stops absorbing traffic exactly
-  // when it needs to most, and turns every polling client into a direct
-  // function invocation. See api/plugin-poll.ts, which supersedes this for
-  // updated plugins by returning the broadcast alongside the other two things
-  // the plugin used to fetch separately on the same tick.
-  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=90");
-  const { row } = await getBoardConfigMemoised();
-  res.status(200).json({
-    message: row?.broadcast_message ?? "",
-    updatedAt: row?.broadcast_updated_at ?? null,
-  });
-}
-
 export default withErrorHandling(async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  if (req.query.resource === "broadcast") {
-    await getBroadcast(res);
     return;
   }
 

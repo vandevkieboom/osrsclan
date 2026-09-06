@@ -238,6 +238,20 @@
   padding-top: 14px;
 }
 
+/* Which item a manual screenshot shows — only asked for on a tile using
+   item_requirements (AND/OR item conditions). */
+.bingo-detail-item-select {
+  width: 100%;
+  background: #0c0607;
+  border: 1px solid #3a2224;
+  color: #fff;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  margin-bottom: 10px;
+  font-family: "Manrope", Arial, Helvetica, sans-serif;
+}
+
 .bingo-detail-dropzone {
   display: flex;
   flex-direction: column;

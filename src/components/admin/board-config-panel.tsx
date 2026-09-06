@@ -123,8 +123,7 @@ export function BoardConfigPanel() {
                 }
               />
               Bingo event active. Turn off between events to reduce the RuneLite
-              plugin's board polling. Doesn't affect chat commands, livestream
-              or broadcast notifications.
+              plugin's board polling. Doesn't affect chat commands.
             </label>
           </div>
 

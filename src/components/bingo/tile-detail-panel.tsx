@@ -18,17 +18,22 @@ export function TileDetailPanel({
   isLoggedIn: boolean;
   viewingTeamName: string;
   isUploading: boolean;
-  onSubmit: (file: File) => Promise<void>;
+  onSubmit: (file: File, itemId?: number) => Promise<void>;
   onOpenLightbox: (url: string) => void;
 }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Which item this screenshot shows — only asked for on a tile using
+  // item_requirements (AND/OR item conditions; see db/schema.sql). Every
+  // other item tile submits exactly as before, with no item to pick.
+  const [selectedItemId, setSelectedItemId] = useState("");
 
   // A newly selected tile shouldn't carry over the previous tile's pending
   // (unsubmitted) screenshot choice.
   useEffect(() => {
     setSelectedFile(null);
     setPreviewUrl(null);
+    setSelectedItemId("");
   }, [tile?.tileId]);
 
   useEffect(() => {
@@ -63,15 +68,22 @@ export function TileDetailPanel({
     setPreviewUrl(file ? URL.createObjectURL(file) : null);
   }
 
+  const needsItemPick = !!tile?.itemRequirementsStatus;
+
   async function handleSubmit() {
     if (!selectedFile) return;
+    if (needsItemPick && !selectedItemId) return;
     try {
-      await onSubmit(selectedFile);
+      await onSubmit(
+        selectedFile,
+        selectedItemId ? Number(selectedItemId) : undefined,
+      );
       setSelectedFile(null);
       setPreviewUrl(null);
+      setSelectedItemId("");
     } catch {
       // The parent already surfaces the error — keep the selection so the
-      // user can retry without re-picking the file.
+      // user can retry without re-picking the file/item.
     }
   }
 
@@ -184,6 +196,21 @@ export function TileDetailPanel({
       ) : canSubmit ? (
         <div className="bingo-detail-submit">
           <div className="bingo-detail-section-label">SUBMIT PROOF</div>
+          {needsItemPick && (
+            <select
+              className="bingo-detail-item-select"
+              value={selectedItemId}
+              onChange={(e) => setSelectedItemId(e.target.value)}
+              aria-label="Which item does this screenshot show?"
+            >
+              <option value="">Which item does this show? *</option>
+              {tile.itemRequirementsStatus!.perItem.map((i) => (
+                <option key={i.itemId} value={i.itemId}>
+                  {i.name} ({i.currentAmount}/{i.requiredAmount})
+                </option>
+              ))}
+            </select>
+          )}
           <label className="bingo-detail-dropzone">
             <input
               type="file"
@@ -210,7 +237,8 @@ export function TileDetailPanel({
             disabled={
               !selectedFile ||
               isUploading ||
-              tile.approvedCount >= tile.requiredCount
+              (needsItemPick && !selectedItemId) ||
+              tile.status === "approved"
             }
           >
             {isUploading ? "Uploading…" : "SUBMIT FOR REVIEW"}

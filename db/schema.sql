@@ -79,13 +79,13 @@ ALTER TABLE board_config DROP COLUMN IF EXISTS prize_pot;
 -- as a manually-entered config value instead, communicated to participants
 -- directly rather than broadcast through the site.
 ALTER TABLE board_config DROP COLUMN IF EXISTS verification_code;
--- A one-off message an admin can push out, read by the RuneLite plugin's
--- periodic poll and printed as a chat message to anyone with the "Clan
--- broadcasts" toggle on. broadcast_updated_at is what the plugin compares
--- against its own last-seen timestamp to tell a new broadcast from one
--- it's already shown.
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS broadcast_message TEXT NOT NULL DEFAULT '';
-ALTER TABLE board_config ADD COLUMN IF NOT EXISTS broadcast_updated_at TIMESTAMPTZ;
+-- The admin-broadcast feature (a one-off message pushed to anyone with the
+-- "Clan broadcasts" toggle on) was dropped entirely, along with live-stream
+-- notifications on the plugin side, to cut the plugin down to only polling
+-- the site while a bingo event is actually relevant to it — see CLAUDE.md's
+-- "Hosting cost" section.
+ALTER TABLE board_config DROP COLUMN IF EXISTS broadcast_message;
+ALTER TABLE board_config DROP COLUMN IF EXISTS broadcast_updated_at;
 -- Lets an admin explicitly mark "no bingo event is running right now" —
 -- the plugin is a general clan tool (chat commands, live-stream/broadcast
 -- notifications), not bingo-only, so most installs otherwise keep polling
@@ -132,6 +132,37 @@ ALTER TABLE tiles ADD COLUMN IF NOT EXISTS require_unique_items BOOLEAN NOT NULL
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_kind TEXT NOT NULL DEFAULT 'item' CHECK (goal_kind IN ('item', 'xp', 'kc'));
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_key TEXT NOT NULL DEFAULT '';
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_target BIGINT;
+-- Explicit icon override, as an OSRS item id rather than a URL: the RuneLite
+-- plugin can't fetch arbitrary image URLs, so its tile icon has always
+-- defaulted to item_ids[0] via the client's own item sprite cache. For a
+-- multi-item tile that default is often the wrong item (whichever happens to
+-- be listed first), and for an xp/kc goal tile there's often no meaningful
+-- item at all. NULL (the default) means "derive one instead" — see
+-- deriveTileIconUrl in api/_lib/icons.ts, which both the website and the
+-- plugin's icon logic are built from, so the two can no longer disagree.
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS icon_item_id INT;
+-- icon_url used to be the ONLY icon source (admin pastes a wiki "detail"
+-- image) and the plugin's item-id-derived icon was a completely separate,
+-- independently-authored thing — the two could (and did) show different
+-- pictures for the same tile. Now that deriveTileIconUrl (api/_lib/icons.ts)
+-- computes one shared icon for both surfaces from icon_item_id/item_ids/
+-- goal_key, admins no longer fill this in for new tiles — it's kept only as
+-- a last-resort fallback for tiles from before this change (or a genuinely
+-- manual tile with no item at all) where nothing else can be derived.
+ALTER TABLE tiles ALTER COLUMN icon_url DROP NOT NULL;
+ALTER TABLE tiles ALTER COLUMN icon_url SET DEFAULT '';
+-- Per-item completion rule for a drop tile, richer than the flat
+-- item_ids/required_count/require_unique_items trio above can express: an
+-- array of { itemId, name, requiredAmount, group? }. An entry with no group
+-- is always required at its own requiredAmount ("2 Burning claws AND 2
+-- Tormented synapses"); entries sharing a group are one alternative set —
+-- completing any ONE full group satisfies that part of the tile ("1
+-- Enhanced crystal weapon seed OR 3 Crystal armour seeds", or "any one
+-- complete Barrows brother's set"). NULL (the default, and every existing
+-- tile) means "ignore this column, use the flat fields exactly as before" —
+-- fully additive and opt-in per tile. See checkItemRequirements in
+-- api/_lib/board.ts for the completion logic this backs.
+ALTER TABLE tiles ADD COLUMN IF NOT EXISTS item_requirements JSONB;
 
 -- Per-member progress toward a tile's team-combined xp/kc goal (see goal_kind
 -- above). baseline_value is that member's hiscores reading at the moment

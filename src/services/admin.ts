@@ -1,3 +1,5 @@
+import type { ItemRequirement, ItemRequirementsStatus } from "./board";
+
 export interface AdminTeam {
   id: number;
   name: string;
@@ -51,6 +53,15 @@ export interface AdminTile {
   goalKind: "item" | "xp" | "kc";
   goalKey: string;
   goalTarget: number | null;
+  /** Explicit icon override — an OSRS item id the RuneLite plugin renders
+   * instead of its default (itemIds[0], or nothing for an xp/kc tile). Null
+   * means "no override, derive as before." */
+  iconItemId: number | null;
+  /** Richer AND/OR item conditions (see db/schema.sql) — null (the default)
+   * means "not using this, the flat itemIds/requiredCount/
+   * requireUniqueItems fields above apply as normal." When set, those flat
+   * fields are ignored for completion purposes. */
+  itemRequirements: ItemRequirement[] | null;
 }
 
 /** The xp/kc-goal fields shared by createTile/updateTile's params. */
@@ -76,6 +87,9 @@ export interface AdminSubmission {
   itemId: number | null;
   /** Item ids already approved for this exact team+tile, for reviewer context. */
   alreadyApprovedItemIds: number[];
+  /** Present only for tiles using the richer item_requirements model (AND/OR
+   * item conditions — see db/schema.sql); null for every other tile. */
+  itemRequirementsStatus: ItemRequirementsStatus | null;
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -221,30 +235,14 @@ export async function updateBoardConfig(
 
 /**
  * Wipes everything tied to the current bingo round (submissions, xp/kc goal
- * progress) so a new round starts clean. Tiles, teams/rosters, donations and
- * the broadcast message are left untouched. Irreversible.
+ * progress) so a new round starts clean. Tiles, teams/rosters and donations
+ * are left untouched. Irreversible.
  */
 export async function resetBingo(): Promise<void> {
   const res = await fetch("/api/admin/board?resource=reset-bingo", {
     method: "POST",
   });
   await json(res);
-}
-
-export interface Broadcast {
-  message: string;
-  updatedAt: string;
-}
-
-/** Pushes a one-off message the RuneLite plugin picks up on its next poll. */
-export async function sendBroadcast(message: string): Promise<Broadcast> {
-  const res = await fetch("/api/admin/board?resource=broadcast", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-  const data = await json<{ broadcast: Broadcast }>(res);
-  return data.broadcast;
 }
 
 export async function fetchAdminTiles(): Promise<AdminTile[]> {
@@ -256,24 +254,32 @@ export async function fetchAdminTiles(): Promise<AdminTile[]> {
 export async function createTile(params: {
   position: number;
   name: string;
-  iconUrl: string;
+  /** Legacy fallback only — no longer collected from the tile editor (icons
+   * are derived, see icon_item_id/api/_lib/icons.ts); still accepted for the
+   * random-fill feature's real wiki images, where there's no item to derive
+   * an icon from at all. */
+  iconUrl?: string;
   requiredCount?: number;
   category?: string;
   description?: string;
   itemIds?: number[];
   requireUniqueItems?: boolean;
   goal?: TileGoal;
+  iconItemId?: number | null;
+  itemRequirements?: ItemRequirement[] | null;
 }): Promise<AdminTile> {
   const {
     position,
     name,
-    iconUrl,
+    iconUrl = "",
     requiredCount = 1,
     category = "",
     description = "",
     itemIds = [],
     requireUniqueItems = false,
     goal,
+    iconItemId = null,
+    itemRequirements = null,
   } = params;
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "POST",
@@ -287,6 +293,8 @@ export async function createTile(params: {
       description,
       itemIds,
       requireUniqueItems,
+      iconItemId,
+      itemRequirements,
       icon_url: iconUrl,
       required_count: requiredCount,
       ...goal,
@@ -299,24 +307,32 @@ export async function createTile(params: {
 export async function updateTile(params: {
   id: number;
   name: string;
-  iconUrl: string;
+  /** Legacy fallback only — see the matching comment on createTile. Leaving
+   * this out (the normal case now) never overwrites a tile's existing
+   * stored value; the API only replaces it when a non-empty string is
+   * actually sent. */
+  iconUrl?: string;
   requiredCount?: number;
   category?: string;
   description?: string;
   itemIds?: number[];
   requireUniqueItems?: boolean;
   goal?: TileGoal;
+  iconItemId?: number | null;
+  itemRequirements?: ItemRequirement[] | null;
 }): Promise<AdminTile> {
   const {
     id,
     name,
-    iconUrl,
+    iconUrl = "",
     requiredCount = 1,
     category = "",
     description = "",
     itemIds = [],
     requireUniqueItems = false,
     goal,
+    iconItemId = null,
+    itemRequirements = null,
   } = params;
   const res = await fetch("/api/admin/board?resource=tiles", {
     method: "PUT",
@@ -330,6 +346,8 @@ export async function updateTile(params: {
       description,
       itemIds,
       requireUniqueItems,
+      iconItemId,
+      itemRequirements,
       icon_url: iconUrl,
       required_count: requiredCount,
       ...goal,
@@ -348,8 +366,13 @@ export async function deleteTile(id: number): Promise<void> {
 
 export async function fetchAdminSubmissions(
   status: string,
+  filters?: { teamId?: number; tileId?: number; sort?: "grouped" | "oldest" },
 ): Promise<AdminSubmission[]> {
-  const res = await fetch(`/api/admin/submissions?status=${status}`);
+  const params = new URLSearchParams({ status });
+  if (filters?.teamId) params.set("teamId", String(filters.teamId));
+  if (filters?.tileId) params.set("tileId", String(filters.tileId));
+  if (filters?.sort === "oldest") params.set("sort", "oldest");
+  const res = await fetch(`/api/admin/submissions?${params.toString()}`);
   const data = await json<{ submissions: AdminSubmission[] }>(res);
   return data.submissions;
 }

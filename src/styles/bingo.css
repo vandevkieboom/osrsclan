@@ -203,6 +203,15 @@
   opacity: 0.75;
 }
 
+/* A tile with nothing derivable (manual, no item, no icon_item_id) — a
+   plain dashed placeholder beats a broken <img>. */
+.bingo-tile-icon--placeholder {
+  display: block;
+  border: 1px dashed #3a2224;
+  border-radius: 4px;
+  opacity: 0.5;
+}
+
 .bingo-tile--pending .bingo-tile-icon {
   opacity: 0.9;
 }
@@ -300,6 +309,23 @@
   gap: 24px;
 }
 
+/* Review-queue narrowing — team/tile filters plus a grouped/oldest-first
+   toggle, so a 200-person clan's worth of pending submissions doesn't have
+   to be scanned as one undifferentiated list. */
+.bingo-admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.bingo-admin-sort-toggle {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
 /* One group = one tile+team pair — everything an admin needs to compare
    when checking for a duplicate lives together, never spread across the
    whole review queue. */
@@ -354,11 +380,71 @@
   padding: 0.4rem 0.6rem;
 }
 
+/* The item_requirements picker replaces the free-text id input with a
+   select naming the actual choices, so it needs more room than the 90px
+   numeric field. */
+select.bingo-admin-itemid-input {
+  width: 200px;
+}
+
+/* Per-item/per-group breakdown for an item_requirements tile — lets a
+   reviewer see which "OR" set is closest to done without re-deriving it
+   from raw counts. */
+.bingo-admin-req-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+}
+
+.bingo-admin-req-set {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.bingo-admin-req-set em {
+  font-style: normal;
+  color: #c9a8a6;
+}
+
+.bingo-admin-req-set--done em {
+  color: #6fbf73;
+}
+
+.bingo-admin-req-pill {
+  font-size: 11px;
+  color: #c9a8a6;
+  border: 1px solid #3a1f21;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.bingo-admin-req-pill--done {
+  color: #6fbf73;
+  border-color: #2f4a30;
+}
+
+.bingo-admin-req-hint {
+  font-size: 10px;
+  font-style: italic;
+  color: #8f7a78;
+}
+
 .bingo-admin-icon {
   width: 36px;
   height: 36px;
   object-fit: contain;
   flex-shrink: 0;
+}
+
+.bingo-admin-icon--placeholder {
+  display: block;
+  border: 1px dashed #3a2224;
+  border-radius: 4px;
+  opacity: 0.5;
 }
 
 .bingo-admin-info {

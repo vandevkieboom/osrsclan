@@ -5,7 +5,68 @@ Vercel serverless functions in `api/`, Postgres via `@neondatabase/serverless`).
 Talks to the RuneLite plugin in the sibling `osrsclanplugin` repo via
 `plugin_tokens` bearer-auth (see `api/_lib/auth.ts`).
 
+## Tile icons and item requirements (AND/OR item conditions)
+
+Two related additions, written 2026-09-06, reviewed and three bugs fixed
+2026-09-06 before shipping — not documented at the time they were written,
+which is itself why the bugs sat unnoticed.
+
+**Shared icon derivation** (`api/_lib/icons.ts`, `deriveTileIconUrl()`):
+one priority chain — `tiles.icon_item_id` (admin override) → a skill icon
+for xp-goal tiles (`SKILL_ICON_FILES`, keep in sync with the plugin's
+`BingoPanel#SKILL_SPRITES`) → `item_ids[0]` → the legacy `icon_url` — used by
+every surface that renders a tile icon (`api/board.ts`, `api/admin/board.ts`,
+`api/admin/submissions.ts`), so the website and the RuneLite plugin can no
+longer disagree on a tile's picture the way they used to.
+
+**Item requirements** (`tiles.item_requirements JSONB`, nullable — `NULL`
+means "ignore, use the old flat `item_ids`/`required_count`/
+`require_unique_items` fields"): entries with no `group` are AND'd, entries
+sharing a `group` are OR'd (any one full set completes the tile). See
+`parseItemRequirements`/`evaluateItemRequirements`/`checkItemRequirements`
+in `api/_lib/board.ts`, and `validateProofSubmission`'s new branch there.
+
+**Bugs found in review and fixed before this shipped:**
+1. `api/board.ts`'s per-tile item counting included `pending` submissions,
+   not just `approved` — meaning an unreviewed screenshot already turned the
+   tile green and moved team standings, unlike every other tile type. Fixed
+   to `approved`-only.
+2. `buildSlimTile()` in `api/board.ts` (the projection the RuneLite plugin
+   actually fetches via `?view=plugin`) never carried `iconItemId` — so the
+   admin-set icon override had zero effect in-game despite working correctly
+   on the website's own board view. Fixed by adding it to both the
+   parameter type and the returned object.
+3. The admin hint text for item requirements said it "overrides" the Item
+   IDs field, which invited leaving that field empty — but the plugin's
+   drop-detection watch list (`tilesByItemId` in `BingoPlugin.java`) only
+   ever reads `item_ids`, not `item_requirements`, so an admin following that
+   hint would silently disable auto-submission for that tile. Hint text
+   corrected to say Item IDs must still be kept populated.
+
+**Not yet done**: the plugin-side rendering of this (`BingoPanel.java`'s
+rewritten `loadIconInto()`, the new `SKILL_SPRITES` map, `BoardResponse.Tile
+.iconItemId`) has not been committed alongside this — it exists locally but
+wasn't part of this push. That's fine, not broken: an un-updated plugin
+install simply ignores the new `iconItemId` field it doesn't know about and
+keeps working exactly as before (falls back to `itemIds[0]`), same as any
+old client tolerating a new field. The icon-override half of this feature
+has no visible effect in-game until that plugin-side commit ships too.
+
 ## Hosting cost — the incident, and the shape of the fix
+
+> **Superseded 2026-09-02** — the fix below shipped and genuinely cut
+> invocations/edge-requests, but Neon compute usage stayed close to 24/7
+> anyway: its free-tier auto-suspend needs 5 real minutes of inactivity, and
+> the combined poll's 30s edge-cache window meant *some* clan member's
+> cache-miss reached the database every 30-60 seconds around the clock,
+> resetting that countdown before it could ever finish — regardless of
+> whether bingo was even running. That traffic was broadcast and live-stream
+> notifications, which have nothing to do with bingo and were hitting every
+> online install, not just participants. Both were removed entirely rather
+> than cached harder — see "Broadcast and live-stream notifications: removed
+> entirely" below. Read what follows as design history: still accurate about
+> *why* merging three requests into one mattered, no longer accurate about
+> what the combined poll currently carries.
 
 In late August 2026 the site went down: every database-backed endpoint
 returned 500, and Vercel's compute usage went from ~4 minutes a day to
@@ -245,6 +306,94 @@ expensive board fetch on ticks where nothing changed — the gate this
 section describes was "is an event on", and that is now "is an event on
 *and* has anything actually moved". See the hosting-cost section at the
 top.
+
+## Broadcast and live-stream notifications: removed entirely
+
+**2026-09-02, superseding both sections below.** The feature itself is gone,
+not just re-cached: `api/plugin-poll.ts` no longer reads
+`broadcast_message`/`broadcast_updated_at` or fetches Twitch streams at all;
+`POST /api/admin/board?resource=broadcast` (`sendBroadcast`/`setBroadcast`)
+and `GET /api/runeprofile-proxy?resource=broadcast` (`getBroadcast`, the
+pre-consolidation broadcast poll kept for old plugin installs) are deleted
+outright; the admin UI's whole Broadcast tab (`broadcast-panel.tsx`) is gone;
+`db/schema.sql` drops the `broadcast_message`/`broadcast_updated_at` columns
+from `board_config`. `getOrCreateBoardConfig`/`BoardConfigRow` no longer
+carry either field.
+
+`pollSeconds` in `api/plugin-poll.ts` is now tied directly to `bingo_active`
+(fast while an event is on, slow otherwise) rather than "was a broadcast
+sent in the last 15 minutes" — the old `needsFastPolling()`/
+`BROADCAST_FAST_WINDOW_MS` logic is gone along with the feature it existed
+for. Since the only remaining caller of this endpoint is a bingo participant
+(see the plugin's own `CLAUDE.md`, `hasAnythingToPollFor()`), tying the
+cadence to `bingo_active` is both simpler and more correct than what it
+replaced.
+
+**Why, given the two sections below already show real engineering effort
+put into caching this cheaply**: caching harder only ever reduces the *cost
+per check*, never the fact that a check happens on a fixed short interval
+around the clock regardless of whether anyone needs an answer. Neon's
+free-tier compute auto-suspends after 5 real minutes of inactivity — with
+several hundred installs clan-wide each checking every 30-60s, the database
+was reaching that 5-minute quiet window essentially never, burning compute
+24/7 for two features unrelated to bingo. Removing the traffic source beats
+caching it more aggressively when the traffic has nothing to do with the
+thing the hosting budget actually needs to serve. This was a deliberate
+scope cut, made with the user's explicit sign-off (small non-monetized
+clan project) rather than a technical dead end — don't reintroduce either
+feature without a fresh conversation about scope.
+
+See the plugin's own `CLAUDE.md` ("Broadcast and live-stream notifications:
+removed entirely") for the plugin-side half of this same change.
+
+## Idle vs. active cache window on `/api/plugin-poll`
+
+**2026-09-02, follow-up to the removal above.** Even with broadcast/live-stream
+gone, Neon compute stayed close to 24/7: its free-tier auto-suspend needs 5
+real minutes with no query at all, and a single 30s cache window meant *any*
+straggler — someone who did bingo once and never cleared their plugin key —
+touching the database every few minutes was enough to prevent that gap
+forever, regardless of how few requests there actually were. The database
+doesn't care about request *count*, only time-since-last-query.
+
+Split `CACHE_SECONDS` into `CACHE_SECONDS_ACTIVE` (30s, unchanged — board
+freshness during a real event is untouched by any of this) and
+`CACHE_SECONDS_IDLE` (1800s / 30 min default, `PLUGIN_POLL_CACHE_SECONDS_IDLE`
+env var, its own higher clamp ceiling than the usual 900s since a long idle
+window is the intent, not a mistake to guard against). The response always
+sets the short/active header first, before the database read that could fail
+— same fail-safe reasoning as always — then overwrites it to the long/idle
+one only once a real read confirms `bingo_active` is false. Guarantees a real
+≥30-minute quiet gap every cycle while idle, no matter how many stale keys are
+still floating around, while leaving active-event freshness completely
+untouched.
+
+**The tradeoff, and how it's meant to be worked around operationally rather
+than in code**: flipping `bingo_active` on doesn't reach already-polling
+clients until the cache naturally rolls over — up to 30 minutes, worst case.
+A drop landing in that window before a participant's own client has picked up
+the change won't be recognized as a tile match at all (the item-id watch list
+comes from the board fetch, which is gated on locally-known `bingoActive`) —
+this is a genuinely missed submission, not just a delayed one, since it never
+enters the retry queue. The intended mitigation is operational: flip
+`bingo_active` on **~30 minutes before** the announced start time, not at it.
+That's not a workaround for a shortcoming — 30 minutes is exactly this
+window's length, so by the real start every online client is guaranteed to
+have already refreshed at least once.
+
+**What this does not fix**: cost during an actual multi-day event with many
+participants. While `bingo_active` is true the cache is back to 30s, and with
+enough concurrent participants the database is essentially continuously awake
+for the event's whole duration — unrelated to anything above, since that's
+real, current demand, not idle stragglers. For this clan's actual scale (100+
+plugin installs, 50-70 realistic participants, events up to ~2 weeks), a
+maxed-out event can approach the entire 100 CU-hour free-tier budget on
+compute alone. Budget for Neon's paid Launch plan (pay-as-you-go, no hard cap)
+specifically for an event's duration rather than treating this idle-window fix
+as a guarantee against hitting the cap mid-event — it isn't one, and nothing
+short of a much larger redesign (see the "fetch board once at login instead
+of polling" idea discussed with the user, not yet built) would meaningfully
+change that.
 
 ## Broadcast endpoint caching
 

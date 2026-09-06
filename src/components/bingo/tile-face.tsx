@@ -35,7 +35,13 @@ export function TileFace({
       {tile.status === "pending" && (
         <span className="bingo-tile-status bingo-tile-status--pending">⏳</span>
       )}
-      <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
+      {tile.iconUrl ? (
+        <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
+      ) : (
+        // Nothing could be derived (a manual tile with no item and no
+        // icon_item_id override) — a blank placeholder beats a broken <img>.
+        <span className="bingo-tile-icon bingo-tile-icon--placeholder" aria-hidden="true" />
+      )}
       {contributors.length >= 2 && (
         <div className="bingo-tile-avatars">
           {contributors.slice(0, 3).map(([name, avatarUrl]) =>

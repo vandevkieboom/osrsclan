@@ -2,6 +2,12 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin } from "../_lib/auth.js";
 import { withErrorHandling } from "../_lib/handler.js";
+import {
+  checkItemRequirements,
+  parseItemRequirements,
+  type ItemRequirementsStatus,
+} from "../_lib/board.js";
+import { deriveTileIconUrl, itemIconUrl } from "../_lib/icons.js";
 
 // Fired on approval, not submission — a rejected screenshot (wrong item,
 // duplicate) should never have hit the channel in the first place. Failure
@@ -15,7 +21,8 @@ async function postBingoDropWebhook(submissionId: number) {
   try {
     const rows = await sql`
       SELECT s.proof_url, s.item_id, t.name AS team_name, ti.name AS tile_name,
-             ti.icon_url, u.discord_global_name, u.discord_username, u.runescape_name
+             ti.icon_url, ti.icon_item_id, ti.item_ids,
+             u.discord_global_name, u.discord_username, u.runescape_name
       FROM submissions s
       JOIN teams t ON t.id = s.team_id
       JOIN tiles ti ON ti.id = s.tile_id
@@ -26,9 +33,18 @@ async function postBingoDropWebhook(submissionId: number) {
 
     const submittedBy =
       row.runescape_name ?? row.discord_global_name ?? row.discord_username ?? "Unknown";
+    // The exact item this submission was for is the most relevant picture for
+    // a "you got X" notification — fall back to the tile's own derived icon
+    // (same as the board/review queue) only when that isn't known.
     const thumbnail = row.item_id
-      ? `https://static.runelite.net/cache/item/icon/${row.item_id}.png`
-      : row.icon_url;
+      ? itemIconUrl(row.item_id)
+      : deriveTileIconUrl({
+          iconItemId: row.icon_item_id === null ? null : Number(row.icon_item_id),
+          itemIds: (row.item_ids ?? []) as number[],
+          goalKind: "item",
+          goalKey: "",
+          legacyIconUrl: row.icon_url ?? "",
+        });
     // Only link when we actually have an RSN — the site's profile page
     // resolves ?rsn= against the clan's WOM roster, so linking a Discord
     // display-name fallback would just 404.
@@ -64,22 +80,54 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
   const status =
     typeof req.query.status === "string" ? req.query.status : "pending";
 
-  // Ordered by tile then team (not just time) so the admin UI can group
-  // everything for the same tile+team together — that's the unit an admin
-  // actually needs to compare against when checking for duplicates, never
-  // the whole clan at once.
-  const rows = await sql`
-    SELECT s.id, s.status, s.proof_url, s.created_at, s.item_id,
-           s.team_id, s.tile_id,
-           t.name AS team_name, ti.name AS tile_name, ti.icon_url,
-           ti.require_unique_items,
-           u.discord_username, u.discord_global_name, u.runescape_name
-    FROM submissions s
-    JOIN teams t ON t.id = s.team_id
-    JOIN tiles ti ON ti.id = s.tile_id
-    LEFT JOIN users u ON u.id = s.submitted_by
-    WHERE s.status = ${status}
-    ORDER BY ti.name ASC, t.name ASC, s.created_at ASC, s.id ASC`;
+  // Optional narrowing for a 200-person clan's worth of pending submissions —
+  // without these an admin has no way to focus on just their own team or a
+  // single tile. Passed as nullable params (rather than composing the WHERE
+  // clause dynamically) so this stays one plain tagged-template query either
+  // way.
+  const rawTeamId = Number(req.query.teamId);
+  const teamId = Number.isInteger(rawTeamId) && rawTeamId > 0 ? rawTeamId : null;
+  const rawTileId = Number(req.query.tileId);
+  const tileId = Number.isInteger(rawTileId) && rawTileId > 0 ? rawTileId : null;
+
+  // Two full, literal queries rather than a dynamically-composed ORDER BY —
+  // Postgres can't parameterize which column to sort by, and the `sql`
+  // tagged template executes eagerly (it's not a lazy fragment builder), so
+  // a shared partial template can't be embedded in either. Default groups by
+  // tile then team (so an admin can compare every submission on the same
+  // tile+team together, the unit that actually matters for spotting
+  // duplicates); `sort=oldest` ignores grouping for "clear the backlog in
+  // the order it arrived," useful right after a launch-day submission rush.
+  const rows =
+    req.query.sort === "oldest"
+      ? await sql`
+        SELECT s.id, s.status, s.proof_url, s.created_at, s.item_id,
+               s.team_id, s.tile_id,
+               t.name AS team_name, ti.name AS tile_name, ti.icon_url,
+               ti.icon_item_id, ti.item_ids,
+               ti.require_unique_items, ti.item_requirements
+        FROM submissions s
+        JOIN teams t ON t.id = s.team_id
+        JOIN tiles ti ON ti.id = s.tile_id
+        LEFT JOIN users u ON u.id = s.submitted_by
+        WHERE s.status = ${status}
+          AND (${teamId}::bigint IS NULL OR s.team_id = ${teamId})
+          AND (${tileId}::bigint IS NULL OR s.tile_id = ${tileId})
+        ORDER BY s.created_at ASC, s.id ASC`
+      : await sql`
+        SELECT s.id, s.status, s.proof_url, s.created_at, s.item_id,
+               s.team_id, s.tile_id,
+               t.name AS team_name, ti.name AS tile_name, ti.icon_url,
+               ti.icon_item_id, ti.item_ids,
+               ti.require_unique_items, ti.item_requirements
+        FROM submissions s
+        JOIN teams t ON t.id = s.team_id
+        JOIN tiles ti ON ti.id = s.tile_id
+        LEFT JOIN users u ON u.id = s.submitted_by
+        WHERE s.status = ${status}
+          AND (${teamId}::bigint IS NULL OR s.team_id = ${teamId})
+          AND (${tileId}::bigint IS NULL OR s.tile_id = ${tileId})
+        ORDER BY ti.name ASC, t.name ASC, s.created_at ASC, s.id ASC`;
 
   // For unique-item tiles, tell the reviewer which item ids are already
   // approved for the same team+tile — without this they'd have to remember
@@ -96,28 +144,61 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
     approvedByTeamTile.set(key, list);
   }
 
+  // For item_requirements tiles (see db/schema.sql), the reviewer needs the
+  // full per-item/per-group picture — which items are already at their
+  // required amount, and which "OR" set (if any) is closest to done — not
+  // just a flat approved-ids list. Computed once per distinct team+tile pair
+  // actually present in this result (admin review is low-frequency and
+  // human-paced, unlike the plugin poll/board endpoints, so a handful of
+  // extra queries here is fine).
+  const itemRequirementsStatusByTeamTile = new Map<string, ItemRequirementsStatus>();
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const key = `${r.team_id}:${r.tile_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const reqs = parseItemRequirements(r.item_requirements);
+    if (!reqs) continue;
+    itemRequirementsStatusByTeamTile.set(
+      key,
+      await checkItemRequirements(r.team_id, r.tile_id, reqs),
+    );
+  }
+
   res.status(200).json({
-    submissions: rows.map((r) => ({
-      id: r.id,
-      status: r.status,
-      proofUrl: r.proof_url,
-      teamId: r.team_id,
-      tileId: r.tile_id,
-      teamName: r.team_name,
-      tileName: r.tile_name,
-      iconUrl: r.icon_url,
-      requireUniqueItems: r.require_unique_items,
-      // Only ever set once someone (the plugin automatically, or an admin by
-      // hand during review) has recorded which item this submission shows.
-      itemId: r.item_id,
-      alreadyApprovedItemIds: approvedByTeamTile.get(`${r.team_id}:${r.tile_id}`) ?? [],
-      submittedBy:
-        r.runescape_name ??
-        r.discord_global_name ??
-        r.discord_username ??
-        "Unknown",
-      createdAt: r.created_at,
-    })),
+    submissions: rows.map((r) => {
+      const key = `${r.team_id}:${r.tile_id}`;
+      return {
+        id: r.id,
+        status: r.status,
+        proofUrl: r.proof_url,
+        teamId: r.team_id,
+        tileId: r.tile_id,
+        teamName: r.team_name,
+        tileName: r.tile_name,
+        iconUrl: deriveTileIconUrl({
+          iconItemId: r.icon_item_id === null ? null : Number(r.icon_item_id),
+          itemIds: (r.item_ids ?? []) as number[],
+          goalKind: "item",
+          goalKey: "",
+          legacyIconUrl: r.icon_url ?? "",
+        }),
+        requireUniqueItems: r.require_unique_items,
+        // Only ever set once someone (the plugin automatically, or an admin by
+        // hand during review) has recorded which item this submission shows.
+        itemId: r.item_id,
+        alreadyApprovedItemIds: approvedByTeamTile.get(key) ?? [],
+        // Present only for tiles using the richer item_requirements model —
+        // null for every tile still on the flat item_ids/required_count model.
+        itemRequirementsStatus: itemRequirementsStatusByTeamTile.get(key) ?? null,
+        submittedBy:
+          r.runescape_name ??
+          r.discord_global_name ??
+          r.discord_username ??
+          "Unknown",
+        createdAt: r.created_at,
+      };
+    }),
   });
 }
 
@@ -147,25 +228,61 @@ async function reviewSubmission(
       SELECT
         s.team_id,
         s.tile_id,
+        s.item_id AS submission_item_id,
         t.require_unique_items,
+        t.item_requirements,
         COUNT(*) FILTER (WHERE s2.status = 'approved')::int AS approved_count,
         t.required_count
       FROM submissions s
       JOIN submissions s2 ON s2.team_id = s.team_id AND s2.tile_id = s.tile_id
       JOIN tiles t ON t.id = s.tile_id
       WHERE s.id = ${id}
-      GROUP BY s.team_id, s.tile_id, t.require_unique_items, t.required_count`;
+      GROUP BY s.team_id, s.tile_id, s.item_id, t.require_unique_items,
+               t.item_requirements, t.required_count`;
 
     const capRow = capRows[0];
-    if (capRow && capRow.approved_count >= capRow.required_count) {
+    const itemRequirements = capRow ? parseItemRequirements(capRow.item_requirements) : null;
+
+    if (capRow && itemRequirements) {
+      // Effective item id: what this review call is tagging it as, or (a plugin
+      // submission, or one already tagged in an earlier review pass) what it
+      // already carries.
+      const effectiveItemId = itemId ?? capRow.submission_item_id;
+      if (effectiveItemId == null) {
+        res.status(400).json({ error: "itemId is required to approve this tile" });
+        return;
+      }
+      const requirement = itemRequirements.find((r) => r.itemId === effectiveItemId);
+      if (!requirement) {
+        res.status(400).json({ error: "That item does not satisfy the requested tile" });
+        return;
+      }
+      // Excludes this row itself (still 'pending' at this point, so it would
+      // otherwise count against its own cap) — see checkItemRequirements.
+      const reqStatus = await checkItemRequirements(
+        capRow.team_id,
+        capRow.tile_id,
+        itemRequirements,
+        id,
+      );
+      if (reqStatus.complete) {
+        res.status(409).json({ error: "That tile is already complete" });
+        return;
+      }
+      const itemStatus = reqStatus.perItem.find((i) => i.itemId === effectiveItemId)!;
+      if (itemStatus.currentAmount >= itemStatus.requiredAmount) {
+        res.status(409).json({
+          error: `${requirement.name} already at required amount (${requirement.requiredAmount})`,
+        });
+        return;
+      }
+    } else if (capRow && capRow.approved_count >= capRow.required_count) {
       res.status(409).json({ error: "That tile is already complete" });
       return;
-    }
-
-    // Same rule the RuneLite plugin enforces automatically at submit time —
-    // applied here too so a manually-tagged item id gets the same protection
-    // a plugin submission always had.
-    if (capRow?.require_unique_items && itemId !== undefined) {
+    } else if (capRow?.require_unique_items && itemId !== undefined) {
+      // Same rule the RuneLite plugin enforces automatically at submit time —
+      // applied here too so a manually-tagged item id gets the same protection
+      // a plugin submission always had.
       const dupRows = await sql`
         SELECT 1 FROM submissions
         WHERE team_id = ${capRow.team_id} AND tile_id = ${capRow.tile_id}

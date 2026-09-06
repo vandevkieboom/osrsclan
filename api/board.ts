@@ -8,13 +8,16 @@ import {
   requireUser,
 } from "./_lib/auth.js";
 import {
+  evaluateItemRequirements,
   getBoardConfigMemoised,
   getOrCreateBoardConfig,
   getTeamGoalProgress,
   maybeReconcileGoalProgress,
+  parseItemRequirements,
   recordProofSubmission,
   validateProofSubmission,
 } from "./_lib/board.js";
+import { deriveTileIconUrl } from "./_lib/icons.js";
 import { withErrorHandling } from "./_lib/handler.js";
 
 // Bounded rather than trusted: a typo here should not be able to render the
@@ -82,21 +85,35 @@ async function getBoard(res: VercelResponse, slim: boolean) {
   // board until size grows back to cover them again.
   const tileRows = await sql`
     SELECT id, position, name, icon_url, required_count, category, description,
-           item_ids, goal_kind, goal_key, goal_target
+           item_ids, goal_kind, goal_key, goal_target, icon_item_id, item_requirements
     FROM tiles WHERE position < ${slotCount} ORDER BY position`;
-  const tiles = tileRows.map((t) => ({
-    id: t.id,
-    position: t.position,
-    name: t.name,
-    iconUrl: t.icon_url,
-    requiredCount: t.required_count,
-    category: t.category,
-    description: t.description,
-    itemIds: (t.item_ids ?? []) as number[],
-    goalKind: t.goal_kind as "item" | "xp" | "kc",
-    goalKey: t.goal_key as string,
-    goalTarget: t.goal_target === null ? null : Number(t.goal_target),
-  }));
+  const tiles = tileRows.map((t) => {
+    const itemIds = (t.item_ids ?? []) as number[];
+    const goalKind = t.goal_kind as "item" | "xp" | "kc";
+    const goalKey = t.goal_key as string;
+    const iconItemId = t.icon_item_id === null ? null : Number(t.icon_item_id);
+    return {
+      id: t.id,
+      position: t.position,
+      name: t.name,
+      iconUrl: deriveTileIconUrl({
+        iconItemId,
+        itemIds,
+        goalKind,
+        goalKey,
+        legacyIconUrl: t.icon_url ?? "",
+      }),
+      requiredCount: t.required_count,
+      category: t.category,
+      description: t.description,
+      itemIds,
+      goalKind,
+      goalKey,
+      goalTarget: t.goal_target === null ? null : Number(t.goal_target),
+      iconItemId,
+      itemRequirements: parseItemRequirements(t.item_requirements),
+    };
+  });
 
   // Only fetched/summed when at least one tile actually needs it — most
   // boards are item-only and this avoids the extra query and join for them.
@@ -154,13 +171,29 @@ async function getBoard(res: VercelResponse, slim: boolean) {
   }
 
   const submissionRows = await sql`
-    SELECT s.id, s.team_id, s.tile_id, s.status, s.proof_url, s.created_at,
+    SELECT s.id, s.team_id, s.tile_id, s.status, s.proof_url, s.created_at, s.item_id,
            u.discord_global_name, u.discord_username, u.runescape_name,
            u.discord_id, u.discord_avatar_hash
     FROM submissions s
     LEFT JOIN users u ON u.id = s.submitted_by
     WHERE s.team_id IN (SELECT id FROM teams)
     ORDER BY s.created_at ASC, s.id ASC`;
+
+  // Per-item counts backing item_requirements tiles' completion check below —
+  // built from the same submissionRows already fetched for the aggregate
+  // above, not a separate query per team+tile (this endpoint is edge-cached
+  // and shared by the whole clan; see the hosting-cost notes in this
+  // project's CLAUDE.md on why it stays a fixed number of queries).
+  const itemCountsByTeamTile = new Map<string, Map<number, number>>();
+  for (const row of submissionRows) {
+    if (row.item_id == null || row.status !== "approved") {
+      continue;
+    }
+    const key = `${row.team_id}:${row.tile_id}`;
+    const byItem = itemCountsByTeamTile.get(key) ?? new Map<number, number>();
+    byItem.set(row.item_id, (byItem.get(row.item_id) ?? 0) + 1);
+    itemCountsByTeamTile.set(key, byItem);
+  }
 
   type TileSubmissionAggregate = {
     approvedCount: number;
@@ -247,6 +280,8 @@ async function getBoard(res: VercelResponse, slim: boolean) {
           goalKind: t.goalKind,
           goalKey: t.goalKey,
           goalTarget: t.goalTarget,
+          iconItemId: t.iconItemId,
+          itemRequirementsStatus: null,
           teamProgress,
           approvedCount: 0,
           pendingCount: 0,
@@ -265,6 +300,19 @@ async function getBoard(res: VercelResponse, slim: boolean) {
       const approvedCount = agg?.approvedCount ?? 0;
       const pendingCount = agg?.pendingCount ?? 0;
       const rejectedCount = agg?.rejectedCount ?? 0;
+      // item_requirements tiles (AND/OR item conditions — see db/schema.sql)
+      // decide completeness per-item/per-group rather than a flat approved
+      // count; every other tile keeps the count-based check exactly as
+      // before.
+      const itemRequirementsStatus = t.itemRequirements
+        ? evaluateItemRequirements(
+            t.itemRequirements,
+            itemCountsByTeamTile.get(`${teamId}:${t.id}`) ?? new Map(),
+          )
+        : null;
+      const isComplete = itemRequirementsStatus
+        ? itemRequirementsStatus.complete
+        : approvedCount >= t.requiredCount;
       return {
         tileId: t.id,
         position: t.position,
@@ -277,18 +325,19 @@ async function getBoard(res: VercelResponse, slim: boolean) {
         goalKind: t.goalKind,
         goalKey: t.goalKey,
         goalTarget: t.goalTarget,
+        iconItemId: t.iconItemId,
+        itemRequirementsStatus,
         teamProgress: null,
         approvedCount,
         pendingCount,
         rejectedCount,
-        status:
-          approvedCount >= t.requiredCount
-            ? "approved"
-            : pendingCount > 0
-              ? "pending"
-              : rejectedCount > 0
-                ? "rejected"
-                : "none",
+        status: isComplete
+          ? "approved"
+          : pendingCount > 0
+            ? "pending"
+            : rejectedCount > 0
+              ? "rejected"
+              : "none",
         latestProofUrl: agg?.latestProofUrl ?? null,
         latestSubmittedBy: agg?.latestSubmittedBy ?? null,
         proofs: agg?.proofs ?? [],
@@ -403,6 +452,7 @@ function buildSlimTile(tile: {
   goalKind: string;
   goalKey: string;
   goalTarget: number | null;
+  iconItemId: number | null;
   teamProgress: number | null;
 }) {
   return {
@@ -417,6 +467,11 @@ function buildSlimTile(tile: {
     goalKind: tile.goalKind,
     goalKey: tile.goalKey,
     goalTarget: tile.goalTarget,
+    // The plugin prefers this over itemIds[0] for its icon — see
+    // api/_lib/icons.ts. Previously dropped here, so the admin-set override
+    // never actually reached the RuneLite client despite working on the
+    // website's own board view.
+    iconItemId: tile.iconItemId,
     teamProgress: tile.teamProgress,
   };
 }
@@ -447,10 +502,9 @@ async function getMyTeam(req: VercelRequest, res: VercelResponse) {
  * this specific check to control cost.
  */
 /**
- * Superseded by GET /api/plugin-poll, which returns this plus the broadcast
- * and live-stream answers the plugin used to fetch as two further separate
- * requests on the same tick. Kept for plugin installs that haven't updated
- * yet — they'll keep polling this until they do.
+ * Superseded by GET /api/plugin-poll, which carries the same two fields.
+ * Kept for plugin installs that haven't updated yet — they'll keep polling
+ * this until they do.
  *
  * Cache header is set before the read and the read can no longer produce a
  * 5xx, because Vercel's edge won't cache an error response: an endpoint this
@@ -499,8 +553,14 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "tileId and proofUrl are required" });
     return;
   }
+  // Only meaningful for a tile using item_requirements (or the older
+  // require_unique_items) — the browser form only sends this when the tile
+  // actually asked for it (see TileDetailPanel); every other manual upload
+  // omits it exactly as before.
+  const rawItemId = Number(req.body?.itemId);
+  const itemId = Number.isInteger(rawItemId) && rawItemId > 0 ? rawItemId : undefined;
 
-  const validation = await validateProofSubmission({ teamId: user.teamId, tileId });
+  const validation = await validateProofSubmission({ teamId: user.teamId, tileId, itemId });
   if (!validation.ok) {
     res.status(validation.status).json({ error: validation.error });
     return;
@@ -511,6 +571,7 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
     tileId,
     proofUrl,
     submittedBy: user.id,
+    itemId,
   });
 
   res.status(200).json({ ok: true });

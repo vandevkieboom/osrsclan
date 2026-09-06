@@ -4,8 +4,6 @@ import { sql } from "./db.js";
 export interface BoardConfigRow {
   name: string;
   size: number;
-  broadcast_message: string;
-  broadcast_updated_at: string | null;
   bingo_active: boolean;
   board_changed_at: string;
 }
@@ -22,8 +20,7 @@ export interface BoardConfigRow {
 // the genuinely-missing case it was written for.
 export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
-    SELECT name, size, broadcast_message, broadcast_updated_at,
-           bingo_active, board_changed_at
+    SELECT name, size, bingo_active, board_changed_at
     FROM board_config WHERE id = 1`;
   if (rows.length > 0) {
     return rows[0] as BoardConfigRow;
@@ -32,8 +29,7 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const created = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, size, broadcast_message, broadcast_updated_at,
-              bingo_active, board_changed_at`;
+    RETURNING name, size, bingo_active, board_changed_at`;
   return created[0] as BoardConfigRow;
 }
 
@@ -41,8 +37,8 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
 // rather than querying again. Only the high-frequency plugin poll path uses
 // this (see api/plugin-poll.ts) — admin reads and the full board fetch always
 // go to the database — so the worst case it can produce is a plugin seeing a
-// just-toggled bingo_active or a just-sent broadcast up to this much later,
-// on top of the edge cache window that already applies to the same response.
+// just-toggled bingo_active up to this much later, on top of the edge cache
+// window that already applies to the same response.
 const CONFIG_MEMO_MS = 10_000;
 
 let configMemo: { row: BoardConfigRow; at: number } | null = null;
@@ -86,9 +82,8 @@ export function invalidateBoardConfigMemo(): void {
  * clean: every team's tile submissions (proof images included — see below),
  * and every member's xp/kc goal-tile progress (see goal_progress in
  * db/schema.sql — baselines otherwise persist forever and would under-count
- * a reused goal_key's next round). Tiles, teams/rosters, donations and the
- * broadcast message are deliberately left alone — none of those are
- * "per-round" state.
+ * a reused goal_key's next round). Tiles, teams/rosters and donations are
+ * deliberately left alone — none of those are "per-round" state.
  *
  * Proof screenshots live in Vercel Blob, not the database (see uploadProof
  * in api/board.ts) — deleting only the submissions rows would leave every
@@ -133,29 +128,6 @@ export async function resetBingoProgress(): Promise<void> {
     return;
   }
   await seedGoalBaselines(womByRsnKey, activeGoals);
-}
-
-/**
- * Pushes a new one-off admin message, read by the RuneLite plugin's
- * periodic poll (see BingoApiClient#fetchBroadcast) and printed as a chat
- * message to anyone with the "Clan broadcasts" toggle on. Each call
- * overwrites the previous message — this isn't a log, just "the current
- * thing to tell people".
- */
-export async function setBroadcast(
-  message: string,
-): Promise<{ message: string; updatedAt: string }> {
-  const rows = await sql`
-    INSERT INTO board_config (id, broadcast_message, broadcast_updated_at)
-    VALUES (1, ${message}, now())
-    ON CONFLICT (id) DO UPDATE SET
-      broadcast_message = EXCLUDED.broadcast_message,
-      broadcast_updated_at = EXCLUDED.broadcast_updated_at
-    RETURNING broadcast_message, broadcast_updated_at`;
-  return {
-    message: rows[0].broadcast_message,
-    updatedAt: rows[0].broadcast_updated_at,
-  };
 }
 
 /**
@@ -480,18 +452,150 @@ export type ProofValidation =
   | { ok: false; status: number; error: string };
 
 /**
+ * One entry in a tile's item_requirements (see db/schema.sql) — richer than
+ * the flat item_ids/required_count/require_unique_items trio, which can only
+ * express "any N of a pool" or "any N distinct items." An entry with no
+ * `group` is always required at its own `requiredAmount` (an AND); entries
+ * sharing a `group` are one alternative set — completing any ONE full group
+ * satisfies that part of the tile (an OR of asymmetric branches, or "any one
+ * complete Barrows brother's set").
+ */
+export interface ItemRequirement {
+  itemId: number;
+  name: string;
+  requiredAmount: number;
+  group: string | null;
+}
+
+export interface ItemRequirementStatus extends ItemRequirement {
+  currentAmount: number;
+}
+
+export interface ItemRequirementsStatus {
+  complete: boolean;
+  perItem: ItemRequirementStatus[];
+}
+
+/**
+ * Parses tiles.item_requirements (JSONB). Null, not an array, an empty
+ * array, or any malformed entry all come back as `null` — meaning "not using
+ * this feature here, fall back to the flat item_ids/required_count/
+ * require_unique_items fields" — so a bad value degrades to today's
+ * behavior rather than breaking the tile.
+ */
+export function parseItemRequirements(raw: unknown): ItemRequirement[] | null {
+  if (raw == null) return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const reqs: ItemRequirement[] = [];
+    for (const entry of parsed as unknown[]) {
+      const e = entry as Record<string, unknown>;
+      if (
+        !e ||
+        typeof e.itemId !== "number" ||
+        typeof e.requiredAmount !== "number" ||
+        !Number.isInteger(e.requiredAmount) ||
+        e.requiredAmount < 1
+      ) {
+        return null;
+      }
+      reqs.push({
+        itemId: e.itemId,
+        name: typeof e.name === "string" && e.name.trim() ? e.name.trim() : `Item ${e.itemId}`,
+        requiredAmount: e.requiredAmount,
+        group: typeof e.group === "string" && e.group.trim() ? e.group.trim() : null,
+      });
+    }
+    return reqs;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pure — decides item_requirements completeness from each requirement's
+ * current count. Shared by checkItemRequirements (queries the DB for one
+ * team+tile) and getBoard's bulk in-memory status calc (which already has
+ * every submission's item_id loaded and would rather not issue one query
+ * per team per tile — see the hosting-cost notes in this project's own
+ * CLAUDE.md on why getBoard stays a fixed number of queries regardless of
+ * team/tile count).
+ */
+export function evaluateItemRequirements(
+  itemRequirements: ItemRequirement[],
+  countByItemId: Map<number, number>,
+): ItemRequirementsStatus {
+  const perItem: ItemRequirementStatus[] = itemRequirements.map((r) => ({
+    ...r,
+    currentAmount: countByItemId.get(r.itemId) ?? 0,
+  }));
+
+  const ungroupedComplete = perItem
+    .filter((i) => !i.group)
+    .every((i) => i.currentAmount >= i.requiredAmount);
+
+  const groups = new Map<string, ItemRequirementStatus[]>();
+  for (const i of perItem) {
+    if (!i.group) continue;
+    const key = i.group.toLowerCase();
+    const list = groups.get(key) ?? [];
+    list.push(i);
+    groups.set(key, list);
+  }
+  const anyGroupComplete =
+    groups.size === 0 ||
+    Array.from(groups.values()).some((set) =>
+      set.every((i) => i.currentAmount >= i.requiredAmount),
+    );
+
+  return { complete: ungroupedComplete && anyGroupComplete, perItem };
+}
+
+/**
+ * checkItemRequirements for one team+tile, counting approved-or-pending
+ * submission rows per item id (each row is one unit — this schema has no
+ * per-submission amount/quantity column). `excludeSubmissionId` lets a
+ * caller ask "would this be complete WITHOUT the row I'm about to
+ * approve/reject" (it defaults to 0, an id that never matches a real
+ * BIGSERIAL row, so passing nothing counts every row as normal).
+ */
+export async function checkItemRequirements(
+  teamId: number,
+  tileId: number,
+  itemRequirements: ItemRequirement[],
+  excludeSubmissionId = 0,
+): Promise<ItemRequirementsStatus> {
+  const itemIds = itemRequirements.map((r) => r.itemId);
+  const rows =
+    itemIds.length > 0
+      ? await sql`
+        SELECT item_id, COUNT(*)::int AS count
+        FROM submissions
+        WHERE team_id = ${teamId} AND tile_id = ${tileId}
+          AND item_id = ANY(${itemIds}::int[]) AND status IN ('approved', 'pending')
+          AND id != ${excludeSubmissionId}
+        GROUP BY item_id`
+      : [];
+  const countByItemId = new Map<number, number>();
+  for (const r of rows) countByItemId.set(r.item_id as number, Number(r.count));
+  return evaluateItemRequirements(itemRequirements, countByItemId);
+}
+
+/**
  * Checks whether a tile-proof submission would be accepted, enforcing the
  * rules shared by both submission paths (the website's manual upload and the
  * RuneLite plugin's automatic one):
  * - the tile must exist,
- * - if itemId is given and the tile restricts itself to specific items, it
- *   must be one of them,
- * - if the tile requires unique items, that item id must not already have an
- *   approved-or-pending submission for this team on this tile (e.g. "4
- *   unique DK rings" — a second ring of the same kind is refused, not just
- *   flagged for an admin to notice),
- * - the team must not already have enough approved-or-pending proofs to
- *   fulfil the tile.
+ * - a tile with item_requirements (see above) needs a valid itemId that
+ *   isn't already at its own requiredAmount, and the tile overall mustn't
+ *   already be complete,
+ * - otherwise (the flat item_ids/required_count/require_unique_items
+ *   fields): if itemId is given and the tile restricts itself to specific
+ *   items, it must be one of them; if the tile requires unique items, that
+ *   item id must not already have an approved-or-pending submission for
+ *   this team on this tile; the team must not already have enough
+ *   approved-or-pending proofs to fulfil the tile.
  *
  * Deliberately does NOT insert anything: the plugin's proof upload needs to
  * validate *before* spending a Blob upload on a submission that's going to be
@@ -503,12 +607,40 @@ export async function validateProofSubmission(opts: {
   itemId?: number;
 }): Promise<ProofValidation> {
   const tileRows = await sql`
-    SELECT required_count, item_ids, require_unique_items
+    SELECT required_count, item_ids, require_unique_items, item_requirements
     FROM tiles WHERE id = ${opts.tileId}`;
   if (tileRows.length === 0) {
     return { ok: false, status: 404, error: "Tile not found" };
   }
   const tile = tileRows[0];
+
+  const itemRequirements = parseItemRequirements(tile.item_requirements);
+  if (itemRequirements) {
+    if (opts.itemId === undefined) {
+      return { ok: false, status: 400, error: "itemId is required for this tile" };
+    }
+    const requirement = itemRequirements.find((r) => r.itemId === opts.itemId);
+    if (!requirement) {
+      return {
+        ok: false,
+        status: 400,
+        error: "That item does not satisfy the requested tile",
+      };
+    }
+    const reqStatus = await checkItemRequirements(opts.teamId, opts.tileId, itemRequirements);
+    if (reqStatus.complete) {
+      return { ok: false, status: 409, error: "That tile is already complete" };
+    }
+    const itemStatus = reqStatus.perItem.find((i) => i.itemId === opts.itemId)!;
+    if (itemStatus.currentAmount >= itemStatus.requiredAmount) {
+      return {
+        ok: false,
+        status: 409,
+        error: `${requirement.name} already at required amount (${requirement.requiredAmount})`,
+      };
+    }
+    return { ok: true };
+  }
 
   if (opts.itemId !== undefined) {
     const itemIds = (tile.item_ids ?? []) as number[];

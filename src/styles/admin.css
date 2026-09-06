@@ -273,15 +273,6 @@
   flex-shrink: 0;
 }
 
-.admin-tile-icon-input {
-  width: 200px;
-  flex-shrink: 0;
-  color: #8f7a78;
-  font-size: 11px;
-  padding: 7px 10px;
-  border-color: #2a1315;
-}
-
 .admin-tile-count-input {
   width: 56px;
   flex-shrink: 0;
@@ -377,6 +368,61 @@
   cursor: pointer;
 }
 
+/* Advanced item requirements (AND/OR item conditions) — a repeatable row
+   list, one row per tracked item, editable inline. */
+.admin-tile-item-reqs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px dashed #2a1315;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.admin-tile-item-reqs-hint {
+  font-size: 10.5px;
+  color: #8f7a78;
+  margin: 0;
+}
+
+.admin-tile-item-req-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-tile-item-req-id {
+  width: 90px;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 7px 10px;
+  border-color: #2a1315;
+}
+
+.admin-tile-item-req-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 7px 10px;
+  border-color: #2a1315;
+}
+
+.admin-tile-item-req-amount {
+  width: 60px;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 7px 10px;
+  border-color: #2a1315;
+}
+
+.admin-tile-item-req-group {
+  width: 120px;
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 7px 10px;
+  border-color: #2a1315;
+}
+
 .admin-member-search-wrap {
   position: relative;
   margin-bottom: 20px;
@@ -418,49 +464,6 @@
 
 .admin-danger-label {
   color: #e8574a;
-}
-
-/* Broadcast tab */
-
-.admin-broadcast-grid {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 24px;
-  align-items: start;
-}
-
-.admin-broadcast-textarea {
-  width: 100%;
-  resize: vertical;
-  margin-bottom: 16px;
-  font-family: inherit;
-}
-
-.admin-broadcast-history {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.admin-broadcast-history-item {
-  border-bottom: 1px solid #2a1315;
-  padding-bottom: 10px;
-}
-
-.admin-broadcast-history-item:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.admin-broadcast-history-text {
-  font-size: 12.5px;
-  color: #c9b8b6;
-}
-
-.admin-broadcast-history-time {
-  font-size: 10.5px;
-  color: #7a655f;
-  margin-top: 4px;
 }
 
 /* Teams tab */
@@ -670,6 +673,16 @@
   height: 24px;
   object-fit: contain;
   flex-shrink: 0;
+}
+
+/* Shared by admin-tile-row-icon and admin-tile-thumb when no icon could be
+   derived (a manual tile with no item and no icon_item_id override) — a
+   blank placeholder beats a broken image glyph. */
+.admin-icon-placeholder {
+  display: block;
+  border: 1px dashed #3a2224;
+  border-radius: 4px;
+  opacity: 0.5;
 }
 
 .admin-tile-row-name {

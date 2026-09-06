@@ -9,6 +9,7 @@ import {
   type BoardConfig,
   type TileGoal,
 } from "../../services/admin";
+import type { ItemRequirement } from "../../services/board";
 import { PLACEHOLDER_BOARD_CONFIG, PLACEHOLDER_TILES } from "./placeholders";
 import { ranks } from "../../data/ranks-data";
 
@@ -64,13 +65,162 @@ const ITEM_IDS_PLACEHOLDER = "Item IDs for auto-detect (e.g. 20997, 21015)";
 // 10-argument callback, so this form switches to a single object instead).
 interface TileFormValues {
   name: string;
-  iconUrl: string;
   requiredCount: number;
   category: string;
   description: string;
   itemIds: number[];
   requireUniqueItems: boolean;
   goal: TileGoal;
+  iconItemId: number | null;
+  itemRequirements: ItemRequirement[] | null;
+}
+
+const ICON_ITEM_ID_PLACEHOLDER = "Icon item ID (optional — overrides the default)";
+
+// Same free-text-single-number pattern as parseItemIdsInput, but for one id
+// rather than a list; blank clears the override.
+function parseIconItemIdInput(text: string): number | null {
+  const n = Number(text.trim());
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// --- Advanced item requirements (AND/OR item conditions — see db/schema.sql) ---
+// A repeatable row list, edited as text per-field (like every other field in
+// this form) and only parsed into real ItemRequirement objects at commit
+// time — an in-progress "20997" shouldn't be rejected as invalid mid-type.
+
+interface ItemRequirementRow {
+  itemId: string;
+  name: string;
+  requiredAmount: string;
+  group: string;
+}
+
+function blankItemRequirementRow(): ItemRequirementRow {
+  return { itemId: "", name: "", requiredAmount: "1", group: "" };
+}
+
+function itemRequirementRowsFromValue(value: ItemRequirement[] | null): ItemRequirementRow[] {
+  if (!value) return [];
+  return value.map((r) => ({
+    itemId: String(r.itemId),
+    name: r.name,
+    requiredAmount: String(r.requiredAmount),
+    group: r.group ?? "",
+  }));
+}
+
+// A row missing a valid item id is dropped rather than rejected (matches
+// parseItemIdsInput's tolerate-garbage-while-typing philosophy); an empty
+// result is `null` — "this tile isn't using advanced conditions," which
+// falls back to the flat itemIds/requiredCount/requireUniqueItems fields.
+function parseItemRequirementRows(rows: ItemRequirementRow[]): ItemRequirement[] | null {
+  const parsed: ItemRequirement[] = [];
+  for (const r of rows) {
+    const itemId = Number(r.itemId.trim());
+    if (!Number.isInteger(itemId) || itemId <= 0) continue;
+    parsed.push({
+      itemId,
+      name: r.name.trim() || `Item ${itemId}`,
+      requiredAmount: Math.max(1, Math.floor(Number(r.requiredAmount)) || 1),
+      group: r.group.trim() || null,
+    });
+  }
+  return parsed.length > 0 ? parsed : null;
+}
+
+function ItemRequirementRowsEditor({
+  rows,
+  onRowsChange,
+  onFieldBlur,
+}: {
+  rows: ItemRequirementRow[];
+  onRowsChange: (rows: ItemRequirementRow[]) => void;
+  /**
+   * TileRow autosaves per-field on blur; TileAddRow only saves on submit, so
+   * it passes nothing here — rows are read straight from state at Save time.
+   * Takes an optional explicit row list because removeRow commits in the same
+   * tick as its state update — React batches that update, so a parameterless
+   * commit reading state would still see the row that's about to be removed.
+   * A normal field's onBlur fires on a later event after the onChange-driven
+   * re-render has already landed, so it never needs the override.
+   */
+  onFieldBlur?: (rows?: ItemRequirementRow[]) => void;
+}) {
+  function updateRow(i: number, patch: Partial<ItemRequirementRow>) {
+    onRowsChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function removeRow(i: number) {
+    const next = rows.filter((_, idx) => idx !== i);
+    onRowsChange(next);
+    // The row disappearing IS the change here — there's no blurring input
+    // left to fire it, so commit explicitly with the post-removal list.
+    onFieldBlur?.(next);
+  }
+  return (
+    <div className="admin-tile-item-reqs">
+      <p className="admin-tile-item-reqs-hint">
+        Advanced item requirements (optional) — overrides <em>completion logic</em> (the
+        required-count/unique-items rules above) when set, deciding what counts as done instead
+        of a simple count. It does <strong>not</strong> replace the Item IDs field — keep every
+        item listed there too, or the RuneLite plugin won't recognize any of these drops at all
+        and auto-submission will silently stop working for this tile. Items sharing a "set" name
+        are an OR (any one full set completes the tile); items with no set are always required
+        (an AND).
+      </p>
+      {rows.map((row, i) => (
+        <div key={i} className="admin-tile-item-req-row">
+          <input
+            type="text"
+            className="admin-input admin-tile-item-req-id"
+            placeholder="Item ID"
+            value={row.itemId}
+            onChange={(e) => updateRow(i, { itemId: e.target.value })}
+            onBlur={() => onFieldBlur?.()}
+          />
+          <input
+            type="text"
+            className="admin-input admin-tile-item-req-name"
+            placeholder="Name (optional)"
+            value={row.name}
+            onChange={(e) => updateRow(i, { name: e.target.value })}
+            onBlur={() => onFieldBlur?.()}
+          />
+          <input
+            type="number"
+            min={1}
+            className="admin-input admin-tile-item-req-amount"
+            placeholder="Qty"
+            value={row.requiredAmount}
+            onChange={(e) => updateRow(i, { requiredAmount: e.target.value })}
+            onBlur={() => onFieldBlur?.()}
+          />
+          <input
+            type="text"
+            className="admin-input admin-tile-item-req-group"
+            placeholder="Set (optional)"
+            value={row.group}
+            onChange={(e) => updateRow(i, { group: e.target.value })}
+            onBlur={() => onFieldBlur?.()}
+          />
+          <button
+            type="button"
+            className="admin-btn-danger"
+            onClick={() => removeRow(i)}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="admin-btn-ghost"
+        onClick={() => onRowsChange([...rows, blankItemRequirementRow()])}
+      >
+        + Add item requirement
+      </button>
+    </div>
+  );
 }
 
 function GoalFields({
@@ -155,12 +305,13 @@ function TileAddRow({
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
-  const [iconUrl, setIconUrl] = useState("");
   const [requiredCount, setRequiredCount] = useState(1);
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [itemIdsText, setItemIdsText] = useState("");
   const [requireUniqueItems, setRequireUniqueItems] = useState(false);
+  const [iconItemIdText, setIconItemIdText] = useState("");
+  const [itemRequirementRows, setItemRequirementRows] = useState<ItemRequirementRow[]>([]);
   const [goal, setGoal] = useState<TileGoal>({
     goalKind: "item",
     goalKey: "",
@@ -176,13 +327,6 @@ function TileAddRow({
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
-        />
-        <input
-          type="text"
-          className="admin-input admin-tile-icon-input"
-          placeholder="Icon image URL"
-          value={iconUrl}
-          onChange={(e) => setIconUrl(e.target.value)}
         />
         <input
           type="text"
@@ -230,22 +374,36 @@ function TileAddRow({
           4x)
         </label>
       )}
+      <input
+        type="text"
+        className="admin-input admin-tile-description-input"
+        placeholder={ICON_ITEM_ID_PLACEHOLDER}
+        value={iconItemIdText}
+        onChange={(e) => setIconItemIdText(e.target.value)}
+        title="Which item's icon the RuneLite plugin should show for this tile — defaults to the first item ID above (or nothing, for an XP/KC tile) when left blank"
+      />
+      {goal.goalKind === "item" && (
+        <ItemRequirementRowsEditor
+          rows={itemRequirementRows}
+          onRowsChange={setItemRequirementRows}
+        />
+      )}
       <div className="admin-tile-card-actions">
         <button
           type="button"
           className="admin-btn-primary"
           onClick={() =>
             name.trim() &&
-            iconUrl.trim() &&
             onSave({
               name: name.trim(),
-              iconUrl: iconUrl.trim(),
               requiredCount,
               category: category.trim(),
               description: description.trim(),
               itemIds: parseItemIdsInput(itemIdsText),
               requireUniqueItems,
               goal,
+              iconItemId: parseIconItemIdInput(iconItemIdText),
+              itemRequirements: parseItemRequirementRows(itemRequirementRows),
             })
           }
         >
@@ -262,7 +420,6 @@ function TileAddRow({
 function valuesFromTile(tile: AdminTile): TileFormValues {
   return {
     name: tile.name,
-    iconUrl: tile.iconUrl,
     requiredCount: tile.requiredCount,
     category: tile.category,
     description: tile.description,
@@ -273,13 +430,22 @@ function valuesFromTile(tile: AdminTile): TileFormValues {
       goalKey: tile.goalKey,
       goalTarget: tile.goalTarget,
     },
+    iconItemId: tile.iconItemId,
+    itemRequirements: tile.itemRequirements,
   };
+}
+
+// Order-and-shape-sensitive on purpose: item_requirements is a small,
+// admin-authored list, not something reordered by other code, so a plain
+// JSON comparison is enough to tell "actually changed" from "reloaded the
+// same data."
+function itemRequirementsEqual(a: ItemRequirement[] | null, b: ItemRequirement[] | null): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function valuesEqual(a: TileFormValues, b: TileFormValues): boolean {
   return (
     a.name === b.name &&
-    a.iconUrl === b.iconUrl &&
     a.requiredCount === b.requiredCount &&
     a.category === b.category &&
     a.description === b.description &&
@@ -287,7 +453,9 @@ function valuesEqual(a: TileFormValues, b: TileFormValues): boolean {
     a.requireUniqueItems === b.requireUniqueItems &&
     a.goal.goalKind === b.goal.goalKind &&
     a.goal.goalKey === b.goal.goalKey &&
-    a.goal.goalTarget === b.goal.goalTarget
+    a.goal.goalTarget === b.goal.goalTarget &&
+    a.iconItemId === b.iconItemId &&
+    itemRequirementsEqual(a.itemRequirements, b.itemRequirements)
   );
 }
 
@@ -302,6 +470,12 @@ function TileRow({
 }) {
   const [values, setValues] = useState(valuesFromTile(tile));
   const [itemIdsText, setItemIdsText] = useState(tile.itemIds.join(", "));
+  const [iconItemIdText, setIconItemIdText] = useState(
+    tile.iconItemId != null ? String(tile.iconItemId) : "",
+  );
+  const [itemRequirementRows, setItemRequirementRows] = useState<ItemRequirementRow[]>(
+    itemRequirementRowsFromValue(tile.itemRequirements),
+  );
   const [prevTile, setPrevTile] = useState(tile);
   const [expanded, setExpanded] = useState(false);
   // Compared by field value, not by reference: `tile` is a fresh object after
@@ -312,27 +486,43 @@ function TileRow({
     setPrevTile(tile);
     setValues(valuesFromTile(tile));
     setItemIdsText(tile.itemIds.join(", "));
+    setIconItemIdText(tile.iconItemId != null ? String(tile.iconItemId) : "");
+    setItemRequirementRows(itemRequirementRowsFromValue(tile.itemRequirements));
   }
 
   function commit(next: TileFormValues) {
-    if (next.name && next.iconUrl && !valuesEqual(next, valuesFromTile(tile))) {
+    if (next.name && !valuesEqual(next, valuesFromTile(tile))) {
       onSave(next);
     } else {
       setValues(valuesFromTile(tile));
       setItemIdsText(tile.itemIds.join(", "));
+      setIconItemIdText(tile.iconItemId != null ? String(tile.iconItemId) : "");
+      setItemRequirementRows(itemRequirementRowsFromValue(tile.itemRequirements));
     }
   }
 
-  function commitCurrent() {
+  // Accepts an explicit row list for the one caller (ItemRequirementRowsEditor's
+  // removeRow) that can't rely on `itemRequirementRows` state having already
+  // updated by the time this runs — see that component's onFieldBlur doc.
+  // A distinct function (not an overload of commitCurrent below) because
+  // commitCurrent is also used directly as a plain onBlur={commitCurrent}
+  // handler elsewhere in this form, where the DOM passes a FocusEvent as the
+  // first argument — that must never be mistaken for a row-list override.
+  function commitWithItemRequirements(itemRequirementRowsOverride?: ItemRequirementRow[]) {
     commit({
       ...values,
       name: values.name.trim() || tile.name,
-      iconUrl: values.iconUrl.trim() || tile.iconUrl,
       requiredCount: Math.max(1, Math.floor(values.requiredCount) || 1),
       category: values.category.trim(),
       description: values.description.trim(),
       itemIds: parseItemIdsInput(itemIdsText),
+      iconItemId: parseIconItemIdInput(iconItemIdText),
+      itemRequirements: parseItemRequirementRows(itemRequirementRowsOverride ?? itemRequirementRows),
     });
+  }
+
+  function commitCurrent() {
+    commitWithItemRequirements();
   }
 
   return (
@@ -341,7 +531,11 @@ function TileRow({
         className="admin-tile-row-header"
         onClick={() => setExpanded((e) => !e)}
       >
-        <img src={tile.iconUrl} alt="" className="admin-tile-row-icon" />
+        {tile.iconUrl ? (
+          <img src={tile.iconUrl} alt="" className="admin-tile-row-icon" />
+        ) : (
+          <span className="admin-tile-row-icon admin-icon-placeholder" aria-hidden="true" />
+        )}
         <div className="admin-tile-row-name">{tile.name}</div>
         {tile.category && (
           <div className="admin-tile-row-category">{tile.category}</div>
@@ -367,15 +561,6 @@ function TileRow({
               className="admin-input admin-row-input"
               value={values.name}
               onChange={(e) => setValues({ ...values, name: e.target.value })}
-              onBlur={commitCurrent}
-            />
-            <input
-              type="text"
-              className="admin-input admin-tile-icon-input"
-              value={values.iconUrl}
-              onChange={(e) =>
-                setValues({ ...values, iconUrl: e.target.value })
-              }
               onBlur={commitCurrent}
             />
             <input
@@ -440,6 +625,22 @@ function TileRow({
               Require unique items (e.g. "4 different DK rings", not the same
               one 4x)
             </label>
+          )}
+          <input
+            type="text"
+            className="admin-input admin-tile-description-input"
+            placeholder={ICON_ITEM_ID_PLACEHOLDER}
+            value={iconItemIdText}
+            onChange={(e) => setIconItemIdText(e.target.value)}
+            onBlur={commitCurrent}
+            title="Which item's icon the RuneLite plugin should show for this tile — defaults to the first item ID above (or nothing, for an XP/KC tile) when left blank"
+          />
+          {values.goal.goalKind === "item" && (
+            <ItemRequirementRowsEditor
+              rows={itemRequirementRows}
+              onRowsChange={setItemRequirementRows}
+              onFieldBlur={commitWithItemRequirements}
+            />
           )}
         </div>
       )}
@@ -619,7 +820,11 @@ export function TilesPanel() {
           <div className="admin-row-list">
             {overflowTiles.map((tile) => (
               <div key={tile.id} className="admin-row">
-                <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
+                {tile.iconUrl ? (
+                  <img src={tile.iconUrl} alt="" className="admin-tile-thumb" />
+                ) : (
+                  <span className="admin-tile-thumb admin-icon-placeholder" aria-hidden="true" />
+                )}
                 <span className="admin-row-name">{tile.name}</span>
                 <button
                   type="button"
