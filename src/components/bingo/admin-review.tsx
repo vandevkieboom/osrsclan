@@ -4,6 +4,12 @@ import type { ItemRequirementsStatus } from "../../services/board";
 
 interface AdminReviewProps {
   submissions: AdminSubmission[] | null;
+  /** "grouped" (default) clusters by tile+team for spotting duplicates;
+   * "oldest" is meant to show a flat, strictly-chronological queue for
+   * clearing a launch-day backlog fastest - see groupSubmissions below for
+   * why this has to change what's actually rendered, not just what's
+   * requested from the server. */
+  sort: "grouped" | "oldest";
   onReview: (
     id: number,
     decision: "approved" | "rejected",
@@ -48,6 +54,26 @@ function groupByTileAndTeam(submissions: AdminSubmission[]): Group[] {
     group.submissions.push(sub);
   }
   return groups;
+}
+
+// One submission per "group", in the exact order the server sent them
+// (oldest first, ignoring tile/team - see api/admin/submissions.ts). This
+// used to just be groupByTileAndTeam(submissions) regardless of sort mode,
+// which silently re-clustered everything back into tile+team order right
+// after the server had gone to the trouble of sending it chronologically -
+// the "Oldest first" toggle changed the request and then had its effect
+// immediately undone by this component's own rendering.
+function groupOldestFirst(submissions: AdminSubmission[]): Group[] {
+  return submissions.map((sub) => ({
+    key: String(sub.id),
+    tileName: sub.tileName,
+    teamName: sub.teamName,
+    iconUrl: sub.iconUrl,
+    requireUniqueItems: sub.requireUniqueItems,
+    alreadyApprovedItemIds: sub.alreadyApprovedItemIds,
+    itemRequirementsStatus: sub.itemRequirementsStatus,
+    submissions: [sub],
+  }));
 }
 
 /** "Set A: Enhanced crystal weapon seed 0/1, ..." — the per-group/per-item
@@ -130,15 +156,21 @@ function SubmissionRow({
     return Number.isInteger(n) && n > 0 ? n : undefined;
   }
 
+  // Only the RuneLite plugin resolves item_id — a manual screenshot upload
+  // never does, and this project has no id-to-name lookup outside what an
+  // admin typed into item_requirements. So the tile's icon/name is shown
+  // only as a group heading (see the group header above), never here: it
+  // would make an unreviewed screenshot look like it was confirmed to show
+  // that specific item when nobody has actually checked that yet.
+  const knownName = itemRequirementsStatus?.perItem.find(
+    (i) => i.itemId === sub.itemId,
+  )?.name;
+
   return (
     <div className="bingo-admin-row">
-      {sub.itemId != null || sub.iconUrl ? (
+      {sub.itemId != null ? (
         <img
-          src={
-            sub.itemId != null
-              ? `https://static.runelite.net/cache/item/icon/${sub.itemId}.png`
-              : sub.iconUrl
-          }
+          src={`https://static.runelite.net/cache/item/icon/${sub.itemId}.png`}
           alt=""
           className="bingo-admin-icon"
         />
@@ -147,6 +179,11 @@ function SubmissionRow({
       )}
       <div className="bingo-admin-info">
         <div className="bingo-admin-meta">submitted by {sub.submittedBy}</div>
+        {sub.itemId != null && (
+          <div className="bingo-admin-meta bingo-admin-meta--item">
+            {knownName ?? `Item #${sub.itemId}`}
+          </div>
+        )}
         <div className="bingo-admin-meta bingo-admin-meta--timestamp">
           {new Date(sub.createdAt).toLocaleString()}
         </div>
@@ -211,12 +248,12 @@ function SubmissionRow({
   );
 }
 
-export function AdminReview({ submissions, onReview }: AdminReviewProps) {
+export function AdminReview({ submissions, sort, onReview }: AdminReviewProps) {
   if (!submissions || submissions.length === 0) {
     return <div className="bingo-admin-empty">No pending submissions.</div>;
   }
 
-  const groups = groupByTileAndTeam(submissions);
+  const groups = sort === "oldest" ? groupOldestFirst(submissions) : groupByTileAndTeam(submissions);
 
   return (
     <div className="bingo-admin-list">

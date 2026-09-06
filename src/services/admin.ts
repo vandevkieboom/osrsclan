@@ -354,6 +354,13 @@ export async function deleteTile(id: number): Promise<void> {
   await json(res);
 }
 
+export async function deleteAllTiles(): Promise<void> {
+  const res = await fetch("/api/admin/board?resource=tiles&all=true", {
+    method: "DELETE",
+  });
+  await json(res);
+}
+
 export async function fetchAdminSubmissions(
   status: string,
   filters?: { teamId?: number; tileId?: number; sort?: "grouped" | "oldest" },

@@ -78,6 +78,79 @@ export function invalidateBoardConfigMemo(): void {
 }
 
 /**
+ * Bounds an env-var-supplied number of seconds. Bounded rather than trusted: a
+ * typo should not be able to have every plugin in the clan hammering an
+ * endpoint, nor to silently switch one off by asking it to wait an hour.
+ */
+export function clampEnvSeconds(
+  raw: string | undefined,
+  fallback: number,
+  min = 60,
+  max = 900,
+): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(parsed)));
+}
+
+/**
+ * How long the CDN may serve a cached copy of a response derived from
+ * board_config — and it differs by whether an event is on.
+ *
+ * This is the dial that controls **compute**, and it behaves in a way that is
+ * easy to get backwards. Once enough members are online that every cache
+ * window ends in a miss somewhere, how often the origin actually *runs* stops
+ * depending on member count at all: it settles at roughly (CDN locations) x
+ * (60 / this value) per minute, and nothing else.
+ *
+ * That matters for a reason specific to Neon rather than Vercel: its compute
+ * only suspends (stops billing) after 5 real minutes with **no query at all**.
+ * Neon does not care how many people asked, only how long it has been since
+ * the last one — so a handful of members who forgot to clear a plugin key,
+ * still idly polling, is enough in aggregate to touch the database more often
+ * than every 5 minutes forever and never once suspend, even though the request
+ * *count* is tiny. While idle this window therefore has to be comfortably
+ * longer than 5 minutes to guarantee a real gap every cycle. While an event is
+ * active none of that applies: freshness is what matters, so it drops back to
+ * the short window.
+ *
+ * **Shared by every board_config-derived endpoint on purpose.** These used to
+ * be private to api/plugin-poll.ts, which meant the older
+ * `GET /api/board?resource=status` kept a flat 30s window regardless of
+ * whether an event was running — so a single un-updated plugin install could
+ * hold the database awake around the clock, all year, defeating the idle
+ * window entirely. Two endpoints answering the same question must not be able
+ * to disagree about how long that answer keeps.
+ */
+const CACHE_SECONDS_ACTIVE = clampEnvSeconds(
+  process.env.PLUGIN_POLL_CACHE_SECONDS_ACTIVE,
+  30,
+  5,
+);
+
+// The idle window gets its own, much higher ceiling than the normal 900s cap:
+// that cap exists to stop a typo making the *active* window dangerously slow
+// during a real event, which doesn't apply here — a long idle window is the
+// entire point. 1800s (30 min) default: comfortably past Neon's 5-minute
+// suspend threshold, while still picking up a newly re-activated event within
+// one cycle.
+const CACHE_SECONDS_IDLE = clampEnvSeconds(
+  process.env.PLUGIN_POLL_CACHE_SECONDS_IDLE,
+  1800,
+  5,
+  3600,
+);
+
+export function boardConfigCacheControl(bingoActive: boolean): string {
+  const seconds = bingoActive ? CACHE_SECONDS_ACTIVE : CACHE_SECONDS_IDLE;
+  // stale-while-revalidate is generous on purpose: a member never waits on a
+  // revalidation, and a slow moment at the origin degrades to "your answer is
+  // a few seconds older" rather than to a burst of concurrent misses all
+  // rendering the same thing.
+  return `s-maxage=${seconds}, stale-while-revalidate=${seconds * 3}`;
+}
+
+/**
  * Wipes everything tied to the current round of bingo so a new one can start
  * clean: every team's tile submissions (proof images included — see below),
  * and every member's xp/kc goal-tile progress (see goal_progress in

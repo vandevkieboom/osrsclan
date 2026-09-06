@@ -20,16 +20,6 @@ import {
 
 type View = "leaderboard" | "board" | "admin";
 
-/** "just now" / "12s ago" / "3m ago" — deliberately coarse past a minute. */
-function formatAgo(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  if (seconds < 5) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ago`;
-}
-
 export function BingoPage() {
   const { user, isAdmin } = useAuth();
   const [view, setView] = useState<View>("leaderboard");
@@ -43,19 +33,6 @@ export function BingoPage() {
   // landed first meant a slow session load left you looking at some other
   // team's board with no way to tell that wasn't deliberate.
   const [pickedTeamId, setPickedTeamId] = useState<number | null>(null);
-
-  // When this page last got a board, and a ticking "x ago" off it. The board
-  // is fetched on load, not polled, so without this the page silently looks
-  // live while being minutes old — which is exactly the thing that generates
-  // "why isn't this updating?" during an event. The in-game panel already
-  // shows its own sync age; this is the website's version of it.
-  const [loadedAt, setLoadedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   // Keep the board live while somebody is actually looking at it.
   //
@@ -120,7 +97,17 @@ export function BingoPage() {
 
     const interactionEvents = ["pointerdown", "keydown", "scroll"] as const;
 
-    if (document.visibilityState === "visible") start();
+    // This effect re-runs on every `view` change (see the dependency array
+    // below), including switching *into* Board from Admin or Leaderboard -
+    // that used to only restart the 60s timer, not fetch anything, so an
+    // admin who'd just approved something and switched tabs to check still
+    // saw whatever was cached from before they left, for up to another full
+    // minute. Fetching immediately here is the same "don't make someone wait
+    // on a stale view" reasoning as onVisibility's reload below.
+    if (document.visibilityState === "visible") {
+      reloadBoard();
+      start();
+    }
     document.addEventListener("visibilitychange", onVisibility);
     for (const evt of interactionEvents) {
       window.addEventListener(evt, noteInteraction, { passive: true });
@@ -159,7 +146,6 @@ export function BingoPage() {
     fetchBoard(fresh)
       .then((data) => {
         setBoard(data);
-        setLoadedAt(Date.now());
       })
       .catch((err: unknown) => {
         if (import.meta.env.DEV) {
@@ -285,24 +271,7 @@ export function BingoPage() {
         <div className="page-head">
           <div className="page-head-row">
             <div className="page-head-text">
-              <div className="page-eyebrow">
-                Clan Event
-                {loadedAt !== null && (
-                  <>
-                    {" · "}
-                    <span className="bingo-freshness">
-                      {formatAgo(now - loadedAt)}
-                    </span>{" "}
-                    <button
-                      type="button"
-                      className="bingo-refresh"
-                      onClick={() => reloadBoard(true)}
-                    >
-                      Refresh
-                    </button>
-                  </>
-                )}
-              </div>
+              <div className="page-eyebrow">Clan Event</div>
               <h1 className="page-title">{board.config.name}</h1>
               <p className="page-sub">
                 First team to complete every tile on their board wins. Click a
@@ -496,7 +465,7 @@ export function BingoPage() {
                 </button>
               </div>
             </div>
-            <AdminReview submissions={submissions} onReview={handleReview} />
+            <AdminReview submissions={submissions} sort={submissionSort} onReview={handleReview} />
           </>
         )}
       </div>

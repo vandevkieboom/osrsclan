@@ -528,31 +528,3 @@ select.bingo-admin-itemid-input {
   }
 }
 
-
-/* Board freshness indicator. The board is fetched on load, not polled, so the
-   page has to say how old what you're looking at is - otherwise it silently
-   looks live while being minutes stale, which is exactly what generates "why
-   isn't this updating?" during an event. The in-game panel already shows its
-   own sync age; this is the website's version of the same thing. Sits inside
-   the eyebrow so it reads as metadata rather than a control bar. */
-.bingo-freshness {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.75;
-}
-
-.bingo-refresh {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  opacity: 0.75;
-}
-
-.bingo-refresh:hover,
-.bingo-refresh:focus-visible {
-  opacity: 1;
-}

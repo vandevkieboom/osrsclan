@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
-import { requireAdmin } from "./_lib/auth.js";
+import { requireAdmin, discordAvatarUrl } from "./_lib/auth.js";
 import { withErrorHandling } from "./_lib/handler.js";
 
 const MAX_LABEL_LENGTH = 120;
@@ -34,7 +34,7 @@ async function listTrophies(req: VercelRequest, res: VercelResponse) {
     })),
     avatarUrl:
       member?.discord_id && member?.discord_avatar_hash
-        ? `https://cdn.discordapp.com/avatars/${member.discord_id}/${member.discord_avatar_hash}.png?size=64`
+        ? discordAvatarUrl(member.discord_id as string, member.discord_avatar_hash as string, 64)
         : null,
   });
 }

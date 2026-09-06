@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
-import { requireAdmin } from "../_lib/auth.js";
+import { requireAdmin, discordAvatarUrl } from "../_lib/auth.js";
 import { withErrorHandling } from "../_lib/handler.js";
 
 // Matches api/board.ts's ACCENT_PALETTE — used only to pick a sensible
@@ -213,7 +213,7 @@ async function listUsers(res: VercelResponse) {
       globalName: r.discord_global_name,
       runescapeName: r.runescape_name,
       avatarUrl: r.discord_avatar_hash
-        ? `https://cdn.discordapp.com/avatars/${r.discord_id}/${r.discord_avatar_hash}.png?size=32`
+        ? discordAvatarUrl(r.discord_id, r.discord_avatar_hash, 32)
         : null,
       isAdmin: r.is_admin,
       team: r.team_id ? { id: r.team_id, name: r.team_name } : null,

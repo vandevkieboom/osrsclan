@@ -1,4 +1,6 @@
 import {
+  boardConfigCacheControl,
+  clampEnvSeconds,
   getBoardConfigMemoised,
   maybeReconcileGoalProgress,
 } from "./_lib/board.js";
@@ -36,64 +38,14 @@ import { withErrorHandling } from "./_lib/handler.js";
  */
 
 /**
- * How long the CDN may serve a cached copy of this response — and unlike
- * `pollSeconds` below, this now differs by whether an event is on, not just
- * how often each client asks.
- *
- * This is the dial that controls **compute**, and it is worth being precise
- * about why, because it behaves in a way that is easy to get backwards.
- *
- * Once enough members are online that every cache window ends in a miss
- * somewhere, the number of times this function actually *runs* stops
- * depending on how many members there are at all. It settles at roughly
- * (number of CDN locations serving the clan) x (60 / this value) per minute,
- * and nothing else. Twice as many members polling does not cost twice as
- * much compute; it costs the same, because the extra polls land on cache
- * entries that already exist.
- *
- * That matters for a reason specific to Neon, not just Vercel: its free-tier
- * compute only suspends (stops billing) after 5 real minutes with no query at
- * all. A handful of participants who forgot to clear their plugin key and
- * are still idly polling every few minutes is enough, in aggregate, to touch
- * the database more often than every 5 minutes forever — never once
- * suspending — even though the *count* of requests is tiny. The database
- * doesn't care how many people asked; it only cares how long it's been since
- * the last one. So while idle, this window needs to be comfortably longer
- * than 5 minutes to guarantee a real gap every cycle, regardless of how many
- * stale keys are still out there. While an event is active, none of that
- * applies — freshness is what matters, so this drops back to the short,
- * original window; see `CACHE_SECONDS_ACTIVE` below.
- *
- * The practical consequence: if the *compute* or *invocations* meter is
- * running hot, raise `PLUGIN_POLL_CACHE_SECONDS_IDLE`. If the *edge requests*
- * meter is running hot, raising either will not help at all — a cache hit is
- * still a billed request — and the thing to change is
+ * The cache windows this endpoint uses live in _lib/board.ts
+ * (`boardConfigCacheControl`), shared with every other endpoint that answers
+ * from board_config — see the reasoning there. If the *compute* or
+ * *invocations* meter is running hot, raise `PLUGIN_POLL_CACHE_SECONDS_IDLE`.
+ * If the *edge requests* meter is running hot, raising either will not help at
+ * all — a cache hit is still a billed request — and the thing to change is
  * `PLUGIN_POLL_SECONDS_ACTIVE` below, which is what scales with member count.
  */
-const CACHE_SECONDS_ACTIVE = clampSeconds(process.env.PLUGIN_POLL_CACHE_SECONDS_ACTIVE, 30, 5);
-
-// Idle window gets its own, much higher ceiling than clampSeconds' normal
-// 900s cap: that cap exists to stop a typo turning the *active* window
-// dangerously slow during a real event, which doesn't apply here — a long
-// idle window is the entire point. 1800s (30 min) default: comfortably past
-// Neon's 5-minute suspend threshold (guarantees the database actually gets a
-// real quiet gap every cycle, see above) while still catching a newly
-// re-activated event within one cycle, same as any other idle-to-active
-// transition already had to tolerate.
-const CACHE_SECONDS_IDLE = clampSeconds(
-  process.env.PLUGIN_POLL_CACHE_SECONDS_IDLE,
-  1800,
-  5,
-  3600,
-);
-
-function cacheControlFor(seconds: number): string {
-  // stale-while-revalidate is generous on purpose: it means a member never
-  // waits on a revalidation, and that a slow moment at the origin degrades to
-  // "your answer is a few seconds older" rather than to a burst of concurrent
-  // misses all rendering the same thing.
-  return `s-maxage=${seconds}, stale-while-revalidate=${seconds * 3}`;
-}
 
 /**
  * How often the plugin should call this, in seconds — the server decides,
@@ -122,23 +74,8 @@ function cacheControlFor(seconds: number): string {
  * all — a cache hit is still a billed request. Only polling less often, or
  * polling for fewer things at once, moves that number.
  */
-const POLL_SECONDS_ACTIVE = clampSeconds(process.env.PLUGIN_POLL_SECONDS_ACTIVE, 60);
-const POLL_SECONDS_IDLE = clampSeconds(process.env.PLUGIN_POLL_SECONDS_IDLE, 300);
-
-function clampSeconds(
-  raw: string | undefined,
-  fallback: number,
-  min = 60,
-  max = 900,
-): number {
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return fallback;
-  // Bounded rather than trusted: a typo in an environment variable should not
-  // be able to have every plugin in the clan hammering this, nor to silently
-  // switch the plugin off by asking it to wait an hour (or, for the idle
-  // cache window's much higher max, an unreasonably long one).
-  return Math.min(max, Math.max(min, Math.round(parsed)));
-}
+const POLL_SECONDS_ACTIVE = clampEnvSeconds(process.env.PLUGIN_POLL_SECONDS_ACTIVE, 60);
+const POLL_SECONDS_IDLE = clampEnvSeconds(process.env.PLUGIN_POLL_SECONDS_IDLE, 300);
 
 // Served when the database can't be reached and this instance has never seen
 // a good read. bingoActive is false here, which is the opposite of the
@@ -166,7 +103,7 @@ export default withErrorHandling(async function handler(req, res) {
   // window: safest assumption when we don't yet know (or can't find out)
   // whether an event is running, since it degrades toward "checked too
   // often" rather than "an active event's board goes stale for 30 minutes".
-  res.setHeader("Cache-Control", cacheControlFor(CACHE_SECONDS_ACTIVE));
+  res.setHeader("Cache-Control", boardConfigCacheControl(true));
 
   const { row: config, stale } = await getBoardConfigMemoised();
 
@@ -188,7 +125,7 @@ export default withErrorHandling(async function handler(req, res) {
   // while an event is active, so board freshness during the one time it
   // matters is completely unaffected by any of this.
   if (!config.bingo_active) {
-    res.setHeader("Cache-Control", cacheControlFor(CACHE_SECONDS_IDLE));
+    res.setHeader("Cache-Control", boardConfigCacheControl(false));
   }
 
   // The xp/kc hiscores reconcile pass hangs off this endpoint rather than off

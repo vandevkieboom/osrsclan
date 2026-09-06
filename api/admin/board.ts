@@ -349,6 +349,13 @@ async function deleteTile(req: VercelRequest, res: VercelResponse) {
   res.status(200).json({ ok: true });
 }
 
+// Requires ?all=true rather than just a missing id, so a malformed
+// single-tile delete request can never silently wipe the whole board.
+async function deleteAllTiles(res: VercelResponse) {
+  await sql`DELETE FROM tiles`;
+  res.status(200).json({ ok: true });
+}
+
 // Board config and tiles are combined into one function to stay under the
 // Vercel Hobby plan's 12-function-per-deployment cap — dispatched by
 // `resource`, the same pattern api/wom-proxy.ts already uses for `type`.
@@ -377,6 +384,11 @@ export default withErrorHandling(async function handler(req, res) {
 
   if (req.method === "POST" && isTiles) {
     await createTile(req, res);
+    return;
+  }
+
+  if (req.method === "DELETE" && isTiles && req.query.all === "true") {
+    await deleteAllTiles(res);
     return;
   }
 

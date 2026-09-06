@@ -3,11 +3,13 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { put } from "@vercel/blob";
 import { sql } from "./_lib/db.js";
 import {
+  discordAvatarUrl,
   getRequestUser,
   requireRequestUser,
   requireUser,
 } from "./_lib/auth.js";
 import {
+  boardConfigCacheControl,
   evaluateItemRequirements,
   getBoardConfigMemoised,
   getOrCreateBoardConfig,
@@ -246,7 +248,7 @@ async function getBoard(res: VercelResponse, slim: boolean) {
         null,
       submittedByAvatarUrl:
         row.discord_id && row.discord_avatar_hash
-          ? `https://cdn.discordapp.com/avatars/${row.discord_id}/${row.discord_avatar_hash}.png?size=64`
+          ? discordAvatarUrl(row.discord_id, row.discord_avatar_hash, 64)
           : null,
       createdAt: row.created_at,
     });
@@ -502,8 +504,22 @@ async function getMyTeam(req: VercelRequest, res: VercelResponse) {
  * real function invocation. See api/plugin-poll.ts.
  */
 async function getBingoStatus(res: VercelResponse) {
-  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=90");
+  // Short/active window first, before the read that could fail — same
+  // fail-safe ordering as api/plugin-poll.ts, and for the same reason: an
+  // uncacheable response from a polled endpoint promotes every polling client
+  // into a real invocation at precisely the wrong moment.
+  res.setHeader("Cache-Control", boardConfigCacheControl(true));
   const { row } = await getBoardConfigMemoised();
+  // Then stretch to the long idle window once a real read confirms no event is
+  // running. Without this the flat 30s window above applied year-round, which
+  // meant a single plugin install that never updated — still polling this
+  // superseded endpoint once a minute — kept Neon's compute awake around the
+  // clock on its own, whether or not a bingo existed. Neon suspends only after
+  // 5 unbroken minutes with no query, so one straggler at 30s intervals is all
+  // it takes to defeat the idle window everywhere else.
+  if (row && !row.bingo_active) {
+    res.setHeader("Cache-Control", boardConfigCacheControl(false));
+  }
   res.status(200).json({
     bingoActive: row?.bingo_active ?? false,
     boardChangedAt: row?.board_changed_at ?? null,

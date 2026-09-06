@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   createTile,
+  deleteAllTiles,
   deleteTile,
   fetchAdminTiles,
   fetchBoardConfig,
@@ -766,6 +767,24 @@ export function TilesPanel() {
     }
   }
 
+  async function handleDeleteAllTiles() {
+    if (!tiles || tiles.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete all ${tiles.length} tiles? This clears the entire board and every submission on it. This can't be undone — type OK on the next prompt to confirm.`,
+      )
+    )
+      return;
+    if (window.prompt('Type DELETE to confirm wiping all tiles:') !== "DELETE")
+      return;
+    try {
+      await deleteAllTiles();
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete all tiles");
+    }
+  }
+
   if (!config || !tiles)
     return <div className="admin-panel">{error ?? "Loading..."}</div>;
 
@@ -823,6 +842,16 @@ export function TilesPanel() {
           disabled={filling}
         >
           + Add Tile
+        </button>
+      )}
+      {tiles.length > 0 && (
+        <button
+          type="button"
+          className="admin-btn-danger admin-tile-delete-all"
+          onClick={handleDeleteAllTiles}
+          disabled={filling}
+        >
+          Delete All Tiles
         </button>
       )}
 

@@ -18,6 +18,19 @@ export interface SessionUser {
   rememberRankings: boolean;
 }
 
+/** A hash starting with "a_" is an animated avatar — Discord's CDN 404s on
+ * those unless the extension is .gif instead of .png. Every call site that
+ * builds a Discord avatar URL from a stored hash needs this, not just this
+ * file's own. */
+export function discordAvatarUrl(
+  discordId: string,
+  avatarHash: string,
+  size: number,
+): string {
+  const ext = avatarHash.startsWith("a_") ? "gif" : "png";
+  return `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.${ext}?size=${size}`;
+}
+
 export function generateToken(): string {
   return randomBytes(32).toString("base64url");
 }
@@ -87,7 +100,7 @@ function toSessionUser(r: Record<string, unknown>): SessionUser {
     globalName: r.discord_global_name as string | null,
     runescapeName: r.runescape_name as string | null,
     avatarUrl: r.discord_avatar_hash
-      ? `https://cdn.discordapp.com/avatars/${r.discord_id as string}/${r.discord_avatar_hash as string}.png?size=64`
+      ? discordAvatarUrl(r.discord_id as string, r.discord_avatar_hash as string, 64)
       : null,
     isAdmin: r.is_admin as boolean,
     teamId: r.team_id as number | null,

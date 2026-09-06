@@ -217,6 +217,15 @@
   cursor: default;
 }
 
+.admin-tile-delete-all {
+  margin-left: 0.6rem;
+}
+
+.admin-tile-delete-all:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .admin-row-color {
   width: 20px;
   height: 20px;
