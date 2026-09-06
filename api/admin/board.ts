@@ -11,7 +11,6 @@ import {
   type ItemRequirement,
 } from "../_lib/board.js";
 import { publishBoardMarker } from "../_lib/board-marker.js";
-import { publishBroadcast } from "../_lib/broadcast.js";
 import { deriveTileIconUrl } from "../_lib/icons.js";
 import { withErrorHandling } from "../_lib/handler.js";
 
@@ -97,26 +96,6 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
  */
 async function resetBingo(res: VercelResponse) {
   await resetBingoProgress();
-  res.status(200).json({ ok: true });
-}
-
-const MAX_BROADCAST_LENGTH = 300;
-
-/**
- * Posts or clears the clan-wide broadcast (see _lib/broadcast.ts for why this
- * writes to Blob rather than a database column). `message: null` or empty
- * clears it.
- */
-async function sendBroadcast(req: VercelRequest, res: VercelResponse) {
-  const raw = req.body?.message;
-  const message = typeof raw === "string" ? raw.trim() : "";
-  if (message.length > MAX_BROADCAST_LENGTH) {
-    res
-      .status(400)
-      .json({ error: `Broadcast must be ${MAX_BROADCAST_LENGTH} characters or fewer` });
-    return;
-  }
-  await publishBroadcast(message || null);
   res.status(200).json({ ok: true });
 }
 
@@ -420,11 +399,6 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "POST" && resource === "reset-bingo") {
     await resetBingo(res);
-    return;
-  }
-
-  if (req.method === "POST" && resource === "broadcast") {
-    await sendBroadcast(req, res);
     return;
   }
 

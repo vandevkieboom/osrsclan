@@ -337,29 +337,6 @@ installs reach it now.
 
 ## Broadcast and live-stream notifications: removed entirely
 
-> **Partly reversed, 2026-09-07 — broadcast is back, on Blob, not Postgres.**
-> Everything below explains why it was removed and is still accurate history,
-> but "gone entirely" no longer describes broadcast. It was reintroduced using
-> the same Blob-marker pattern as the board (`_lib/board-marker.ts`) instead of
-> the `board_config` column it used to be — see `_lib/broadcast.ts`. The reason
-> it's safe to bring back this way: the old version cost Neon compute because
-> every check was a real Postgres read, on a timer, for every install,
-> forever. This version's read path never touches Postgres at all — the
-> plugin reads a small public file straight off Blob's CDN, so the check costs
-> nothing regardless of how many of the 100+ installs make it. `sendBroadcast`
-> in `api/admin/board.ts` (`resource=broadcast`) writes it; the admin UI lives
-> in `board-config-panel.tsx`, not a separate tab this time. Live-stream
-> notifications remain removed — see the correction further down about why
-> that one was never actually a Neon problem in the first place, only a
-> Vercel-request-volume one, and bringing it back the same way would need a
-> centralized Twitch check (a cron, or ideally Twitch's own EventSub webhook)
-> rather than just a Blob file, since nothing pushes "someone went live" to us
-> the way an admin action already pushes a new broadcast.
->
-> Don't reintroduce a `board_config` column for this a second time — the whole
-> point of this version is that it's structurally impossible for it to keep
-> Neon awake, and a database-backed broadcast would quietly undo that.
-
 **2026-09-02, superseding both sections below.** The feature itself is gone,
 not just re-cached: `api/plugin-poll.ts` no longer reads
 `broadcast_message`/`broadcast_updated_at` or fetches Twitch streams at all;

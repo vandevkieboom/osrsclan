@@ -481,13 +481,6 @@
   color: #e8574a;
 }
 
-.admin-broadcast-textarea {
-  width: 100%;
-  resize: vertical;
-  margin-bottom: 16px;
-  font-family: inherit;
-}
-
 /* Teams tab */
 
 .admin-teams-grid {
