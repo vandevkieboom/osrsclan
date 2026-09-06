@@ -203,8 +203,8 @@
   opacity: 0.75;
 }
 
-/* A tile with nothing derivable (manual, no item, no icon_item_id) — a
-   plain dashed placeholder beats a broken <img>. */
+/* A tile with nothing derivable (manual, no item at all) — a plain dashed
+   placeholder beats a broken <img>. */
 .bingo-tile-icon--placeholder {
   display: block;
   border: 1px dashed #3a2224;

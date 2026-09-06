@@ -1,8 +1,6 @@
 // Shared icon derivation for bingo tiles — the single source of truth for
 // "what does this tile's icon look like," used everywhere a tile icon is
-// rendered: the public board (api/board.ts, whose `iconUrl` the website
-// renders directly, and whose `iconItemId` the RuneLite plugin prefers —
-// see bingo-runelite-plugin's BingoPanel#loadIconInto), the admin panel
+// rendered: the public board (api/board.ts), the admin panel
 // (api/admin/board.ts), and the review queue (api/admin/submissions.ts).
 //
 // Before this, an admin-pasted icon_url (the website's icon) and the
@@ -58,26 +56,29 @@ export function skillIconUrl(goalKey: string): string | null {
 }
 
 export interface IconableTile {
-  iconItemId: number | null;
   itemIds: number[];
   goalKind: "item" | "xp" | "kc";
   goalKey: string;
-  /** The pre-icon_item_id icon_url column — only ever used as a last
+  /** The pre-this-existing icon_url column — only ever used as a last
    * resort, for a tile from before this existed (or a genuinely manual tile
    * with no item at all) where nothing else below can be derived. */
   legacyIconUrl: string;
 }
 
 /**
- * The one icon a tile shows — priority: an admin's explicit override
- * (icon_item_id), then a skill icon for an xp-goal tile (there's no
- * meaningful item for those), then the first tracked item, then whatever
- * icon_url this tile happened to have from before this existed. Empty
- * string means "nothing to show" (a manual tile with no item and no
- * override) — callers should render a placeholder, not a broken <img>.
+ * The one icon a tile shows — priority: a skill icon for an xp-goal tile
+ * (there's no meaningful item for those), then the first tracked item, then
+ * whatever icon_url this tile happened to have from before this existed.
+ * Empty string means "nothing to show" (a manual tile with no item) —
+ * callers should render a placeholder, not a broken <img>.
+ *
+ * There is deliberately no separate "pick a specific item as the icon"
+ * override: the first entry in a tile's item list already becomes its icon,
+ * so getting a specific picture is just a matter of listing that item first
+ * - no second field, no second thing that can fall out of sync between the
+ * website and the plugin.
  */
 export function deriveTileIconUrl(tile: IconableTile): string {
-  if (tile.iconItemId != null) return itemIconUrl(tile.iconItemId);
   if (tile.goalKind === "xp") {
     const skillUrl = skillIconUrl(tile.goalKey);
     if (skillUrl) return skillUrl;

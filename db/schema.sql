@@ -132,23 +132,22 @@ ALTER TABLE tiles ADD COLUMN IF NOT EXISTS require_unique_items BOOLEAN NOT NULL
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_kind TEXT NOT NULL DEFAULT 'item' CHECK (goal_kind IN ('item', 'xp', 'kc'));
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_key TEXT NOT NULL DEFAULT '';
 ALTER TABLE tiles ADD COLUMN IF NOT EXISTS goal_target BIGINT;
--- Explicit icon override, as an OSRS item id rather than a URL: the RuneLite
--- plugin can't fetch arbitrary image URLs, so its tile icon has always
--- defaulted to item_ids[0] via the client's own item sprite cache. For a
--- multi-item tile that default is often the wrong item (whichever happens to
--- be listed first), and for an xp/kc goal tile there's often no meaningful
--- item at all. NULL (the default) means "derive one instead" — see
--- deriveTileIconUrl in api/_lib/icons.ts, which both the website and the
--- plugin's icon logic are built from, so the two can no longer disagree.
-ALTER TABLE tiles ADD COLUMN IF NOT EXISTS icon_item_id INT;
+-- An explicit per-tile icon override (an OSRS item id) was tried and
+-- dropped the same day it was added: the fallback it existed to override —
+-- item_ids[0] — already lets an admin pick which picture shows just by
+-- listing that item first, so the override was a second field doing a job
+-- the first field already did, for the cost of one more thing that has to
+-- travel correctly from the website to the plugin (which it initially
+-- didn't). See deriveTileIconUrl in api/_lib/icons.ts for what's left.
+ALTER TABLE tiles DROP COLUMN IF EXISTS icon_item_id;
 -- icon_url used to be the ONLY icon source (admin pastes a wiki "detail"
 -- image) and the plugin's item-id-derived icon was a completely separate,
 -- independently-authored thing — the two could (and did) show different
 -- pictures for the same tile. Now that deriveTileIconUrl (api/_lib/icons.ts)
--- computes one shared icon for both surfaces from icon_item_id/item_ids/
--- goal_key, admins no longer fill this in for new tiles — it's kept only as
--- a last-resort fallback for tiles from before this change (or a genuinely
--- manual tile with no item at all) where nothing else can be derived.
+-- computes one shared icon for both surfaces from item_ids/goal_key, admins
+-- no longer fill this in for new tiles — it's kept only as a last-resort
+-- fallback for tiles from before this change (or a genuinely manual tile
+-- with no item at all) where nothing else can be derived.
 ALTER TABLE tiles ALTER COLUMN icon_url DROP NOT NULL;
 ALTER TABLE tiles ALTER COLUMN icon_url SET DEFAULT '';
 -- Per-item completion rule for a drop tile, richer than the flat

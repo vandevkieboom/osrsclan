@@ -676,8 +676,8 @@
 }
 
 /* Shared by admin-tile-row-icon and admin-tile-thumb when no icon could be
-   derived (a manual tile with no item and no icon_item_id override) — a
-   blank placeholder beats a broken image glyph. */
+   derived (a manual tile with no item at all) — a blank placeholder beats a
+   broken image glyph. */
 .admin-icon-placeholder {
   display: block;
   border: 1px dashed #3a2224;

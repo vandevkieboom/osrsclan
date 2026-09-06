@@ -35,7 +35,6 @@ function placeholderTiles(teamId: number): BoardTile[] {
       goalKey: "",
       goalTarget: null,
       teamProgress: null,
-      iconItemId: null,
       itemRequirementsStatus: null,
       proofs:
         status === "none"

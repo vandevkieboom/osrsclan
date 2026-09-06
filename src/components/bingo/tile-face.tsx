@@ -38,8 +38,8 @@ export function TileFace({
       {tile.iconUrl ? (
         <img src={tile.iconUrl} alt="" className="bingo-tile-icon" />
       ) : (
-        // Nothing could be derived (a manual tile with no item and no
-        // icon_item_id override) — a blank placeholder beats a broken <img>.
+        // Nothing could be derived (a manual tile with no item at all) — a
+        // blank placeholder beats a broken <img>.
         <span className="bingo-tile-icon bingo-tile-icon--placeholder" aria-hidden="true" />
       )}
       {contributors.length >= 2 && (

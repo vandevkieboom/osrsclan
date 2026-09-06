@@ -102,16 +102,14 @@ function serializeTile(t: Record<string, unknown>) {
   const itemIds = (t.item_ids ?? []) as number[];
   const goalKind = t.goal_kind as "item" | "xp" | "kc";
   const goalKey = t.goal_key as string;
-  const iconItemId = t.icon_item_id === null ? null : Number(t.icon_item_id);
   return {
     id: t.id,
     position: t.position,
     name: t.name,
     // Computed, read-only for the admin panel's preview (the row thumbnail,
-    // the collapsed-row icon) — no longer something an admin types in
-    // directly, see icon_item_id above and api/_lib/icons.ts.
+    // the collapsed-row icon) — see api/_lib/icons.ts. Not something an
+    // admin types in directly; the first entry in itemIds is what decides it.
     iconUrl: deriveTileIconUrl({
-      iconItemId,
       itemIds,
       goalKind,
       goalKey,
@@ -125,7 +123,6 @@ function serializeTile(t: Record<string, unknown>) {
     goalKind,
     goalKey,
     goalTarget: t.goal_target === null ? null : Number(t.goal_target),
-    iconItemId,
     itemRequirements: parseItemRequirements(t.item_requirements),
   };
 }
@@ -166,25 +163,6 @@ function parseItemIds(body: unknown): number[] | null {
   const ids = raw.map(Number);
   if (ids.some((n) => !Number.isInteger(n) || n <= 0)) return null;
   return Array.from(new Set(ids));
-}
-
-/**
- * Explicit icon override (see icon_item_id in db/schema.sql) — an OSRS item
- * id, not a URL, since that's what the RuneLite plugin can actually render
- * (icon_url is website-only). Absent/blank clears it (`value: null`, "no
- * override, derive as before"); `ok: false` only when a non-empty value
- * isn't a positive integer, so the caller can 400 rather than silently
- * store garbage.
- */
-function parseIconItemId(
-  body: unknown,
-): { ok: true; value: number | null } | { ok: false } {
-  const b = body as { iconItemId?: unknown; icon_item_id?: unknown } | undefined;
-  const raw = b?.iconItemId ?? b?.icon_item_id;
-  if (raw === undefined || raw === null || raw === "") return { ok: true, value: null };
-  const n = Number(raw);
-  if (!Number.isInteger(n) || n <= 0) return { ok: false };
-  return { ok: true, value: n };
 }
 
 /**
@@ -234,7 +212,7 @@ async function listTiles(res: VercelResponse) {
   const rows = await sql`
     SELECT id, position, name, icon_url, required_count, category, description,
            item_ids, require_unique_items, goal_kind, goal_key, goal_target,
-           icon_item_id, item_requirements
+           item_requirements
     FROM tiles ORDER BY position`;
   res.status(200).json({ tiles: rows.map(serializeTile) });
 }
@@ -243,9 +221,9 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
   const position = Number(req.body?.position);
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   // Legacy fallback only — no longer collected from the tile editor (see
-  // icon_item_id / api/_lib/icons.ts), so almost every new tile sends
-  // nothing here at all. Kept accepted (never required) for the rare manual
-  // tile with no item to derive an icon from.
+  // api/_lib/icons.ts), so almost every new tile sends nothing here at all.
+  // Kept accepted (never required) for the rare manual tile with no item to
+  // derive an icon from.
   const iconUrl =
     typeof req.body?.iconUrl === "string"
       ? req.body.iconUrl.trim()
@@ -266,7 +244,6 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
     req.body?.requireUniqueItems ?? req.body?.require_unique_items,
   );
   const goal = parseGoal(req.body);
-  const iconItemId = parseIconItemId(req.body);
   const itemRequirements = parseItemRequirementsInput(req.body);
   if (
     !Number.isInteger(position) ||
@@ -276,21 +253,20 @@ async function createTile(req: VercelRequest, res: VercelResponse) {
     requiredCount < 1 ||
     itemIds === null ||
     goal === null ||
-    !iconItemId.ok ||
     !itemRequirements.ok
   ) {
     res.status(400).json({
       error:
-        "position, name and requiredCount are required, iconItemId (if given) must be a positive integer, itemRequirements (if given) must be a valid array, and an xp/kc goal needs a goalKey and positive goalTarget",
+        "position, name and requiredCount are required, itemRequirements (if given) must be a valid array, and an xp/kc goal needs a goalKey and positive goalTarget",
     });
     return;
   }
   const itemRequirementsJson = itemRequirements.value ? JSON.stringify(itemRequirements.value) : null;
   try {
     const rows = await sql`
-      INSERT INTO tiles (position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target, icon_item_id, item_requirements)
-      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description}, ${itemIds}::int[], ${requireUniqueItems}, ${goal.goalKind}, ${goal.goalKey}, ${goal.goalTarget}, ${iconItemId.value}, ${itemRequirementsJson}::jsonb)
-      RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target, icon_item_id, item_requirements`;
+      INSERT INTO tiles (position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target, item_requirements)
+      VALUES (${position}, ${name}, ${iconUrl}, ${requiredCount}, ${category}, ${description}, ${itemIds}::int[], ${requireUniqueItems}, ${goal.goalKind}, ${goal.goalKey}, ${goal.goalTarget}, ${itemRequirementsJson}::jsonb)
+      RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target, item_requirements`;
     await seedNewGoalTile(goal.goalKind, goal.goalKey);
     res.status(201).json({ tile: serializeTile(rows[0]) });
   } catch (err) {
@@ -329,7 +305,6 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
     req.body?.requireUniqueItems ?? req.body?.require_unique_items,
   );
   const goal = parseGoal(req.body);
-  const iconItemId = parseIconItemId(req.body);
   const itemRequirements = parseItemRequirementsInput(req.body);
   if (
     !Number.isInteger(id) ||
@@ -338,12 +313,11 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
     requiredCount < 1 ||
     itemIds === null ||
     goal === null ||
-    !iconItemId.ok ||
     !itemRequirements.ok
   ) {
     res.status(400).json({
       error:
-        "id, name and requiredCount are required, iconItemId (if given) must be a positive integer, itemRequirements (if given) must be a valid array, and an xp/kc goal needs a goalKey and positive goalTarget",
+        "id, name and requiredCount are required, itemRequirements (if given) must be a valid array, and an xp/kc goal needs a goalKey and positive goalTarget",
     });
     return;
   }
@@ -353,10 +327,10 @@ async function updateTile(req: VercelRequest, res: VercelResponse) {
       icon_url = COALESCE(NULLIF(${iconUrl}, ''), icon_url), required_count = ${requiredCount},
       category = ${category}, description = ${description}, item_ids = ${itemIds}::int[],
       require_unique_items = ${requireUniqueItems}, goal_kind = ${goal.goalKind},
-      goal_key = ${goal.goalKey}, goal_target = ${goal.goalTarget}, icon_item_id = ${iconItemId.value},
+      goal_key = ${goal.goalKey}, goal_target = ${goal.goalTarget},
       item_requirements = ${itemRequirementsJson}::jsonb
     WHERE id = ${id}
-    RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target, icon_item_id, item_requirements`;
+    RETURNING id, position, name, icon_url, required_count, category, description, item_ids, require_unique_items, goal_kind, goal_key, goal_target, item_requirements`;
   if (rows.length === 0) {
     res.status(404).json({ error: "Tile not found" });
     return;

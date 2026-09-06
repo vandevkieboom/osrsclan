@@ -50,10 +50,6 @@ export interface BoardTile {
   goalKey: string;
   goalTarget: number | null;
   teamProgress: number | null;
-  /** Explicit icon override (an OSRS item id) the RuneLite plugin prefers
-   * over its default. The website itself keeps using `iconUrl` regardless —
-   * this only exists for the type to mirror what the API now sends. */
-  iconItemId: number | null;
   itemRequirementsStatus: ItemRequirementsStatus | null;
 }
 

@@ -85,19 +85,17 @@ async function getBoard(res: VercelResponse, slim: boolean) {
   // board until size grows back to cover them again.
   const tileRows = await sql`
     SELECT id, position, name, icon_url, required_count, category, description,
-           item_ids, goal_kind, goal_key, goal_target, icon_item_id, item_requirements
+           item_ids, goal_kind, goal_key, goal_target, item_requirements
     FROM tiles WHERE position < ${slotCount} ORDER BY position`;
   const tiles = tileRows.map((t) => {
     const itemIds = (t.item_ids ?? []) as number[];
     const goalKind = t.goal_kind as "item" | "xp" | "kc";
     const goalKey = t.goal_key as string;
-    const iconItemId = t.icon_item_id === null ? null : Number(t.icon_item_id);
     return {
       id: t.id,
       position: t.position,
       name: t.name,
       iconUrl: deriveTileIconUrl({
-        iconItemId,
         itemIds,
         goalKind,
         goalKey,
@@ -110,7 +108,6 @@ async function getBoard(res: VercelResponse, slim: boolean) {
       goalKind,
       goalKey,
       goalTarget: t.goal_target === null ? null : Number(t.goal_target),
-      iconItemId,
       itemRequirements: parseItemRequirements(t.item_requirements),
     };
   });
@@ -280,7 +277,6 @@ async function getBoard(res: VercelResponse, slim: boolean) {
           goalKind: t.goalKind,
           goalKey: t.goalKey,
           goalTarget: t.goalTarget,
-          iconItemId: t.iconItemId,
           itemRequirementsStatus: null,
           teamProgress,
           approvedCount: 0,
@@ -325,7 +321,6 @@ async function getBoard(res: VercelResponse, slim: boolean) {
         goalKind: t.goalKind,
         goalKey: t.goalKey,
         goalTarget: t.goalTarget,
-        iconItemId: t.iconItemId,
         itemRequirementsStatus,
         teamProgress: null,
         approvedCount,
@@ -452,7 +447,6 @@ function buildSlimTile(tile: {
   goalKind: string;
   goalKey: string;
   goalTarget: number | null;
-  iconItemId: number | null;
   teamProgress: number | null;
 }) {
   return {
@@ -467,11 +461,6 @@ function buildSlimTile(tile: {
     goalKind: tile.goalKind,
     goalKey: tile.goalKey,
     goalTarget: tile.goalTarget,
-    // The plugin prefers this over itemIds[0] for its icon — see
-    // api/_lib/icons.ts. Previously dropped here, so the admin-set override
-    // never actually reached the RuneLite client despite working on the
-    // website's own board view.
-    iconItemId: tile.iconItemId,
     teamProgress: tile.teamProgress,
   };
 }

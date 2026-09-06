@@ -81,7 +81,6 @@ export const PLACEHOLDER_TILES: AdminTile[] = [
     goalKind: "item",
     goalKey: "",
     goalTarget: null,
-    iconItemId: null,
     itemRequirements: null,
   },
   {
@@ -98,7 +97,6 @@ export const PLACEHOLDER_TILES: AdminTile[] = [
     goalKind: "item",
     goalKey: "",
     goalTarget: null,
-    iconItemId: null,
     itemRequirements: null,
   },
   {
@@ -114,7 +112,6 @@ export const PLACEHOLDER_TILES: AdminTile[] = [
     goalKind: "xp",
     goalKey: "Fishing",
     goalTarget: 2_000_000,
-    iconItemId: null,
     itemRequirements: null,
   },
 ];

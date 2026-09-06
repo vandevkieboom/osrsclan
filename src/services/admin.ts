@@ -53,10 +53,6 @@ export interface AdminTile {
   goalKind: "item" | "xp" | "kc";
   goalKey: string;
   goalTarget: number | null;
-  /** Explicit icon override — an OSRS item id the RuneLite plugin renders
-   * instead of its default (itemIds[0], or nothing for an xp/kc tile). Null
-   * means "no override, derive as before." */
-  iconItemId: number | null;
   /** Richer AND/OR item conditions (see db/schema.sql) — null (the default)
    * means "not using this, the flat itemIds/requiredCount/
    * requireUniqueItems fields above apply as normal." When set, those flat
@@ -255,9 +251,9 @@ export async function createTile(params: {
   position: number;
   name: string;
   /** Legacy fallback only — no longer collected from the tile editor (icons
-   * are derived, see icon_item_id/api/_lib/icons.ts); still accepted for the
-   * random-fill feature's real wiki images, where there's no item to derive
-   * an icon from at all. */
+   * are derived, see api/_lib/icons.ts); still accepted for the random-fill
+   * feature's real wiki images, where there's no item to derive an icon
+   * from at all. */
   iconUrl?: string;
   requiredCount?: number;
   category?: string;
@@ -265,7 +261,6 @@ export async function createTile(params: {
   itemIds?: number[];
   requireUniqueItems?: boolean;
   goal?: TileGoal;
-  iconItemId?: number | null;
   itemRequirements?: ItemRequirement[] | null;
 }): Promise<AdminTile> {
   const {
@@ -278,7 +273,6 @@ export async function createTile(params: {
     itemIds = [],
     requireUniqueItems = false,
     goal,
-    iconItemId = null,
     itemRequirements = null,
   } = params;
   const res = await fetch("/api/admin/board?resource=tiles", {
@@ -293,7 +287,6 @@ export async function createTile(params: {
       description,
       itemIds,
       requireUniqueItems,
-      iconItemId,
       itemRequirements,
       icon_url: iconUrl,
       required_count: requiredCount,
@@ -318,7 +311,6 @@ export async function updateTile(params: {
   itemIds?: number[];
   requireUniqueItems?: boolean;
   goal?: TileGoal;
-  iconItemId?: number | null;
   itemRequirements?: ItemRequirement[] | null;
 }): Promise<AdminTile> {
   const {
@@ -331,7 +323,6 @@ export async function updateTile(params: {
     itemIds = [],
     requireUniqueItems = false,
     goal,
-    iconItemId = null,
     itemRequirements = null,
   } = params;
   const res = await fetch("/api/admin/board?resource=tiles", {
@@ -346,7 +337,6 @@ export async function updateTile(params: {
       description,
       itemIds,
       requireUniqueItems,
-      iconItemId,
       itemRequirements,
       icon_url: iconUrl,
       required_count: requiredCount,

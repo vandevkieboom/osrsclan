@@ -21,7 +21,7 @@ async function postBingoDropWebhook(submissionId: number) {
   try {
     const rows = await sql`
       SELECT s.proof_url, s.item_id, t.name AS team_name, ti.name AS tile_name,
-             ti.icon_url, ti.icon_item_id, ti.item_ids,
+             ti.icon_url, ti.item_ids,
              u.discord_global_name, u.discord_username, u.runescape_name
       FROM submissions s
       JOIN teams t ON t.id = s.team_id
@@ -39,7 +39,6 @@ async function postBingoDropWebhook(submissionId: number) {
     const thumbnail = row.item_id
       ? itemIconUrl(row.item_id)
       : deriveTileIconUrl({
-          iconItemId: row.icon_item_id === null ? null : Number(row.icon_item_id),
           itemIds: (row.item_ids ?? []) as number[],
           goalKind: "item",
           goalKey: "",
@@ -104,7 +103,7 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
         SELECT s.id, s.status, s.proof_url, s.created_at, s.item_id,
                s.team_id, s.tile_id,
                t.name AS team_name, ti.name AS tile_name, ti.icon_url,
-               ti.icon_item_id, ti.item_ids,
+               ti.item_ids,
                ti.require_unique_items, ti.item_requirements
         FROM submissions s
         JOIN teams t ON t.id = s.team_id
@@ -118,7 +117,7 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
         SELECT s.id, s.status, s.proof_url, s.created_at, s.item_id,
                s.team_id, s.tile_id,
                t.name AS team_name, ti.name AS tile_name, ti.icon_url,
-               ti.icon_item_id, ti.item_ids,
+               ti.item_ids,
                ti.require_unique_items, ti.item_requirements
         FROM submissions s
         JOIN teams t ON t.id = s.team_id
@@ -177,7 +176,6 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
         teamName: r.team_name,
         tileName: r.tile_name,
         iconUrl: deriveTileIconUrl({
-          iconItemId: r.icon_item_id === null ? null : Number(r.icon_item_id),
           itemIds: (r.item_ids ?? []) as number[],
           goalKind: "item",
           goalKey: "",

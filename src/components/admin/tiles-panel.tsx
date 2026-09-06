@@ -71,17 +71,7 @@ interface TileFormValues {
   itemIds: number[];
   requireUniqueItems: boolean;
   goal: TileGoal;
-  iconItemId: number | null;
   itemRequirements: ItemRequirement[] | null;
-}
-
-const ICON_ITEM_ID_PLACEHOLDER = "Icon item ID (optional — overrides the default)";
-
-// Same free-text-single-number pattern as parseItemIdsInput, but for one id
-// rather than a list; blank clears the override.
-function parseIconItemIdInput(text: string): number | null {
-  const n = Number(text.trim());
-  return Number.isInteger(n) && n > 0 ? n : null;
 }
 
 // --- Advanced item requirements (AND/OR item conditions — see db/schema.sql) ---
@@ -310,7 +300,6 @@ function TileAddRow({
   const [description, setDescription] = useState("");
   const [itemIdsText, setItemIdsText] = useState("");
   const [requireUniqueItems, setRequireUniqueItems] = useState(false);
-  const [iconItemIdText, setIconItemIdText] = useState("");
   const [itemRequirementRows, setItemRequirementRows] = useState<ItemRequirementRow[]>([]);
   const [goal, setGoal] = useState<TileGoal>({
     goalKind: "item",
@@ -374,14 +363,6 @@ function TileAddRow({
           4x)
         </label>
       )}
-      <input
-        type="text"
-        className="admin-input admin-tile-description-input"
-        placeholder={ICON_ITEM_ID_PLACEHOLDER}
-        value={iconItemIdText}
-        onChange={(e) => setIconItemIdText(e.target.value)}
-        title="Which item's icon the RuneLite plugin should show for this tile — defaults to the first item ID above (or nothing, for an XP/KC tile) when left blank"
-      />
       {goal.goalKind === "item" && (
         <ItemRequirementRowsEditor
           rows={itemRequirementRows}
@@ -402,7 +383,6 @@ function TileAddRow({
               itemIds: parseItemIdsInput(itemIdsText),
               requireUniqueItems,
               goal,
-              iconItemId: parseIconItemIdInput(iconItemIdText),
               itemRequirements: parseItemRequirementRows(itemRequirementRows),
             })
           }
@@ -430,7 +410,6 @@ function valuesFromTile(tile: AdminTile): TileFormValues {
       goalKey: tile.goalKey,
       goalTarget: tile.goalTarget,
     },
-    iconItemId: tile.iconItemId,
     itemRequirements: tile.itemRequirements,
   };
 }
@@ -454,7 +433,6 @@ function valuesEqual(a: TileFormValues, b: TileFormValues): boolean {
     a.goal.goalKind === b.goal.goalKind &&
     a.goal.goalKey === b.goal.goalKey &&
     a.goal.goalTarget === b.goal.goalTarget &&
-    a.iconItemId === b.iconItemId &&
     itemRequirementsEqual(a.itemRequirements, b.itemRequirements)
   );
 }
@@ -470,9 +448,6 @@ function TileRow({
 }) {
   const [values, setValues] = useState(valuesFromTile(tile));
   const [itemIdsText, setItemIdsText] = useState(tile.itemIds.join(", "));
-  const [iconItemIdText, setIconItemIdText] = useState(
-    tile.iconItemId != null ? String(tile.iconItemId) : "",
-  );
   const [itemRequirementRows, setItemRequirementRows] = useState<ItemRequirementRow[]>(
     itemRequirementRowsFromValue(tile.itemRequirements),
   );
@@ -486,7 +461,6 @@ function TileRow({
     setPrevTile(tile);
     setValues(valuesFromTile(tile));
     setItemIdsText(tile.itemIds.join(", "));
-    setIconItemIdText(tile.iconItemId != null ? String(tile.iconItemId) : "");
     setItemRequirementRows(itemRequirementRowsFromValue(tile.itemRequirements));
   }
 
@@ -496,7 +470,6 @@ function TileRow({
     } else {
       setValues(valuesFromTile(tile));
       setItemIdsText(tile.itemIds.join(", "));
-      setIconItemIdText(tile.iconItemId != null ? String(tile.iconItemId) : "");
       setItemRequirementRows(itemRequirementRowsFromValue(tile.itemRequirements));
     }
   }
@@ -516,7 +489,6 @@ function TileRow({
       category: values.category.trim(),
       description: values.description.trim(),
       itemIds: parseItemIdsInput(itemIdsText),
-      iconItemId: parseIconItemIdInput(iconItemIdText),
       itemRequirements: parseItemRequirementRows(itemRequirementRowsOverride ?? itemRequirementRows),
     });
   }
@@ -626,15 +598,6 @@ function TileRow({
               one 4x)
             </label>
           )}
-          <input
-            type="text"
-            className="admin-input admin-tile-description-input"
-            placeholder={ICON_ITEM_ID_PLACEHOLDER}
-            value={iconItemIdText}
-            onChange={(e) => setIconItemIdText(e.target.value)}
-            onBlur={commitCurrent}
-            title="Which item's icon the RuneLite plugin should show for this tile — defaults to the first item ID above (or nothing, for an XP/KC tile) when left blank"
-          />
           {values.goal.goalKind === "item" && (
             <ItemRequirementRowsEditor
               rows={itemRequirementRows}

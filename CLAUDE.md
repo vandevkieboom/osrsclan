@@ -7,17 +7,28 @@ Talks to the RuneLite plugin in the sibling `osrsclanplugin` repo via
 
 ## Tile icons and item requirements (AND/OR item conditions)
 
-Two related additions, written 2026-09-06, reviewed and three bugs fixed
-2026-09-06 before shipping — not documented at the time they were written,
-which is itself why the bugs sat unnoticed.
+Two related additions, written 2026-09-06, reviewed and bug-fixed before
+shipping the same day — not documented at the time they were written, which
+is itself why the bugs sat unnoticed.
 
 **Shared icon derivation** (`api/_lib/icons.ts`, `deriveTileIconUrl()`):
-one priority chain — `tiles.icon_item_id` (admin override) → a skill icon
-for xp-goal tiles (`SKILL_ICON_FILES`, keep in sync with the plugin's
-`BingoPanel#SKILL_SPRITES`) → `item_ids[0]` → the legacy `icon_url` — used by
-every surface that renders a tile icon (`api/board.ts`, `api/admin/board.ts`,
-`api/admin/submissions.ts`), so the website and the RuneLite plugin can no
-longer disagree on a tile's picture the way they used to.
+priority chain — a skill icon for xp-goal tiles (`SKILL_ICON_FILES`, keep in
+sync with the plugin's `BingoPanel#SKILL_SPRITES`) → `item_ids[0]` → the
+legacy `icon_url` — used by every surface that renders a tile icon
+(`api/board.ts`, `api/admin/board.ts`, `api/admin/submissions.ts`), so the
+website and the RuneLite plugin can no longer disagree on a tile's picture
+the way they used to.
+
+An explicit per-tile icon override (`tiles.icon_item_id`, an admin-set OSRS
+item id) was part of the original design, shipped, then **removed the same
+day**: its whole purpose — picking a specific item's picture instead of
+whatever's first in the list — is already achievable for free by reordering
+`item_ids`, since that's exactly what the fallback above already does. The
+override was a second field doing a job the first field already did, at
+the cost of a database column, an admin input, and a value that has to
+travel correctly from the website to the plugin (which, per bug 2 below, it
+initially didn't). Don't reintroduce it without a concrete case the
+reorder-the-list approach genuinely can't cover.
 
 **Item requirements** (`tiles.item_requirements JSONB`, nullable — `NULL`
 means "ignore, use the old flat `item_ids`/`required_count`/
@@ -32,10 +43,12 @@ in `api/_lib/board.ts`, and `validateProofSubmission`'s new branch there.
    tile green and moved team standings, unlike every other tile type. Fixed
    to `approved`-only.
 2. `buildSlimTile()` in `api/board.ts` (the projection the RuneLite plugin
-   actually fetches via `?view=plugin`) never carried `iconItemId` — so the
-   admin-set icon override had zero effect in-game despite working correctly
-   on the website's own board view. Fixed by adding it to both the
-   parameter type and the returned object.
+   actually fetches via `?view=plugin`) never carried the (since-removed)
+   icon override field at all — so it had zero effect in-game despite
+   working correctly on the website's own board view, the same day it was
+   removed for being redundant anyway. A live example of why a field that
+   has to travel between two repos needs a test that actually crosses the
+   wire, not just a same-repo one.
 3. The admin hint text for item requirements said it "overrides" the Item
    IDs field, which invited leaving that field empty — but the plugin's
    drop-detection watch list (`tilesByItemId` in `BingoPlugin.java`) only
@@ -43,14 +56,11 @@ in `api/_lib/board.ts`, and `validateProofSubmission`'s new branch there.
    hint would silently disable auto-submission for that tile. Hint text
    corrected to say Item IDs must still be kept populated.
 
-**Not yet done**: the plugin-side rendering of this (`BingoPanel.java`'s
-rewritten `loadIconInto()`, the new `SKILL_SPRITES` map, `BoardResponse.Tile
-.iconItemId`) has not been committed alongside this — it exists locally but
-wasn't part of this push. That's fine, not broken: an un-updated plugin
-install simply ignores the new `iconItemId` field it doesn't know about and
-keeps working exactly as before (falls back to `itemIds[0]`), same as any
-old client tolerating a new field. The icon-override half of this feature
-has no visible effect in-game until that plugin-side commit ships too.
+**Plugin-side status**: the skill-icon rendering (`BingoPanel.java`'s
+rewritten `loadIconInto()`, the new `SKILL_SPRITES` map) is reviewed and
+ready but not committed alongside this — see the plugin's own `CLAUDE.md`.
+Nothing breaks by that gap: an un-updated plugin install just keeps falling
+back to `itemIds[0]` for everything, same as before any of this existed.
 
 ## Hosting cost — the incident, and the shape of the fix
 
