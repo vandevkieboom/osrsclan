@@ -353,15 +353,25 @@ CREATE TRIGGER submissions_bump_board_update
   FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*)
   EXECUTE FUNCTION bump_board_changed_at();
 
+-- goal_progress deliberately has NO board_changed_at trigger (2026-09-06).
+--
+-- It used to have both an insert/delete and an update one, and they were by a
+-- wide margin the most expensive thing in the project. The xp/kc reconcile
+-- runs every two minutes during an event, so every two minutes these fired,
+-- board_changed_at moved, and every participant's plugin concluded its board
+-- was stale and re-downloaded the whole thing — all tiles, all teams, all
+-- submissions — the single most expensive response the site produces,
+-- triggered by the cheapest possible change. Roughly 180,000 full board
+-- renders over a two-week event, to keep one number current.
+--
+-- Team-combined progress now travels in the board marker instead (see
+-- api/_lib/board-marker.ts), on the poll every plugin already makes each
+-- minute. Same freshness, none of the re-fetching.
+--
+-- Do not restore these without re-reading that file first: the marker route
+-- only works because nothing else declares the board stale on xp changes.
 DROP TRIGGER IF EXISTS goal_progress_bump_board ON goal_progress;
-CREATE TRIGGER goal_progress_bump_board
-  AFTER INSERT OR DELETE ON goal_progress
-  FOR EACH ROW EXECUTE FUNCTION bump_board_changed_at();
 DROP TRIGGER IF EXISTS goal_progress_bump_board_update ON goal_progress;
-CREATE TRIGGER goal_progress_bump_board_update
-  AFTER UPDATE ON goal_progress
-  FOR EACH ROW WHEN (OLD.* IS DISTINCT FROM NEW.*)
-  EXECUTE FUNCTION bump_board_changed_at();
 
 -- users only matters here for the fields the board response actually renders
 -- (team membership and the display name shown on a submission) — a login

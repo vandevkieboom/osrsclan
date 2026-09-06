@@ -139,6 +139,9 @@ export default withErrorHandling(async function handler(req, res) {
           ? POLL_SECONDS_ACTIVE
           : POLL_SECONDS_IDLE,
         boardChangedAt: marker.boardChangedAt,
+        // Delivered on the tick the plugin already makes, so an xp/kc number
+        // can change without the board being declared stale. See BoardMarker.
+        goalProgress: marker.goalProgress ?? {},
         degraded: false,
       });
       return;
@@ -173,9 +176,10 @@ export default withErrorHandling(async function handler(req, res) {
   // is required rather than incidental. It is internally throttled, so all
   // but roughly one call per interval costs a single indexed row read, and it
   // only runs at all while an event is actually on.
+  let reconciled = false;
   if (config.bingo_active) {
     try {
-      await maybeReconcileGoalProgress();
+      reconciled = await maybeReconcileGoalProgress();
     } catch (err) {
       console.error("goal-progress reconciliation failed:", err);
     }
@@ -191,6 +195,14 @@ export default withErrorHandling(async function handler(req, res) {
     // board with, so its format is opaque — it just has to change whenever
     // the board does.
     boardChangedAt: config.board_changed_at,
+    // Also carried on this path, and it matters more here than on the fast
+    // one: a board *with* xp/kc tiles is precisely what sends a poll down the
+    // database route, so omitting it here would mean the boards this whole
+    // mechanism exists for never received any progress at all. Read from the
+    // marker rather than re-queried — a reconcile on this request republishes
+    // after the response, so these numbers are at most one poll behind, well
+    // inside the reconcile's own interval.
+    goalProgress: marker?.goalProgress ?? {},
     // True when the answer came from a cached read after a failed database
     // query. Surfaced so the plugin can tell "no event running" from "we
     // couldn't check", and stay quiet rather than acting on the difference.
@@ -205,7 +217,12 @@ export default withErrorHandling(async function handler(req, res) {
   // "touch something" to bootstrap it. Skipped when the marker was fine and we
   // came here only for the goal pass, which would otherwise rewrite the file
   // every 30 seconds for the whole event.
-  if (!markerUsable && !stale) {
+  // Republished when the reconcile actually moved xp/kc numbers, so they reach
+  // plugins on their next poll — that is the whole mechanism replacing the old
+  // "bump board_changed_at and make everyone re-download the board" route.
+  // Bounded by the reconcile's own throttle, so this is one CDN write per
+  // interval, not one per request.
+  if (reconciled || (!markerUsable && !stale)) {
     await publishBoardMarker();
   }
 });

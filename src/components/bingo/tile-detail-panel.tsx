@@ -106,10 +106,10 @@ export function TileDetailPanel({
         // this tile and no longer means anything once they're set, so the
         // flat "X / Y contributed" bar below would show a number with no
         // relationship to what actually completes the tile.
-        <div className="bingo-detail-section-label">
-          Requirements
+        <>
+          <div className="bingo-detail-section-label">Requirements</div>
           <ItemRequirementsProgress status={tile.itemRequirementsStatus} />
-        </div>
+        </>
       ) : (
         isItemGoal &&
         tile.requiredCount > 1 && (

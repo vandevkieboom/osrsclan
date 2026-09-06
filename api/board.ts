@@ -27,7 +27,12 @@ import { withErrorHandling } from "./_lib/handler.js";
 // board on every single request, nor to freeze it for an hour.
 const BOARD_CACHE_SECONDS = (() => {
   const parsed = Number(process.env.BOARD_CACHE_SECONDS);
-  if (!Number.isFinite(parsed)) return 20;
+  // 60s rather than the original 20s: this is the most expensive response the
+  // site produces, and during an event enough participants fetch it that a
+  // longer window collapses substantially more of them into one origin render.
+  // 60s of staleness on standings is not something anyone can perceive when
+  // the plugin only polls once a minute anyway.
+  if (!Number.isFinite(parsed)) return 60;
   return Math.min(300, Math.max(5, Math.round(parsed)));
 })();
 
@@ -478,6 +483,36 @@ function buildSlimTile(tile: {
  * hour. Team assignment happens before an event rather than during one, so
  * that is comfortably prompt.
  */
+/**
+ * Refuses proof when no event is running, and answers false having already
+ * sent the response.
+ *
+ * This is the *only* thing enforcing that drops don't count before an event
+ * officially starts. `bingo_active` was built as a cost control (how often to
+ * poll) and was never consulted anywhere in the submission path, so a drop
+ * landing days before a bingo began was recorded and counted exactly like one
+ * landing mid-event — and since rosters are not cleared between events, every
+ * previous participant was still eligible to do it without realising.
+ *
+ * Deliberately enforced here rather than only in the plugin: the plugin can be
+ * an old version, or not update for months, and the site cannot assume
+ * otherwise. The client-side check is a courtesy that saves a wasted
+ * screenshot; this is the rule.
+ */
+async function requireBingoActive(res: VercelResponse): Promise<boolean> {
+  const { row } = await getBoardConfigMemoised();
+  // Fail *open* when the config genuinely can't be read: refusing every
+  // submission during a database hiccup would silently lose real drops
+  // mid-event, which is worse than accepting a few early ones.
+  if (row && !row.bingo_active) {
+    res
+      .status(409)
+      .json({ error: "No bingo event is running right now" });
+    return false;
+  }
+  return true;
+}
+
 async function getMyTeam(req: VercelRequest, res: VercelResponse) {
   const user = await getRequestUser(req);
   res.status(200).json({ teamId: user?.teamId ?? null });
@@ -552,6 +587,8 @@ async function submitTile(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  if (!(await requireBingoActive(res))) return;
+
   const tileId = Number(req.body?.tileId);
   const proofUrl =
     typeof req.body?.proofUrl === "string" ? req.body.proofUrl : "";
@@ -606,6 +643,8 @@ async function submitPluginProof(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "You are not assigned to a team yet" });
     return;
   }
+
+  if (!(await requireBingoActive(res))) return;
 
   const tileId = Number(req.query.tileId);
   if (!Number.isInteger(tileId)) {

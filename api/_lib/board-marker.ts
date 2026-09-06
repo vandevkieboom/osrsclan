@@ -1,6 +1,6 @@
 import { head, put } from "@vercel/blob";
 import { sql } from "./db.js";
-import { getOrCreateBoardConfig } from "./board.js";
+import { getOrCreateBoardConfig, getTeamGoalProgress } from "./board.js";
 
 /**
  * The "has anything changed?" note, kept in Vercel Blob instead of Postgres.
@@ -77,6 +77,22 @@ export interface BoardMarker {
    * that have no such tiles — which is most of them.
    */
   hasGoalTiles: boolean;
+  /**
+   * Team-combined xp/kc progress, as `{"xp:slayer": {"3": 1250000}}` —
+   * goal_kind:goal_key, then team id, then the combined value.
+   *
+   * Carried here so an xp/kc number can reach a plugin **without** the board
+   * being marked changed. Updating one number used to bump `board_changed_at`
+   * (via a trigger on goal_progress), which told every participant their board
+   * was stale and had them re-download all tiles, teams and submissions —
+   * every two minutes, for the whole event. That single behaviour was the
+   * largest compute cost the project had: the fetch is the most expensive
+   * response the site produces, and it was being triggered by the cheapest
+   * possible change. Progress is identical for every viewer (it is per *team*,
+   * not per member), so it fits the marker's one-cached-copy-for-everyone
+   * shape exactly.
+   */
+  goalProgress: Record<string, Record<string, number>>;
   /** When this file was written, for the staleness backstop. */
   publishedAt: string;
 }
@@ -113,17 +129,31 @@ async function resolveMarkerUrl(): Promise<string | null> {
  */
 export async function publishBoardMarker(): Promise<void> {
   try {
-    const [config, goalRows] = await Promise.all([
+    const [config, goalRows, goalProgressByGoal] = await Promise.all([
       getOrCreateBoardConfig(),
       sql`SELECT EXISTS (
             SELECT 1 FROM tiles WHERE goal_kind IN ('xp', 'kc')
           ) AS has_goal_tiles`,
+      getTeamGoalProgress(),
     ]);
+
+    // Map<string, Map<number, number>> doesn't survive JSON.stringify — it
+    // would serialise as {} — so flatten to plain objects here rather than
+    // discovering an empty progress payload in production.
+    const goalProgress: Record<string, Record<string, number>> = {};
+    for (const [goal, byTeam] of goalProgressByGoal) {
+      const teams: Record<string, number> = {};
+      for (const [teamId, value] of byTeam) {
+        teams[String(teamId)] = value;
+      }
+      goalProgress[goal] = teams;
+    }
 
     const marker: BoardMarker = {
       bingoActive: config.bingo_active,
       boardChangedAt: config.board_changed_at,
       hasGoalTiles: Boolean(goalRows[0]?.has_goal_tiles),
+      goalProgress,
       publishedAt: new Date().toISOString(),
     };
 

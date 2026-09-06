@@ -461,6 +461,72 @@ the idle window even though the marker updates instantly. The
 Shortening the idle edge window is now affordable (that path no longer touches
 Postgres) but was left alone rather than stacked onto this change.
 
+## Event-time cost: xp/kc progress no longer invalidates the board
+
+**2026-09-06, the second half of the marker work above.** The marker fixed the
+*idle* problem (the database sleeping between events). This fixes the *event*
+problem, and the cause turned out to be one line of DDL.
+
+`goal_progress` had triggers bumping `board_changed_at`. The xp/kc reconcile
+runs every two minutes, so every two minutes the board was declared changed,
+and every participant's plugin re-downloaded **the whole board** — every tile,
+every team, every submission, the single most expensive response the site
+produces — to refresh one number. Roughly 180,000 full board renders over a
+two-week event, against a Vercel Hobby allowance of **4 Active-CPU hours**.
+That one behaviour was most of the budget.
+
+The triggers are dropped (see `db/schema.sql`, which explains why at the site).
+Team-combined progress now travels in the board marker instead, delivered on
+the poll every plugin already makes each minute:
+
+- `BoardMarker.goalProgress` — `{"xp:slayer": {"3": 1250000}}`, keyed
+  goal_kind:goal_key then team id. Per *team*, not per member, so it is
+  identical for every viewer and fits the marker's one-copy-for-everyone shape.
+- `maybeReconcileGoalProgress()` returns whether it actually ran, so
+  `api/plugin-poll.ts` republishes the marker only on the ticks that moved
+  numbers — one CDN write per reconcile interval, not one per request. It
+  cannot republish itself: `board-marker.ts` imports from `_lib/board.ts`, so
+  the call has to come from the caller.
+- **Both** poll paths return `goalProgress`. The database path matters more
+  than the fast one here: a board *with* xp/kc tiles is exactly what sends a
+  poll down that route, so omitting it there — which the first draft did —
+  would have meant the boards this exists for never received any progress.
+- Plugin-side, `BingoPlugin#applyGoalProgress` updates the held board in place
+  and repaints, with no fetch.
+
+Freshness is unchanged at ~2 minutes. What went away is the re-downloading.
+
+**Also in the same pass:** `BOARD_CACHE_SECONDS` 20s → 60s (more of an event's
+concurrent fetches collapse into one origin render, and nothing perceives 60s
+when the plugin polls once a minute), and the plugin re-checks team membership
+when the marker moves rather than every 30 minutes — roster edits bump the
+marker, so add/remove is noticed on the next poll instead of up to half an hour
+later, *and* isn't asked for at all in between. That endpoint is per-member and
+uncacheable, so every call is a real database read.
+
+## `bingo_active` gates submissions, not just polling
+
+**2026-09-06.** `bingo_active` was built as a cost control — how often to poll,
+how long to cache — and was never consulted anywhere in the submission path. It
+was being *described* as an event control long before it was one. The
+consequence: a drop landing days before an event officially began was recorded
+and counted exactly like one landing mid-event.
+
+That was not theoretical. `resetBingoProgress()` deletes submissions and
+goal_progress but deliberately leaves **rosters** alone, so every previous
+event's participants are still on their teams months later — still eligible,
+still auto-submitting, with no indication anything was wrong.
+
+`requireBingoActive()` in `api/board.ts` now guards both `submitPluginProof`
+(plugin) and `submitTile` (website upload). Two deliberate choices:
+
+- **Server-side, not just plugin-side.** A plugin install can be months old and
+  the site cannot assume otherwise. The client-side check is a courtesy that
+  saves a wasted screenshot; this is the rule.
+- **Fails open** when `board_config` genuinely can't be read. Refusing every
+  submission during a database hiccup would silently lose real drops
+  mid-event, which is worse than accepting a few early ones.
+
 ## Idle vs. active cache window on `/api/plugin-poll`
 
 **2026-09-02, follow-up to the removal above.** Even with broadcast/live-stream

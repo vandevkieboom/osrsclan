@@ -496,7 +496,13 @@ const GOAL_RECONCILE_THROTTLE_MS = 2 * 60 * 1000;
  * moment as their teammates', not staggered across however long it takes
  * each of them to be "noticed" by an opportunistic pass like this one.
  */
-export async function maybeReconcileGoalProgress(): Promise<void> {
+/**
+ * Returns true when it actually updated progress, so the caller can republish
+ * the board marker with the new numbers (see _lib/board-marker.ts). It can't
+ * republish itself: board-marker.ts imports from this file, so calling back
+ * the other way would be a cycle.
+ */
+export async function maybeReconcileGoalProgress(): Promise<boolean> {
   // Throttle check first, and on its own: this function is called from the
   // plugin poll endpoint, so the overwhelming majority of calls are going to
   // be throttled out, and those need to cost exactly one indexed single-row
@@ -505,7 +511,7 @@ export async function maybeReconcileGoalProgress(): Promise<void> {
   const rows = await sql`SELECT goal_reconciled_at FROM board_config WHERE id = 1`;
   const lastRun = rows[0]?.goal_reconciled_at as string | null;
   if (lastRun && Date.now() - new Date(lastRun).getTime() < GOAL_RECONCILE_THROTTLE_MS) {
-    return;
+    return false;
   }
 
   // Nothing to reconcile against if the board has no xp/kc tiles at all,
@@ -513,11 +519,12 @@ export async function maybeReconcileGoalProgress(): Promise<void> {
   // keeps that check to once per interval rather than once per poll.
   await sql`UPDATE board_config SET goal_reconciled_at = now() WHERE id = 1`;
   const activeGoals = await getActiveGoals();
-  if (activeGoals.length === 0) return;
+  if (activeGoals.length === 0) return false;
 
   const womByRsnKey = await fetchWomStatsByRsnKey();
-  if (!womByRsnKey) return;
+  if (!womByRsnKey) return false;
   await refreshGoalLatestValues(womByRsnKey);
+  return true;
 }
 
 export type ProofValidation =
