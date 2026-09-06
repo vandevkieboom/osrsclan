@@ -209,6 +209,14 @@ function ItemRequirementRowsEditor({
           <button
             type="button"
             className="admin-btn-danger"
+            // Clicking this normally blurs whatever field you were just
+            // typing in first - for an existing (already-saved) tile, that
+            // stray blur fires its own premature save with the row list as
+            // it stood before this click's removal, and that save's reload
+            // can land after removeRow's own explicit one and undo it.
+            // preventDefault on mousedown stops focus from ever leaving the
+            // input in the first place, so there's no stray blur to race.
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => removeRow(i)}
           >
             ✕
@@ -218,6 +226,12 @@ function ItemRequirementRowsEditor({
       <button
         type="button"
         className="admin-btn-ghost"
+        // Same reasoning as the ✕ button above: without this, clicking "Add
+        // requirement" while still editing the previous row blurs that row
+        // first (saving it without the new row you're about to add), and
+        // that save's reload can arrive after the add and wipe it back out -
+        // exactly the "line closes when I click Add requirement" symptom.
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => onRowsChange([...rows, blankItemRequirementRow()])}
       >
         + Add item requirement
