@@ -159,14 +159,30 @@ function ItemRequirementRowsEditor({
         (an AND).
       </p>
       {rows.map((row, i) => (
-        <div key={i} className="admin-tile-item-req-row">
+        <div
+          key={i}
+          className="admin-tile-item-req-row"
+          onBlur={(e) => {
+            // Fires once per real blur inside this row, but must only commit
+            // once focus actually leaves the row entirely - moving between
+            // this row's own fields (or to its own ✕ button) is still "the
+            // same edit in progress," not "done with this row." Without this
+            // check, clicking Item ID -> Name mid-edit would commit with
+            // whatever's currently in the row; a row that hasn't gotten its
+            // item id yet is treated as invalid and silently dropped by
+            // parseItemRequirementRows, then saved-away and wiped on reload -
+            // the row appearing to vanish the moment you click a second field.
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+              onFieldBlur?.();
+            }
+          }}
+        >
           <input
             type="text"
             className="admin-input admin-tile-item-req-id"
             placeholder="Item ID"
             value={row.itemId}
             onChange={(e) => updateRow(i, { itemId: e.target.value })}
-            onBlur={() => onFieldBlur?.()}
           />
           <input
             type="text"
@@ -174,7 +190,6 @@ function ItemRequirementRowsEditor({
             placeholder="Name (optional)"
             value={row.name}
             onChange={(e) => updateRow(i, { name: e.target.value })}
-            onBlur={() => onFieldBlur?.()}
           />
           <input
             type="number"
@@ -183,7 +198,6 @@ function ItemRequirementRowsEditor({
             placeholder="Qty"
             value={row.requiredAmount}
             onChange={(e) => updateRow(i, { requiredAmount: e.target.value })}
-            onBlur={() => onFieldBlur?.()}
           />
           <input
             type="text"
@@ -191,7 +205,6 @@ function ItemRequirementRowsEditor({
             placeholder="Set (optional)"
             value={row.group}
             onChange={(e) => updateRow(i, { group: e.target.value })}
-            onBlur={() => onFieldBlur?.()}
           />
           <button
             type="button"
