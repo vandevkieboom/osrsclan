@@ -16,6 +16,28 @@ const WOM_HEADERS: Record<string, string> = {
 
 const PERIOD_RE = /^(week|month)$/;
 
+/**
+ * WOM's group-competitions list (and the single-competition endpoint) do not
+ * actually return a `status` field at all — confirmed against the live API,
+ * not assumed. Both `type=event` and `type=event-summary` used to filter on
+ * `c.status === "ongoing"`, which can never match anything, so both silently
+ * always fell through to their "nothing matched" fallback. For `type=event`
+ * that fallback is `comps[0]`, which happened to look right only because
+ * WOM's list is sorted newest-first — it was never actually checking whether
+ * that competition was still running. Status has to be derived from the
+ * timestamps instead.
+ */
+function classifyCompetition(
+  c: { startsAt: string; endsAt: string },
+): "ongoing" | "upcoming" | "finished" {
+  const now = Date.now();
+  const starts = new Date(c.startsAt).getTime();
+  const ends = new Date(c.endsAt).getTime();
+  if (now < starts) return "upcoming";
+  if (now > ends) return "finished";
+  return "ongoing";
+}
+
 export default withErrorHandling(async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
@@ -100,11 +122,12 @@ export default withErrorHandling(async function handler(req, res) {
     }
     const comps = (await compsRes.json()) as Array<{
       id: number;
-      status: string;
+      startsAt: string;
+      endsAt: string;
     }>;
     const target =
-      comps.find((c) => c.status === "ongoing") ??
-      comps.find((c) => c.status === "upcoming") ??
+      comps.find((c) => classifyCompetition(c) === "ongoing") ??
+      comps.find((c) => classifyCompetition(c) === "upcoming") ??
       comps[0];
     if (!target) {
       res.status(404).json({ error: "No competition found." });
@@ -130,11 +153,11 @@ export default withErrorHandling(async function handler(req, res) {
     // them one at a time. `comps.find(...)` (singular) would show one and
     // give no indication a second was even running.
     //
-    // Also fixes a real staleness bug the singular endpoint has: falling
-    // back to comps[0] when nothing is ongoing or upcoming means it can
-    // surface a competition that finished long ago as if it were current —
-    // exactly what would happen during a bingo, or any other quiet week
-    // with nothing running on WOM. This reports "none" explicitly instead.
+    // Also reports "none" explicitly when nothing is ongoing or upcoming,
+    // rather than falling back to comps[0] the way type=event does — that
+    // fallback can surface a competition that finished long ago as if it
+    // were current, exactly what would happen during a bingo or any other
+    // quiet week with nothing running on WOM.
     const compsRes = await fetch(
       `${BASE_URL}/groups/${GROUP_ID}/competitions?limit=20`,
       { headers: WOM_HEADERS },
@@ -151,11 +174,12 @@ export default withErrorHandling(async function handler(req, res) {
     }
     const comps = (await compsRes.json()) as Array<{
       id: number;
-      status: string;
+      startsAt: string;
+      endsAt: string;
     }>;
 
-    const ongoing = comps.filter((c) => c.status === "ongoing");
-    const upcoming = comps.filter((c) => c.status === "upcoming");
+    const ongoing = comps.filter((c) => classifyCompetition(c) === "ongoing");
+    const upcoming = comps.filter((c) => classifyCompetition(c) === "upcoming");
     const targets = ongoing.length > 0 ? ongoing : upcoming;
     const status = ongoing.length > 0 ? "ongoing" : upcoming.length > 0 ? "upcoming" : "none";
 
