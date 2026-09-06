@@ -119,6 +119,20 @@ function parseItemRequirementRows(rows: ItemRequirementRow[]): ItemRequirement[]
   return parsed.length > 0 ? parsed : null;
 }
 
+// Whether any row is still missing a valid item id - the one thing that
+// makes autosaving unsafe. parseItemRequirementRows silently drops such a
+// row rather than rejecting it (see its own comment), so saving while one
+// exists sends a tile without that row, and the reload that follows wipes
+// it from local state before its first keystroke ever lands. Checked at
+// every commit path (TileRow's commit, not just this editor's own blur
+// handlers) since any field's blur funnels through the same save.
+function hasIncompleteRow(rows: ItemRequirementRow[]): boolean {
+  return rows.some((r) => {
+    const id = Number(r.itemId.trim());
+    return !Number.isInteger(id) || id <= 0;
+  });
+}
+
 function ItemRequirementRowsEditor({
   rows,
   onRowsChange,
@@ -145,6 +159,8 @@ function ItemRequirementRowsEditor({
     onRowsChange(next);
     // The row disappearing IS the change here — there's no blurring input
     // left to fire it, so commit explicitly with the post-removal list.
+    // Safe to call unconditionally: commitWithItemRequirements (TileRow) is
+    // the actual guard against saving while something's still incomplete.
     onFieldBlur?.(next);
   }
   return (
@@ -163,15 +179,12 @@ function ItemRequirementRowsEditor({
           key={i}
           className="admin-tile-item-req-row"
           onBlur={(e) => {
-            // Fires once per real blur inside this row, but must only commit
-            // once focus actually leaves the row entirely - moving between
-            // this row's own fields (or to its own ✕ button) is still "the
-            // same edit in progress," not "done with this row." Without this
-            // check, clicking Item ID -> Name mid-edit would commit with
-            // whatever's currently in the row; a row that hasn't gotten its
-            // item id yet is treated as invalid and silently dropped by
-            // parseItemRequirementRows, then saved-away and wiped on reload -
-            // the row appearing to vanish the moment you click a second field.
+            // Only commit once focus actually leaves the row entirely -
+            // moving between this row's own fields (or to its own ✕ button)
+            // is still "the same edit in progress," not "done with this
+            // row." (Whether it's actually *safe* to save yet - i.e. no
+            // other row is still incomplete - is guarded centrally in
+            // TileRow's commitWithItemRequirements, not here.)
             if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
               onFieldBlur?.();
             }
@@ -508,7 +521,20 @@ function TileRow({
   // commitCurrent is also used directly as a plain onBlur={commitCurrent}
   // handler elsewhere in this form, where the DOM passes a FocusEvent as the
   // first argument — that must never be mistaken for a row-list override.
+  //
+  // The central guard, not just the row editor's own: EVERY field in this
+  // form (Name, Description, Item IDs text, the requirement rows themselves)
+  // blurs through this one function. If any requirement row is still
+  // missing a valid item id when *any* of them fires, skip the save
+  // entirely rather than let parseItemRequirementRows silently drop that
+  // row - the reload that would follow a save wipes it from local state
+  // before its first keystroke ever lands. Deferred, not lost: the very
+  // next blur once every row has an id commits everything normally.
   function commitWithItemRequirements(itemRequirementRowsOverride?: ItemRequirementRow[]) {
+    const rows = itemRequirementRowsOverride ?? itemRequirementRows;
+    if (hasIncompleteRow(rows)) {
+      return;
+    }
     commit({
       ...values,
       name: values.name.trim() || tile.name,
@@ -516,7 +542,7 @@ function TileRow({
       category: values.category.trim(),
       description: values.description.trim(),
       itemIds: parseItemIdsInput(itemIdsText),
-      itemRequirements: parseItemRequirementRows(itemRequirementRowsOverride ?? itemRequirementRows),
+      itemRequirements: parseItemRequirementRows(rows),
     });
   }
 
