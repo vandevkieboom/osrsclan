@@ -385,7 +385,7 @@ async function refreshLeaderboard(res: VercelResponse) {
 }
 
 type ResolvedMember =
-  | { ok: true; displayName: string; role: string; profile: RuneProfile }
+  | { ok: true; displayName: string; role: string | undefined; profile: RuneProfile }
   | { ok: false; status: number; error: string; reason?: string };
 
 /**
@@ -433,26 +433,15 @@ async function fetchClanRoster(): Promise<GroupMembership[] | null> {
   return memberships;
 }
 
-async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
-  const memberships = await fetchClanRoster();
-  if (!memberships) {
-    return { ok: false, status: 502, error: "Failed to load the clan's member list." };
-  }
-  const membership = memberships.find(
-    (m) =>
-      m.player.username?.toLowerCase() === rsn.toLowerCase() ||
-      m.player.displayName?.toLowerCase() === rsn.toLowerCase(),
-  );
-  if (!membership) {
-    return {
-      ok: false,
-      status: 404,
-      error: `${rsn} isn't in the clan's Wise Old Man group.`,
-    };
-  }
-  // RuneProfile needs the real, properly-cased name — same distinction
-  // refreshLeaderboard() above already has to account for.
-  const displayName = membership.player.displayName;
+/**
+ * Fetches and assembles a RuneProfile for an already-resolved (displayName,
+ * role) pair — role is `undefined` for someone who isn't a clan member at
+ * all, see resolveMemberProfile below.
+ */
+async function fetchResolvedProfile(
+  displayName: string,
+  role: string | undefined,
+): Promise<ResolvedMember> {
   const encoded = encodeURIComponent(displayName);
 
   const fullRes = await fetch(`${RP_BASE}/accounts/${encoded}/full`, {
@@ -485,11 +474,50 @@ async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
     fetch(`${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`, { headers: RP_HEADERS })
       .then((res) => (res.ok ? (res.json() as Promise<CombatAchievementTasksResponse>) : null))
       .catch(() => null),
+    // WOM's per-player lookup isn't scoped to our group, so this can still
+    // find boss kc for someone outside the clan too - worth trying either way.
     fetchWomPlayerData(displayName),
   ]);
 
   const profile = buildRuneProfile(data, tasksData, womData);
-  return { ok: true, displayName, role: membership.role, profile };
+  return { ok: true, displayName, role, profile };
+}
+
+/**
+ * Resolves an RSN to a live RuneProfile, for `!rank`/`!verify`/`!needed` and
+ * their website equivalents.
+ *
+ * Checks the clan's WOM roster first purely to get the properly-cased name
+ * and the member's clan role for display - never as a gate. Everything this
+ * ends up computing (rank-tier eligibility, the gear/kc bingo requirement) is
+ * derived entirely from the RuneProfile data itself, not from clan
+ * membership, and the same lookup is already public on the Clan Ranks page
+ * for anyone, member or not. So someone who isn't in the roster (or isn't in
+ * WOM's group at all) still gets resolved directly against RuneProfile using
+ * the name as typed - this is what makes it possible to check whether a
+ * prospective recruit would qualify, which is the actual point of exposing
+ * this to non-members at all. They just get no role/current-rank, since they
+ * don't have one yet.
+ */
+async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
+  const memberships = await fetchClanRoster();
+  const membership = memberships?.find(
+    (m) =>
+      m.player.username?.toLowerCase() === rsn.toLowerCase() ||
+      m.player.displayName?.toLowerCase() === rsn.toLowerCase(),
+  );
+
+  if (membership) {
+    // RuneProfile needs the real, properly-cased name - same distinction
+    // refreshLeaderboard() above already has to account for.
+    return fetchResolvedProfile(membership.player.displayName, membership.role);
+  }
+
+  // Not a clan member (or the roster couldn't be fetched at all) - fall back
+  // to whatever name was typed, exactly as the website's own public lookup
+  // already does. A wrong-case name here fails the same way it would on the
+  // Clan Ranks page: as "isn't set up on RuneProfile," not as a hard block.
+  return fetchResolvedProfile(rsn, undefined);
 }
 
 // Boss kc isn't in RuneProfile's own payload at all - it only tracks collection log/skills/quests/CAs.
