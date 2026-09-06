@@ -337,6 +337,35 @@ installs reach it now.
 
 ## Broadcast and live-stream notifications: removed entirely
 
+> **Broadcast was rebuilt on Blob on 2026-09-07 and reverted the same day
+> (commit reverted, `_lib/broadcast.ts` and the Broadcast tab deleted again).
+> Read this before attempting a third version.**
+>
+> The rebuild moved the message out of the `board_config` column and into a
+> small public JSON file on Blob, read directly by the plugin rather than
+> through an endpoint. That fixed exactly what it was designed to fix: **zero
+> Neon compute** (the database is never touched, so it suspends normally),
+> zero function invocations, zero Active CPU. All three of those held up.
+>
+> What it did not fix, and what killed it: Vercel's own docs state *"Each blob
+> access by its URL counts as one Edge Request, regardless if it's a MISS or
+> HIT."* Cache hits avoid Simple Operations and Fast Origin Transfer, but
+> every read is still an Edge Request. ~20 concurrent players at one check a
+> minute is ~864k Edge Requests/month for broadcast alone - the same order of
+> magnitude the original polling version cost on that meter, and the meter
+> scales with member count, which is the thing this project is trying to grow
+> to 500.
+>
+> **The general rule this is an instance of:** moving the *answer* somewhere
+> cheaper never reduces how often the *question* is asked, and on a
+> per-request meter the question is the entire cost. Caching, Blob, CDN, 304s
+> - none of them touch it. The only things that do are asking less often, not
+> asking at all (on-demand chat commands - which is why `!live` and `!event`
+> are genuinely free), or a push channel, which serverless can't host. The
+> board marker (`_lib/board-marker.ts`) is still correct and still worth
+> having, because it removed database reads from a poll that was happening
+> anyway for other reasons - not because Blob is free.
+
 **2026-09-02, superseding both sections below.** The feature itself is gone,
 not just re-cached: `api/plugin-poll.ts` no longer reads
 `broadcast_message`/`broadcast_updated_at` or fetches Twitch streams at all;
