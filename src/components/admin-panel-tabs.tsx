@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BroadcastPanel } from "./admin/broadcast-panel";
 import { TeamsPanel } from "./admin/teams-panel";
 import { MembersPanel } from "./admin/members-panel";
 import { DonationsPanel } from "./admin/donations-panel";
@@ -6,6 +7,7 @@ import { BoardConfigPanel } from "./admin/board-config-panel";
 import { TilesPanel } from "./admin/tiles-panel";
 
 type PanelTab =
+  | "broadcast"
   | "teams"
   | "members"
   | "donations"
@@ -13,11 +15,18 @@ type PanelTab =
   | "tiles";
 
 export function AdminPanelTabs() {
-  const [panelTab, setPanelTab] = useState<PanelTab>("teams");
+  const [panelTab, setPanelTab] = useState<PanelTab>("broadcast");
 
   return (
     <div>
       <div className="bingo-tabs">
+        <button
+          type="button"
+          className={`bingo-tab${panelTab === "broadcast" ? " active" : ""}`}
+          onClick={() => setPanelTab("broadcast")}
+        >
+          BROADCAST
+        </button>
         <button
           type="button"
           className={`bingo-tab${panelTab === "teams" ? " active" : ""}`}
@@ -55,6 +64,7 @@ export function AdminPanelTabs() {
         </button>
       </div>
 
+      {panelTab === "broadcast" && <BroadcastPanel />}
       {panelTab === "teams" && <TeamsPanel />}
       {panelTab === "members" && <MembersPanel />}
       {panelTab === "donations" && <DonationsPanel />}

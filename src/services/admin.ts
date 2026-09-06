@@ -241,6 +241,16 @@ export async function resetBingo(): Promise<void> {
   await json(res);
 }
 
+/** Empty string clears the broadcast. */
+export async function sendBroadcast(message: string): Promise<void> {
+  const res = await fetch("/api/admin/board?resource=broadcast", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+  await json(res);
+}
+
 export async function fetchAdminTiles(): Promise<AdminTile[]> {
   const res = await fetch("/api/admin/board?resource=tiles");
   const data = await json<{ tiles: AdminTile[] }>(res);
