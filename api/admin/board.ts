@@ -10,6 +10,7 @@ import {
   seedGoalBaselines,
   type ItemRequirement,
 } from "../_lib/board.js";
+import { publishBoardMarker } from "../_lib/board-marker.js";
 import { deriveTileIconUrl } from "../_lib/icons.js";
 import { withErrorHandling } from "../_lib/handler.js";
 
@@ -362,6 +363,25 @@ async function deleteAllTiles(res: VercelResponse) {
 export default withErrorHandling(async function handler(req, res) {
   if (!(await requireAdmin(req, res))) return;
 
+  await dispatch(req, res);
+
+  // Republished here, once, rather than at the end of each handler above.
+  // Every non-GET route on this endpoint changes something a polling plugin
+  // acts on — the bingo_active switch most of all — and the marker is the only
+  // thing most plugins ever read (see _lib/board-marker.ts). Doing it at the
+  // dispatcher means a route added later cannot forget to, which is the exact
+  // failure db/schema.sql avoids for board_changed_at by using triggers rather
+  // than a bump() call at every write site.
+  //
+  // After the response, deliberately: the admin already has their answer, and
+  // a slow CDN write should not make saving a tile feel slow. It still runs to
+  // completion — the function is not frozen until this handler resolves.
+  if (req.method !== "GET") {
+    await publishBoardMarker();
+  }
+});
+
+async function dispatch(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource;
   const isTiles = resource === "tiles";
 
@@ -398,4 +418,4 @@ export default withErrorHandling(async function handler(req, res) {
   }
 
   res.status(405).json({ error: "Method not allowed" });
-});
+}

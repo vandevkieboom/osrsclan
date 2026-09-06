@@ -317,6 +317,24 @@ section describes was "is an event on", and that is now "is an event on
 *and* has anything actually moved". See the hosting-cost section at the
 top.
 
+**Its cache window was a year-round leak until 2026-09-06.** `getBingoStatus`
+hard-coded `s-maxage=30` regardless of `bingo_active`, so while
+`/api/plugin-poll` got the long idle window described below, this superseded
+sibling kept waking Postgres every 30 seconds — meaning a *single* plugin
+install that never updated was enough to defeat the idle window everywhere
+else and keep the compute awake all year. Both endpoints now take their
+windows from one shared `boardConfigCacheControl` in `_lib/board.ts`,
+deliberately: two endpoints answering the same question out of the same row
+must not be able to disagree about how long that answer keeps, which is
+exactly how this drifted in the first place.
+
+The current plugin no longer calls this endpoint at all —
+`BingoPlugin#checkBoardState` was removed on the same day (see the plugin's
+own `CLAUDE.md`), since it asked for `boardChangedAt` on the same tick
+`/api/plugin-poll` had already returned it, as a separate CDN cache entry and
+therefore a separate origin invocation and database read. Only genuinely stale
+installs reach it now.
+
 ## Broadcast and live-stream notifications: removed entirely
 
 **2026-09-02, superseding both sections below.** The feature itself is gone,
@@ -353,8 +371,95 @@ scope cut, made with the user's explicit sign-off (small non-monetized
 clan project) rather than a technical dead end — don't reintroduce either
 feature without a fresh conversation about scope.
 
+> **Correction, 2026-09-06.** The paragraph above is right about *broadcast*
+> and wrong about *live streams*, and the difference matters if either is ever
+> reconsidered. `api/twitch-live.ts` contains no `sql` calls and never did: it
+> asks Twitch and returns the answer, so it could not have contributed a single
+> second of Neon compute. Broadcast was the half that read `board_config` out
+> of Postgres every minute; that is what kept the compute awake. What
+> live-stream polling actually consumed was **Vercel edge requests**, a
+> different meter with a different cap (1M/month on Hobby, ~23 requests/minute
+> sustained for everything). At 100+ installs checking once a minute that alone
+> is ~4.3M/month, so the feature is still not free — but the reason is request
+> volume, not the database, and "it stopped Neon sleeping" is not a valid
+> argument against bringing it back.
+>
+> Note also that `!live` was **not** removed. It survives as an on-demand chat
+> command (`onLiveCommand` in the plugin), which is cheap precisely because it
+> costs one request when somebody asks rather than 1,440/day/member whether
+> anyone cares. That contrast — on-demand versus on-a-timer — is the actual
+> lesson from this whole episode, and it generalises better than "we removed
+> two features".
+>
+> If instant in-game live announcements are ever wanted, the cheap shape is
+> Twitch EventSub (Twitch pushes to a webhook when a stream starts) writing a
+> small JSON file to Blob that plugins read directly — the same pattern as the
+> board marker below, for the same reason. Discord's native Twitch integration
+> already does this for free, though, and should be ruled out first.
+
 See the plugin's own `CLAUDE.md` ("Broadcast and live-stream notifications:
 removed entirely") for the plugin-side half of this same change.
+
+## The board marker: the poll answers from Blob, not Postgres
+
+**2026-09-06.** `api/_lib/board-marker.ts`. The change that actually addresses
+the compute problem rather than trimming around it, and the reasoning behind
+it is worth keeping because it is easy to get backwards.
+
+**The meter is time, not count.** Neon suspends only after 5 unbroken minutes
+with *no query at all*, and does not care how many people asked — only how
+long since the last one. So halving request volume buys nothing if the
+remaining requests still land more often than every 5 minutes. One member
+online at 4am with a leftover plugin key, on a 30s cache window, was enough to
+keep the compute awake around the clock for a two-week event and, thanks to
+stale keys, most of the year. Every previous fix in this file attacked *count*.
+This one attacks *whether Postgres is involved at all*.
+
+**What moved, and what deliberately did not.** Only the change marker —
+`{bingoActive, boardChangedAt, hasGoalTiles, publishedAt}`, about 100 bytes at
+`board/marker.json` in the Blob store the proof screenshots already use (no new
+store, no new env var). The board itself — tiles, teams, standings,
+submissions — is untouched and still rendered from Postgres by `getBoard`. A
+plugin compares the marker against the stamp of the board it holds and only
+fetches a real board on the tick where they differ, exactly as before. Same
+board, same freshness; what disappears is ~40,000 wake-ups per event spent
+answering "no, nothing changed".
+
+**Publishing is wired at the dispatcher, not per-handler.** `api/admin/board.ts`
+and `api/admin/teams.ts` republish after any non-GET; `api/admin/submissions.ts`
+and `api/board.ts` after a review and a submission. This is the pattern
+`board_changed_at` deliberately avoids — it uses database triggers precisely
+because a bump() call at each of ~20 write sites is one that eventually gets
+missed — and Blob cannot be written from a trigger, so the risk is real and had
+to be mitigated instead: `isMarkerStale` makes a missed publish degrade to
+"late, then self-corrects" rather than "the board silently never updates
+again". The poll republishes from the database whenever it finds the marker
+missing or stale, so it also self-bootstraps on a fresh deploy.
+
+**Two backstop windows, because the states fail differently.** 15 minutes while
+active (a missed publish freezes everyone's board, so the net must be tight);
+24 hours while idle (nothing *can* change except the admin switch, which is a
+write that republishes on the spot). An earlier version used 15 minutes for
+both, which was a bug: between events nothing writes, so the marker was
+*always* older than 15 minutes, every poll fell back to Postgres, and the idle
+case — the entire point — would have saved nothing.
+
+**Two cases still reach Postgres, both on purpose.** A stale or missing marker;
+and an active event whose board has xp/kc tiles, because
+`maybeReconcileGoalProgress` needs this endpoint as its carrier and runs on a
+2-minute throttle. That second one is why `hasGoalTiles` is in the marker at
+all — it lets that decision be made without a query. The consequence is worth
+stating plainly to whoever plans the next event: **an item-only board lets the
+database sleep through the quiet hours of an event; one xp or kc tile keeps it
+awake for the duration.** That was left as a deliberate choice rather than
+silently degraded, since the alternative is a laggier progress bar.
+
+**What did not get faster.** Flipping `bingo_active` still takes up to 30
+minutes to reach every client, because the *poll response* is edge-cached for
+the idle window even though the marker updates instantly. The
+"flip it 30 minutes before the announced start" routine below still applies.
+Shortening the idle edge window is now affordable (that path no longer touches
+Postgres) but was left alone rather than stacked onto this change.
 
 ## Idle vs. active cache window on `/api/plugin-poll`
 

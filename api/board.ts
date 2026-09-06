@@ -19,6 +19,7 @@ import {
   recordProofSubmission,
   validateProofSubmission,
 } from "./_lib/board.js";
+import { publishBoardMarker } from "./_lib/board-marker.js";
 import { deriveTileIconUrl } from "./_lib/icons.js";
 import { withErrorHandling } from "./_lib/handler.js";
 
@@ -733,10 +734,17 @@ export default withErrorHandling(async function handler(req, res) {
     if (req.query.resource === "plugin-proof") {
       await submitPluginProof(req, res);
     } else if (typeof req.body?.type === "string") {
+      // The client-upload handshake for a screenshot. Nothing is recorded
+      // against the board yet — the submission itself arrives as a separate
+      // POST below — so there is deliberately nothing to republish here.
       await uploadToken(req, res);
+      return;
     } else {
       await submitTile(req, res);
     }
+    // A new submission moves the tile's pending count, which is on the board
+    // every plugin renders. See _lib/board-marker.ts.
+    await publishBoardMarker();
     return;
   }
 

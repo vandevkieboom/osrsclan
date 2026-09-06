@@ -4,6 +4,11 @@ import {
   getBoardConfigMemoised,
   maybeReconcileGoalProgress,
 } from "./_lib/board.js";
+import {
+  isMarkerStale,
+  publishBoardMarker,
+  readBoardMarker,
+} from "./_lib/board-marker.js";
 import { withErrorHandling } from "./_lib/handler.js";
 
 /**
@@ -105,6 +110,41 @@ export default withErrorHandling(async function handler(req, res) {
   // often" rather than "an active event's board goes stale for 30 minutes".
   res.setHeader("Cache-Control", boardConfigCacheControl(true));
 
+  // The whole point of the marker: answer the overwhelmingly common "nothing
+  // has changed" tick from a CDN file instead of waking Neon's compute. See
+  // _lib/board-marker.ts for why time-since-last-query, not query count, is
+  // what this is fighting.
+  //
+  // Two cases still fall through to Postgres, both deliberate:
+  //
+  //  - A stale or missing marker. Then the marker is not trustworthy and the
+  //    database is the source of truth, which is also what republishes it.
+  //  - An active event whose board has xp/kc tiles. Their progress comes from
+  //    the timed hiscores pass below rather than from anyone submitting
+  //    anything, and that pass needs this endpoint as its carrier — so those
+  //    boards keep exactly today's behaviour and today's cost. A board of item
+  //    tiles only (the common case) never takes this path, so its database
+  //    sleeps through the quiet hours of an event as well as between events.
+  const marker = await readBoardMarker();
+  const markerUsable = marker !== null && !isMarkerStale(marker);
+  if (marker && markerUsable) {
+    const needsGoalPass = marker.bingoActive && marker.hasGoalTiles;
+    if (!needsGoalPass) {
+      if (!marker.bingoActive) {
+        res.setHeader("Cache-Control", boardConfigCacheControl(false));
+      }
+      res.status(200).json({
+        bingoActive: marker.bingoActive,
+        pollSeconds: marker.bingoActive
+          ? POLL_SECONDS_ACTIVE
+          : POLL_SECONDS_IDLE,
+        boardChangedAt: marker.boardChangedAt,
+        degraded: false,
+      });
+      return;
+    }
+  }
+
   const { row: config, stale } = await getBoardConfigMemoised();
 
   if (!config) {
@@ -156,4 +196,16 @@ export default withErrorHandling(async function handler(req, res) {
     // couldn't check", and stay quiet rather than acting on the difference.
     degraded: stale,
   });
+
+  // Self-heal, after the response so nobody waits on it. Reaching here with an
+  // unusable marker means either a fresh deploy that has never published one,
+  // or a write path that failed to — and this read already has the fresh
+  // database state in hand. Republishing costs one CDN write and puts the next
+  // 15 minutes of polls back on the cheap path, so no admin has to remember to
+  // "touch something" to bootstrap it. Skipped when the marker was fine and we
+  // came here only for the goal pass, which would otherwise rewrite the file
+  // every 30 seconds for the whole event.
+  if (!markerUsable && !stale) {
+    await publishBoardMarker();
+  }
 });
