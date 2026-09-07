@@ -1,6 +1,7 @@
 import { withErrorHandling } from "./_lib/handler.js";
 import { refreshGoalLatestValues, fetchWomStatsByRsnKey } from "./_lib/board.js";
 import { isSkillMetric } from "./_lib/icons.js";
+import { readBoardMarker } from "./_lib/board-marker.js";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
 // Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts, and
@@ -36,6 +37,27 @@ function classifyCompetition(
   if (now < starts) return "upcoming";
   if (now > ends) return "finished";
   return "ongoing";
+}
+
+/**
+ * The clan also creates WOM competitions for purposes other than a public
+ * SOTW/BOTW — most notably one per bingo, used purely to eyeball xp/kc
+ * movement on WOM's own site. The bingo board's own xp/kc tiles never read
+ * this (they come from bulk-hiscores against a baseline set at reset, not
+ * from any competition object), so a bingo-tracking competition existing has
+ * no effect on the board — but without this filter it would still show up in
+ * `!event` as if it were a real event with "official" top-3 standings, which
+ * it isn't; nobody is actually competing in it.
+ *
+ * A positive match rather than an exclude list on purpose: "contains SOTW or
+ * BOTW" only ever matches the clan's actual naming convention for real
+ * events (confirmed - every one so far is titled "<thing> - SOTW/BOTW (date
+ * range)"), so anything named for another purpose is excluded automatically,
+ * without this needing to know every non-event name in advance the way an
+ * exclude-"bingo" check would.
+ */
+function isRealCompetition(title: string): boolean {
+  return /\b(sotw|botw)\b/i.test(title);
 }
 
 export default withErrorHandling(async function handler(req, res) {
@@ -120,11 +142,15 @@ export default withErrorHandling(async function handler(req, res) {
       res.status(compsRes.status).json(await compsRes.json());
       return;
     }
-    const comps = (await compsRes.json()) as Array<{
+    const allComps = (await compsRes.json()) as Array<{
       id: number;
+      title: string;
       startsAt: string;
       endsAt: string;
     }>;
+    // Excludes non-public competitions (a bingo's own xp/kc tracking comp,
+    // say) — see isRealCompetition.
+    const comps = allComps.filter((c) => isRealCompetition(c.title));
     const target =
       comps.find((c) => classifyCompetition(c) === "ongoing") ??
       comps.find((c) => classifyCompetition(c) === "upcoming") ??
@@ -172,11 +198,17 @@ export default withErrorHandling(async function handler(req, res) {
       res.status(compsRes.status).json(await compsRes.json());
       return;
     }
-    const comps = (await compsRes.json()) as Array<{
+    const allComps = (await compsRes.json()) as Array<{
       id: number;
+      title: string;
       startsAt: string;
       endsAt: string;
     }>;
+    // Excludes non-public competitions (a bingo's own xp/kc tracking comp,
+    // say) — see isRealCompetition. Without this, !event would report a
+    // bingo-tracking competition as if it were a real event complete with a
+    // "top 3" nobody is actually competing for.
+    const comps = allComps.filter((c) => isRealCompetition(c.title));
 
     const ongoing = comps.filter((c) => classifyCompetition(c) === "ongoing");
     const upcoming = comps.filter((c) => classifyCompetition(c) === "upcoming");
@@ -184,8 +216,21 @@ export default withErrorHandling(async function handler(req, res) {
     const status = ongoing.length > 0 ? "ongoing" : upcoming.length > 0 ? "upcoming" : "none";
 
     if (targets.length === 0) {
+      // Told apart from "there's genuinely nothing going on" so the plugin
+      // can say something more useful than "no BOTW/SOTW" during a bingo -
+      // the bingo's own xp/kc tracking competition (if any) was just
+      // filtered out above precisely because it isn't a real event, but
+      // that doesn't mean nothing is happening. Only fetched here, on the
+      // no-competition path, rather than unconditionally: it's a free Blob
+      // read either way, but there's no reason to spend even that on the
+      // common case where a real competition was already found above.
+      const marker = await readBoardMarker();
       res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
-      res.status(200).json({ status, competitions: [] });
+      res.status(200).json({
+        status,
+        competitions: [],
+        bingoActive: marker?.bingoActive ?? false,
+      });
       return;
     }
 
