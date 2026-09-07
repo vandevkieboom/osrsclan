@@ -385,64 +385,35 @@ async function refreshLeaderboard(res: VercelResponse) {
 }
 
 type ResolvedMember =
-  | { ok: true; displayName: string; role: string | undefined; profile: RuneProfile }
+  | { ok: true; displayName: string; profile: RuneProfile }
   | { ok: false; status: number; error: string; reason?: string };
 
 /**
- * Shared "resolve an RSN to a live RuneProfile" prefix for both `lookupRank`
- * and `getClanRequirement` below — WOM group roster lookup (WOM has no
- * single-player-by-name lookup within a group, so this fetches the same full
- * roster refreshLeaderboard() does, just once instead of in a batch loop),
- * then the RuneProfile full+combat-achievement-tasks fetch, then
- * buildRuneProfile. Kept as one function so the two callers below can't
- * silently drift on how a member gets resolved.
+ * Resolves an RSN to a live RuneProfile, for `!rank`/`!verify`/`!needed`.
+ *
+ * Looks the name up exactly as typed, which is precisely what the website's
+ * own Clan Ranks page does (fetchRuneProfile in src/services/runeprofile.ts).
+ *
+ * This used to consult the clan's WOM group roster first and then query
+ * RuneProfile with the roster's stored displayName rather than the typed
+ * name, on the stated grounds that "RuneProfile needs the real, properly-cased
+ * name". That premise was simply wrong: RuneProfile's lookup is
+ * case-insensitive (verified against the live API), so the substitution
+ * bought nothing while quietly introducing a failure mode. Any time the
+ * roster's name and the name RuneProfile knew disagreed, most often a rename
+ * only one side had caught up on, the lookup went out under the wrong name
+ * and came back 404. The plugin then told a member with a perfectly good
+ * profile that they "aren't set up on RuneProfile", while the website, asking
+ * under the name the member actually typed, found them immediately.
+ *
+ * The roster's only other contribution was the member's clan role, which fed
+ * a `currentRank` field the plugin never read. So it cost a ~500 member WOM
+ * group fetch, plus one more upstream call for a request to time out on, to
+ * produce a value nothing displayed. Boss kc still comes from WOM below,
+ * exactly as the website's own lookup gets it.
  */
-type GroupMembership = {
-  player: { displayName: string; username: string };
-  role: string;
-};
-
-// The clan's WOM roster: ~500 members, the same answer for every caller, and
-// it changes when somebody joins or leaves — i.e. rarely. Every `!rank`,
-// every `!verify`, and every login's RuneProfile-sync reminder was
-// re-fetching and re-parsing the whole thing, because WOM has no
-// single-player-within-a-group lookup. Memoised per warm function instance
-// instead: a stale entry can at worst mean a member who joined in the last
-// few minutes isn't found yet, and they'll be found on the next attempt.
-const ROSTER_MEMO_MS = 5 * 60 * 1000;
-let rosterMemo: { memberships: GroupMembership[]; at: number } | null = null;
-
-async function fetchClanRoster(): Promise<GroupMembership[] | null> {
-  if (rosterMemo && Date.now() - rosterMemo.at < ROSTER_MEMO_MS) {
-    return rosterMemo.memberships;
-  }
-  const rolesRes = await fetch(
-    `https://api.wiseoldman.net/v2/groups/${WOM_GROUP_ID}`,
-    { headers: WOM_HEADERS },
-  );
-  if (!rolesRes.ok) {
-    // Keep serving the last good roster through a WOM blip rather than
-    // telling every caller the clan's member list is unavailable.
-    return rosterMemo?.memberships ?? null;
-  }
-  const group = (await rolesRes.json()) as {
-    memberships?: GroupMembership[];
-  };
-  const memberships = group.memberships ?? [];
-  rosterMemo = { memberships, at: Date.now() };
-  return memberships;
-}
-
-/**
- * Fetches and assembles a RuneProfile for an already-resolved (displayName,
- * role) pair — role is `undefined` for someone who isn't a clan member at
- * all, see resolveMemberProfile below.
- */
-async function fetchResolvedProfile(
-  displayName: string,
-  role: string | undefined,
-): Promise<ResolvedMember> {
-  const encoded = encodeURIComponent(displayName);
+async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
+  const encoded = encodeURIComponent(rsn);
 
   const fullRes = await fetch(`${RP_BASE}/accounts/${encoded}/full`, {
     headers: RP_HEADERS,
@@ -451,7 +422,7 @@ async function fetchResolvedProfile(
     return {
       ok: false,
       status: 404,
-      error: `${displayName} isn't set up on RuneProfile.`,
+      error: `${rsn} isn't set up on RuneProfile.`,
       // Lets callers distinguish "never synced" from any other failure
       // without string-matching the message above.
       reason: "not-on-runeprofile",
@@ -476,48 +447,11 @@ async function fetchResolvedProfile(
       .catch(() => null),
     // WOM's per-player lookup isn't scoped to our group, so this can still
     // find boss kc for someone outside the clan too - worth trying either way.
-    fetchWomPlayerData(displayName),
+    fetchWomPlayerData(rsn),
   ]);
 
   const profile = buildRuneProfile(data, tasksData, womData);
-  return { ok: true, displayName, role, profile };
-}
-
-/**
- * Resolves an RSN to a live RuneProfile, for `!rank`/`!verify`/`!needed` and
- * their website equivalents.
- *
- * Checks the clan's WOM roster first purely to get the properly-cased name
- * and the member's clan role for display - never as a gate. Everything this
- * ends up computing (rank-tier eligibility, the gear/kc bingo requirement) is
- * derived entirely from the RuneProfile data itself, not from clan
- * membership, and the same lookup is already public on the Clan Ranks page
- * for anyone, member or not. So someone who isn't in the roster (or isn't in
- * WOM's group at all) still gets resolved directly against RuneProfile using
- * the name as typed - this is what makes it possible to check whether a
- * prospective recruit would qualify, which is the actual point of exposing
- * this to non-members at all. They just get no role/current-rank, since they
- * don't have one yet.
- */
-async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
-  const memberships = await fetchClanRoster();
-  const membership = memberships?.find(
-    (m) =>
-      m.player.username?.toLowerCase() === rsn.toLowerCase() ||
-      m.player.displayName?.toLowerCase() === rsn.toLowerCase(),
-  );
-
-  if (membership) {
-    // RuneProfile needs the real, properly-cased name - same distinction
-    // refreshLeaderboard() above already has to account for.
-    return fetchResolvedProfile(membership.player.displayName, membership.role);
-  }
-
-  // Not a clan member (or the roster couldn't be fetched at all) - fall back
-  // to whatever name was typed, exactly as the website's own public lookup
-  // already does. A wrong-case name here fails the same way it would on the
-  // Clan Ranks page: as "isn't set up on RuneProfile," not as a hard block.
-  return fetchResolvedProfile(rsn, undefined);
+  return { ok: true, displayName: rsn, profile };
 }
 
 // Boss kc isn't in RuneProfile's own payload at all - it only tracks collection log/skills/quests/CAs.
@@ -575,7 +509,7 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
     sendResolveError(res, resolved);
     return;
   }
-  const { displayName, role, profile } = resolved;
+  const { displayName, profile } = resolved;
 
   const verificationRows = await sql`
     SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${displayName.toLowerCase()}`;
@@ -584,12 +518,12 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
   );
 
   const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
-  const currentRankInfo = getRankForRole(role);
 
   // `!rank <name>` gets run on the same handful of people repeatedly (and
-  // once per login by the RuneProfile-sync reminder), and this is one of the
-  // most expensive endpoints on the site — a WOM roster lookup plus three
-  // upstream profile fetches. A minute of edge caching collapses a burst of
+  // once per login by the RuneProfile-sync reminder), and this is still one of
+  // the more expensive endpoints on the site: three upstream fetches, down
+  // from four now that the WOM roster lookup is gone (see
+  // resolveMemberProfile). A minute of edge caching collapses a burst of
   // lookups for the same name into one, while staying short enough that
   // someone who just re-synced RuneProfile and re-checks doesn't see a stale
   // answer for any length of time worth noticing.
@@ -626,7 +560,11 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
 
   res.status(200).json({
     rsn: displayName,
-    currentRank: currentRankInfo?.name ?? null,
+    // Always null since the WOM roster lookup that supplied it went away (see
+    // resolveMemberProfile). Kept in the payload rather than dropped so the
+    // plugin's existing field, which never displayed it anyway, keeps
+    // deserializing against an unchanged response shape.
+    currentRank: null,
     eligibleRank:
       progress.highestEligibleRankIndex >= 0
         ? ranks[progress.highestEligibleRankIndex].name
