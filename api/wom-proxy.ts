@@ -249,6 +249,22 @@ export default withErrorHandling(async function handler(req, res) {
     const competitions = (details.filter(Boolean) as Array<{ metric: string }>).map(
       (c) => ({ ...c, metricType: isSkillMetric(c.metric) ? "xp" : "kc" }),
     );
+
+    // targets.length > 0 but every detail fetch failed (a WOM blip, a
+    // timeout) is a fetch failure, not "zero competitions" — the list step
+    // above already proved at least one is genuinely ongoing/upcoming. Confirmed
+    // live: one failed fetch here used to get cached for the full 5 minutes
+    // below as if it were a real, valid answer, so a single transient WOM
+    // hiccup made !event wrongly report "nothing running" to the whole clan
+    // for 5 minutes straight. No-store instead, so the next request — maybe
+    // the very next poll — tries WOM again fresh rather than being stuck
+    // repeating today's one bad moment.
+    if (competitions.length === 0) {
+      res.setHeader("Cache-Control", "no-store");
+      res.status(200).json({ status: "none", competitions: [] });
+      return;
+    }
+
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
     res.status(200).json({ status, competitions });
   } else if (type === "player") {
