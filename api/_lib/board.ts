@@ -465,12 +465,22 @@ export async function fetchWomStatsByRsnKey(): Promise<Map<string, WomStats> | n
 // throttle this could fire a WOM request on every single one of those
 // requests. The throttle is claimed via one shared board_config timestamp
 // (see below), so regardless of how many members are polling at once, this
-// only ever costs one bulk-hiscores call per window — cheap enough that 2
-// minutes is still a trivial request rate, and this is now the *only*
-// mechanism that ever updates xp/kc progress (no live plugin push
-// anymore), so it's worth keeping this window tight rather than treating
-// it as a rarely-needed backstop.
-const GOAL_RECONCILE_THROTTLE_MS = 2 * 60 * 1000;
+// only ever costs one bulk-hiscores call per window.
+//
+// This is also the one thing that keeps Neon awake for an xp/kc board's
+// entire active duration (see the board marker's hasGoalTiles doc) — every
+// plugin poll during an event falls through to Postgres on this exact
+// cadence, and Neon suspends only after 5 unbroken minutes with none at all.
+// 2 minutes was chosen when this was "how fresh should the progress bar be",
+// with the compute-uptime side effect undiscovered; 10 minutes cuts that
+// event-long cost by roughly half (~84 CU-hours -> ~28 over a two-week event)
+// at the cost of the xp/kc bar lagging up to 10 minutes instead of 2 — drop
+// tiles, screenshots, approvals and every chat command are completely
+// unaffected either way. A deliberate tradeoff, not a bug: lower
+// GOAL_RECONCILE_SECONDS for a future event if the lag ever actually matters
+// more than the cost.
+const GOAL_RECONCILE_THROTTLE_MS =
+  clampEnvSeconds(process.env.GOAL_RECONCILE_SECONDS, 600, 60, 3600) * 1000;
 
 /**
  * Opportunistically corrects existing goal_progress rows, throttled to run

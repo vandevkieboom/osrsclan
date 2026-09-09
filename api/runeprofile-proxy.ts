@@ -11,6 +11,7 @@ import { withErrorHandling } from "./_lib/handler.js";
 import { ranks, rankIconByRole, STAFF_ROLES } from "../src/data/ranks-data.js";
 import { checkRequirement, computeClanRankProgress } from "../src/services/rank-checker.js";
 import { getRankForRole } from "../src/services/profile.js";
+import { getVerifiedItemNames } from "./_lib/verifications-marker.js";
 import {
   buildRuneProfile,
   type CombatAchievementTasksResponse,
@@ -511,11 +512,7 @@ async function lookupRank(req: VercelRequest, res: VercelResponse) {
   }
   const { displayName, profile } = resolved;
 
-  const verificationRows = await sql`
-    SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${displayName.toLowerCase()}`;
-  const verifiedItemNames = new Set(
-    verificationRows.map((r) => r.item_name as string),
-  );
+  const verifiedItemNames = await getVerifiedItemNames(displayName.toLowerCase());
 
   const progress = computeClanRankProgress(ranks, profile, verifiedItemNames);
 

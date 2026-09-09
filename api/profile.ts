@@ -2,6 +2,10 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "./_lib/db.js";
 import { requireAdmin, discordAvatarUrl } from "./_lib/auth.js";
 import { withErrorHandling } from "./_lib/handler.js";
+import {
+  getVerifiedItemNames,
+  publishVerificationsMarker,
+} from "./_lib/verifications-marker.js";
 
 const MAX_LABEL_LENGTH = 120;
 const MAX_DATE_LABEL_LENGTH = 40;
@@ -106,9 +110,8 @@ async function listVerifiedItems(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const rows = await sql`
-    SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${rsn.toLowerCase()}`;
-  res.status(200).json({ items: rows.map((r) => r.item_name) });
+  const items = await getVerifiedItemNames(rsn.toLowerCase());
+  res.status(200).json({ items: Array.from(items) });
 }
 
 async function addVerifiedItem(req: VercelRequest, res: VercelResponse) {
@@ -127,6 +130,7 @@ async function addVerifiedItem(req: VercelRequest, res: VercelResponse) {
     INSERT INTO manual_item_verifications (rsn_key, item_name, verified_by)
     VALUES (${rsn.toLowerCase()}, ${itemName.toLowerCase()}, ${admin.id})
     ON CONFLICT (rsn_key, item_name) DO NOTHING`;
+  await publishVerificationsMarker();
   res.status(201).json({ ok: true });
 }
 
@@ -145,6 +149,7 @@ async function removeVerifiedItem(req: VercelRequest, res: VercelResponse) {
   await sql`
     DELETE FROM manual_item_verifications
     WHERE rsn_key = ${rsn.toLowerCase()} AND item_name = ${itemName.toLowerCase()}`;
+  await publishVerificationsMarker();
   res.status(200).json({ ok: true });
 }
 
