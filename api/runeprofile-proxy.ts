@@ -191,11 +191,18 @@ async function refreshLeaderboard(res: VercelResponse) {
   // The previous snapshot and where the last run stopped. Entries are merged
   // by name rather than rebuilt from scratch, so a run that only gets through
   // part of the roster still leaves every other member's row intact.
+  // Keyed case-insensitively — entries have been through casing changes
+  // before (formerly keyed by RuneProfile's own returned username rather
+  // than WOM's, see the byName.set() below), and a Map keyed on exact
+  // string doesn't overwrite a same-person entry that merely changed case,
+  // it silently doubles it up instead.
   const cacheRows = await sql`
     SELECT entries, refresh_offset FROM leaderboard_cache WHERE id = 1`;
   const previousEntries =
     (cacheRows[0]?.entries as LeaderboardEntry[] | undefined) ?? [];
-  const byName = new Map(previousEntries.map((e) => [e.name, e]));
+  const byName = new Map(
+    previousEntries.map((e) => [e.name.toLowerCase(), e]),
+  );
   const startOffset = Math.max(0, Number(cacheRows[0]?.refresh_offset ?? 0)) %
     Math.max(1, usernames.length);
 
@@ -351,7 +358,7 @@ async function refreshLeaderboard(res: VercelResponse) {
         // by RuneProfile's name instead let an underscore-substituted account
         // succeed here and then get silently filtered out by that check, as
         // if they'd left the clan.
-        byName.set(username, {
+        byName.set(username.toLowerCase(), {
           name: username,
           totalSatisfied,
           rankName: rankInfo?.name ?? null,
