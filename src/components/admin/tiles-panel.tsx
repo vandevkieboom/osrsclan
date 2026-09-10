@@ -169,11 +169,12 @@ function ItemRequirementRowsEditor({
       <p className="admin-tile-item-reqs-hint">
         Advanced item requirements (optional): when set, this replaces the
         required-count/unique-items rules above for deciding when the tile is
-        done. It does <strong>not</strong> replace the Item IDs field, keep
-        every item listed there too, or the RuneLite plugin won't recognize
-        these drops and auto-submission will stop working for this tile.
-        Items sharing a "set" name are an OR (any one full set completes the
-        tile); items with no set are always required (an AND).
+        done. Items sharing a "set" name are an OR (any one full set completes
+        the tile); items with no set are always required (an AND). Anything
+        listed here is watched for automatically, so it does not have to be
+        repeated in Item IDs above; that field still decides the tile's
+        picture (the first id wins) and is what a tile with no advanced rules
+        uses on its own.
       </p>
       {rows.map((row, i) => (
         <div
@@ -410,12 +411,26 @@ function TileAddRow({
           onRowsChange={setItemRequirementRows}
         />
       )}
+      {/* Unlike an existing tile, which commits every field on blur, a NEW
+          tile only exists once this button is pressed - so tabbing away from
+          a filled-in form and assuming it saved (reasonable, given every
+          other row on this page behaves that way) silently loses it. The
+          hint below says so, and the button is disabled rather than
+          silently inert while the name is empty: it used to be
+          `name.trim() && onSave(...)`, which meant clicking Save with no
+          name did nothing at all, with no error and no clue why. */}
+      {!name.trim() && (
+        <div className="admin-field-hint">
+          Give the tile a name, then press Save - a new tile isn't created
+          until you do.
+        </div>
+      )}
       <div className="admin-tile-card-actions">
         <button
           type="button"
           className="admin-btn-primary"
+          disabled={!name.trim()}
           onClick={() =>
-            name.trim() &&
             onSave({
               name: name.trim(),
               requiredCount,

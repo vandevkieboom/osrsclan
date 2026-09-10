@@ -87,16 +87,22 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
 
   const config = await getOrCreateBoardConfig();
 
-  // While no event is running, teams/tiles are hidden from everyone except
-  // admins - an admin building the next event's teams and board shouldn't
-  // spoil it for the clan the moment a team exists. Checked (and the whole
-  // rest of this function skipped) only in the inactive case: while an event
-  // IS active the board is public to everyone same as always, so the normal,
-  // by-far-more-common path never pays for a session/token lookup it doesn't
-  // need. getRequestUser only ever runs on a cache MISS in the first place
-  // (a hit never reaches this function at all), so this adds at most one
-  // extra read per cache window, not per viewer.
-  if (!config.bingo_active) {
+  // Teams/tiles are hidden from everyone except admins unless an event is
+  // active OR an admin has explicitly opted into showing the board off early
+  // (board_visible - see db/schema.sql). Deliberately two separate flags:
+  // board_visible only ever affects this check, nothing else - it does not
+  // speed up polling, does not start the xp/kc reconcile pass, and does not
+  // let submissions through (requireBingoActive checks bingo_active alone).
+  // So "show the board weeks before the event" costs nothing beyond whatever
+  // extra viewers it draws to an already-cheap endpoint.
+  //
+  // Checked (and the whole rest of this function skipped) only when neither
+  // flag says yes: the common case (an event actually running) never pays
+  // for a session/token lookup it doesn't need. getRequestUser only ever
+  // runs on a cache MISS in the first place (a hit never reaches this
+  // function at all), so this adds at most one extra read per cache window,
+  // not per viewer.
+  if (!config.bingo_active && !config.board_visible) {
     const requester = await getRequestUser(req);
     if (requester?.isAdmin) {
       // Never let an admin's own fetch land in the shared public cache slot -
@@ -128,7 +134,26 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
            item_ids, goal_kind, goal_key, goal_target, item_requirements
     FROM tiles WHERE position < ${slotCount} ORDER BY position`;
   const tiles = tileRows.map((t) => {
-    const itemIds = (t.item_ids ?? []) as number[];
+    const declaredItemIds = (t.item_ids ?? []) as number[];
+    const itemRequirements = parseItemRequirements(t.item_requirements);
+    // The plugin's drop-detection watch list is built from this field alone,
+    // so an item named ONLY in a tile's advanced requirement rows was never
+    // watched for that tile - the drop simply did nothing, silently, with no
+    // way to tell that apart from the tile not matching. Until now the admin
+    // hint just asked admins to type every id into both fields, which is a
+    // footgun that had already gone off on the live board (Royal Titans lists
+    // its two staff-piece ids in the requirement rows but not in Item IDs, so
+    // that half of the tile could never auto-submit).
+    //
+    // Declared ids stay FIRST: deriveTileIconUrl picks itemIds[0], so
+    // reordering here would silently change tile pictures. A tile with no
+    // declared ids at all now gets its icon from the requirements instead,
+    // which is strictly better than the blank it had before.
+    const itemIds = itemRequirements
+      ? Array.from(
+          new Set([...declaredItemIds, ...itemRequirements.map((r) => r.itemId)]),
+        )
+      : declaredItemIds;
     const goalKind = t.goal_kind as "item" | "xp" | "kc";
     const goalKey = t.goal_key as string;
     return {
@@ -148,7 +173,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
       goalKind,
       goalKey,
       goalTarget: t.goal_target === null ? null : Number(t.goal_target),
-      itemRequirements: parseItemRequirements(t.item_requirements),
+      itemRequirements,
     };
   });
 
@@ -322,6 +347,9 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
           approvedCount: 0,
           pendingCount: 0,
           rejectedCount: 0,
+          // xp/kc tiles take no proofs at all - their progress comes from
+          // hiscores - so there is never anything for a plugin to submit here.
+          acceptsMoreProof: false,
           status:
             t.goalTarget !== null && teamProgress >= t.goalTarget
               ? "approved"
@@ -349,6 +377,22 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
       const isComplete = itemRequirementsStatus
         ? itemRequirementsStatus.complete
         : approvedCount >= t.requiredCount;
+      // Whether a further proof would actually be accepted, computed with the
+      // same rule validateProofSubmission enforces - note it counts PENDING
+      // proofs toward the requirement, which `isComplete` above deliberately
+      // does not (a tile with an unreviewed proof on it is not green yet).
+      //
+      // Those two rules disagreeing is a real bug the plugin hit in a live
+      // event: it retried any tile not yet marked "approved", so a tile
+      // sitting at its limit with proofs awaiting review was re-submitted on
+      // every matching drop and refused every time, with a misleading "that
+      // tile is already complete" in the player's chat and a wasted
+      // screenshot, upload and emote each time. Sending the accept rule
+      // itself, rather than leaving the plugin to infer it from status, is
+      // what stops the two sides drifting apart again.
+      const acceptsMoreProof = itemRequirementsStatus
+        ? !itemRequirementsStatus.complete
+        : approvedCount + pendingCount < t.requiredCount;
       return {
         tileId: t.id,
         position: t.position,
@@ -366,6 +410,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
         approvedCount,
         pendingCount,
         rejectedCount,
+        acceptsMoreProof,
         status: isComplete
           ? "approved"
           : pendingCount > 0
@@ -483,6 +528,7 @@ function buildSlimTile(tile: {
   approvedCount: number;
   pendingCount: number;
   status: string;
+  acceptsMoreProof: boolean;
   itemIds: number[];
   goalKind: string;
   goalKey: string;
@@ -497,6 +543,12 @@ function buildSlimTile(tile: {
     approvedCount: tile.approvedCount,
     pendingCount: tile.pendingCount,
     status: tile.status,
+    // The plugin's "should I bother submitting" answer. It must travel to the
+    // slim projection as well as the full one - the plugin only ever fetches
+    // this view, so a field left out here has no effect in game no matter how
+    // correct it is on the website (exactly the buildSlimTile bug this
+    // project's CLAUDE.md already records once).
+    acceptsMoreProof: tile.acceptsMoreProof,
     itemIds: tile.itemIds,
     goalKind: tile.goalKind,
     goalKey: tile.goalKey,

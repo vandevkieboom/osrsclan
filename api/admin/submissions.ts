@@ -105,7 +105,8 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
                s.team_id, s.tile_id,
                t.name AS team_name, ti.name AS tile_name, ti.icon_url,
                ti.item_ids,
-               ti.require_unique_items, ti.item_requirements
+               ti.require_unique_items, ti.item_requirements,
+               u.discord_username, u.discord_global_name, u.runescape_name
         FROM submissions s
         JOIN teams t ON t.id = s.team_id
         JOIN tiles ti ON ti.id = s.tile_id
@@ -119,7 +120,8 @@ async function listSubmissions(req: VercelRequest, res: VercelResponse) {
                s.team_id, s.tile_id,
                t.name AS team_name, ti.name AS tile_name, ti.icon_url,
                ti.item_ids,
-               ti.require_unique_items, ti.item_requirements
+               ti.require_unique_items, ti.item_requirements,
+               u.discord_username, u.discord_global_name, u.runescape_name
         FROM submissions s
         JOIN teams t ON t.id = s.team_id
         JOIN tiles ti ON ti.id = s.tile_id
