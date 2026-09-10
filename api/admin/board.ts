@@ -43,6 +43,7 @@ async function getConfig(res: VercelResponse) {
       name: c.name,
       size: c.size,
       bingoActive: c.bingo_active,
+      boardVisible: c.board_visible,
     },
   });
 }
@@ -51,6 +52,7 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const size = Number(req.body?.size);
   const bingoActive = Boolean(req.body?.bingoActive ?? true);
+  const boardVisible = Boolean(req.body?.boardVisible ?? false);
 
   if (!name) {
     res.status(400).json({ error: "Event name is required" });
@@ -71,12 +73,13 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
   // and size are part of what the board renders, this is the one place that
   // has to stamp it by hand.
   const rows = await sql`
-    INSERT INTO board_config (id, name, size, bingo_active)
-    VALUES (1, ${name}, ${size}, ${bingoActive})
+    INSERT INTO board_config (id, name, size, bingo_active, board_visible)
+    VALUES (1, ${name}, ${size}, ${bingoActive}, ${boardVisible})
     ON CONFLICT (id) DO UPDATE SET
       name = EXCLUDED.name, size = EXCLUDED.size, bingo_active = EXCLUDED.bingo_active,
+      board_visible = EXCLUDED.board_visible,
       updated_at = now(), board_changed_at = now()
-    RETURNING name, size, bingo_active`;
+    RETURNING name, size, bingo_active, board_visible`;
   invalidateBoardConfigMemo();
   const c = rows[0];
   res.status(200).json({
@@ -84,6 +87,7 @@ async function updateConfig(req: VercelRequest, res: VercelResponse) {
       name: c.name,
       size: c.size,
       bingoActive: c.bingo_active,
+      boardVisible: c.board_visible,
     },
   });
 }

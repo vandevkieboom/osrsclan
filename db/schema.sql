@@ -96,6 +96,16 @@ ALTER TABLE board_config DROP COLUMN IF EXISTS broadcast_updated_at;
 -- updating. Only an explicit false (an admin turning it off) backs the
 -- plugin's board polling down — see BingoPlugin#scheduledRefresh.
 ALTER TABLE board_config ADD COLUMN IF NOT EXISTS bingo_active BOOLEAN NOT NULL DEFAULT true;
+-- Separate from bingo_active on purpose: bingo_active is a cost switch (it
+-- drives plugin poll cadence, the xp/kc reconcile pass, and gates whether
+-- submissions are even accepted at all - see this file's own history and
+-- CLAUDE.md), and none of that should turn on just because an admin wants
+-- to show off a board weeks before an event actually starts. board_visible
+-- controls only whether getBoard (api/board.ts) reveals teams/tiles to a
+-- non-admin viewer; it has zero effect on polling, reconciling, or
+-- submissions. Default false so an existing, already-hidden board stays
+-- hidden until an admin opts in.
+ALTER TABLE board_config ADD COLUMN IF NOT EXISTS board_visible BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS tiles (
   id BIGSERIAL PRIMARY KEY,

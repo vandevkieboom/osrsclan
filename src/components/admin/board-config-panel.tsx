@@ -125,6 +125,20 @@ export function BoardConfigPanel() {
               Bingo event active. Turn off between events to reduce the RuneLite
               plugin's board polling. Doesn't affect chat commands.
             </label>
+
+            <label className="admin-tile-unique-toggle">
+              <input
+                type="checkbox"
+                checked={config.boardVisible}
+                onChange={(e) =>
+                  setConfig({ ...config, boardVisible: e.target.checked })
+                }
+              />
+              Show board publicly, even with bingo inactive. Use this to reveal
+              teams and tiles ahead of an event without turning bingo on early
+              — it only affects who can see the board, not polling speed,
+              progress tracking, or whether submissions are accepted.
+            </label>
           </div>
 
           <div className="admin-section-save">

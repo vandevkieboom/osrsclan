@@ -66,6 +66,7 @@ export const PLACEHOLDER_BOARD_CONFIG: BoardConfig = {
   name: "Summer Blackout Bingo",
   size: 5,
   bingoActive: true,
+  boardVisible: false,
 };
 export const PLACEHOLDER_TILES: AdminTile[] = [
   {

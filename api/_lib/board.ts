@@ -5,6 +5,10 @@ export interface BoardConfigRow {
   name: string;
   size: number;
   bingo_active: boolean;
+  /** See db/schema.sql - a viewing switch, deliberately independent of
+   * bingo_active's cost/submission effects. Only ever consulted by
+   * getBoard's visibility gate. */
+  board_visible: boolean;
   board_changed_at: string;
 }
 
@@ -20,7 +24,7 @@ export interface BoardConfigRow {
 // the genuinely-missing case it was written for.
 export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
-    SELECT name, size, bingo_active, board_changed_at
+    SELECT name, size, bingo_active, board_visible, board_changed_at
     FROM board_config WHERE id = 1`;
   if (rows.length > 0) {
     return rows[0] as BoardConfigRow;
@@ -29,7 +33,7 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const created = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, size, bingo_active, board_changed_at`;
+    RETURNING name, size, bingo_active, board_visible, board_changed_at`;
   return created[0] as BoardConfigRow;
 }
 

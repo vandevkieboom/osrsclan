@@ -33,6 +33,11 @@ export interface BoardConfig {
    * check instead of every couple minutes forever — the plugin is a general
    * clan tool, not bingo-only, so most installs otherwise poll the board year-round. */
   bingoActive: boolean;
+  /** Independent of bingoActive — shows the board (teams/tiles, no
+   * submissions accepted, no faster polling) to non-admins even while no
+   * event is active, for showing it off ahead of time without any of
+   * bingoActive's cost or gameplay effects. */
+  boardVisible: boolean;
 }
 
 export interface AdminTile {
