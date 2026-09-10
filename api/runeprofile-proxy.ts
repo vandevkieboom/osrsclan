@@ -8,7 +8,7 @@ import { withErrorHandling } from "./_lib/handler.js";
 // how api/'s type-checking accounts for this (it pulls in DOM lib so
 // src/services/profile.ts type-checks the same way here as it does in the
 // browser build).
-import { ranks, rankIconByRole, STAFF_ROLES } from "../src/data/ranks-data.js";
+import { ranks } from "../src/data/ranks-data.js";
 import { checkRequirement, computeClanRankProgress } from "../src/services/rank-checker.js";
 import { getRankForRole } from "../src/services/profile.js";
 import { getVerifiedItemNames } from "./_lib/verifications-marker.js";
@@ -59,6 +59,30 @@ const WOM_HEADERS: Record<string, string> = {
   ...(process.env.WOM_API_KEY ? { "x-api-key": process.env.WOM_API_KEY } : {}),
 };
 
+// RuneProfile's stored username for an account isn't guaranteed to match the
+// real OSRS name exactly — most accounts keep real spaces, matching what WOM
+// or a caller types, but some are registered there with underscores
+// substituted in instead (verified against the live API: "Solo Nostalg"
+// exists as-is, "useless pov" only exists as "useless_pov"). RuneProfile does
+// an exact match with no normalization either way, so a 404 on the literal
+// name is retried once with that substitution before being treated as "not
+// on RuneProfile" — that conclusion should mean the account genuinely
+// doesn't exist there, not just that this one spelling didn't match.
+async function fetchWithUnderscoreFallback(
+  username: string,
+  fetchByName: (name: string) => Promise<Response>,
+): Promise<{ res: Response; resolvedUsername: string }> {
+  const res = await fetchByName(username);
+  if (res.status !== 404 || !username.includes(" ")) {
+    return { res, resolvedUsername: username };
+  }
+  const fallbackUsername = username.replace(/ /g, "_");
+  const fallbackRes = await fetchByName(fallbackUsername);
+  return fallbackRes.status === 404
+    ? { res, resolvedUsername: username }
+    : { res: fallbackRes, resolvedUsername: fallbackUsername };
+}
+
 async function proxyPath(req: VercelRequest, res: VercelResponse) {
   const { path } = req.query;
   if (typeof path !== "string" || !ALLOWED_PATHS.some((re) => re.test(path))) {
@@ -66,7 +90,15 @@ async function proxyPath(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const upstream = await fetch(`${RP_BASE}${path}`, { headers: RP_HEADERS });
+  // ALLOWED_PATHS guarantees this always matches.
+  const [, encodedName, rest] = path.match(/^\/accounts\/([^/]+)\/(.+)$/)!;
+  const { res: upstream } = await fetchWithUnderscoreFallback(
+    decodeURIComponent(encodedName),
+    (name) =>
+      fetch(`${RP_BASE}/accounts/${encodeURIComponent(name)}/${rest}`, {
+        headers: RP_HEADERS,
+      }),
+  );
 
   if (upstream.status === 404) {
     res.status(404).json({ error: "Account not found on RuneProfile." });
@@ -95,24 +127,6 @@ interface LeaderboardEntry {
   rankColor: string | null;
   rankIcon: string | null;
   progressPct: number;
-}
-
-// The clan's admin-assigned WOM group role is the source of truth for a
-// member's rank — it accounts for items that can't be auto-verified from a
-// collection log and require manual sign-off, which the RuneProfile checklist
-// alone cannot see. This mirrors profile-page.tsx's getRankForRole() lookup,
-// just also returning the index into `ranks` (needed for the "next tier"
-// progress bar below), which that helper doesn't expose.
-// Returns -1 for no/unrecognized role (progress shown toward the first
-// tier), or `ranks.length` for a staff role (above the achievement ladder,
-// no "next tier").
-function resolveMemberRankIndex(role: string | undefined): number {
-  if (!role) return -1;
-  const roleKey = role.toLowerCase();
-  if (STAFF_ROLES.has(roleKey)) return ranks.length;
-  const icon = rankIconByRole[roleKey];
-  if (!icon) return -1;
-  return ranks.findIndex((r) => r.icon === icon);
 }
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
@@ -246,10 +260,10 @@ async function refreshLeaderboard(res: VercelResponse) {
       processed++;
       if (cursor > 1) await sleep(STAGGER_MS);
       try {
-        const encoded = encodeURIComponent(username);
-        const fullRes = await fetchWithRetry(
-          `${RP_BASE}/accounts/${encoded}/full`,
-        );
+        const { res: fullRes, resolvedUsername } =
+          await fetchWithUnderscoreFallback(username, (name) =>
+            fetchWithRetry(`${RP_BASE}/accounts/${encodeURIComponent(name)}/full`),
+          );
         if (!fullRes.ok) {
           // not on RuneProfile, private, or never synced — or still rate
           // limited after retries.
@@ -262,7 +276,7 @@ async function refreshLeaderboard(res: VercelResponse) {
 
         await sleep(STAGGER_MS);
         const tasksRes = await fetchWithRetry(
-          `${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`,
+          `${RP_BASE}/accounts/${encodeURIComponent(resolvedUsername)}/combat-achievements/tasks`,
         );
         const tasksData = tasksRes.ok
           ? ((await tasksRes.json()) as CombatAchievementTasksResponse)
@@ -283,7 +297,6 @@ async function refreshLeaderboard(res: VercelResponse) {
 
         const role = roleByName.get(username);
         const rankInfo = getRankForRole(role);
-        const currentRankIndex = resolveMemberRankIndex(role);
 
         // Share of the ENTIRE achievement ladder completed so far, not just
         // whichever single tier the member happens to be working on next —
@@ -306,9 +319,16 @@ async function refreshLeaderboard(res: VercelResponse) {
         // falls short of what verification requires — proving at least that
         // many more must have counted toward it. A provable lower bound: it
         // can undercount but can never overcount.
+        //
+        // The boundary here must be the ITEM-based highestEligibleRankIndex,
+        // not the WOM-role-based rank a member displays — a staff role
+        // resolves to `ranks.length` (deliberately "past every tier", for the
+        // badge/progress-bar display), which used to also get passed in here
+        // and made this guard never fire for staff, crediting untrackable
+        // items on ranks they hadn't actually cleared.
         const totalSatisfied = ranks.reduce((sum, rank, idx) => {
           const stats = progress.rankStats[idx];
-          if (idx > currentRankIndex) return sum + stats.satisfiedCount;
+          if (idx > progress.highestEligibleRankIndex) return sum + stats.satisfiedCount;
           const unconfirmedUntrackable = rank.items.filter(
             (item) =>
               !item.apiCheck && !verifiedItemNames.has(item.name.toLowerCase()),
@@ -414,11 +434,13 @@ type ResolvedMember =
  * exactly as the website's own lookup gets it.
  */
 async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
-  const encoded = encodeURIComponent(rsn);
-
-  const fullRes = await fetch(`${RP_BASE}/accounts/${encoded}/full`, {
-    headers: RP_HEADERS,
-  });
+  const { res: fullRes, resolvedUsername } = await fetchWithUnderscoreFallback(
+    rsn,
+    (name) =>
+      fetch(`${RP_BASE}/accounts/${encodeURIComponent(name)}/full`, {
+        headers: RP_HEADERS,
+      }),
+  );
   if (fullRes.status === 404) {
     return {
       ok: false,
@@ -443,7 +465,7 @@ async function resolveMemberProfile(rsn: string): Promise<ResolvedMember> {
 
   // Run alongside each other rather than sequentially - neither depends on the other's result.
   const [tasksData, womData] = await Promise.all([
-    fetch(`${RP_BASE}/accounts/${encoded}/combat-achievements/tasks`, { headers: RP_HEADERS })
+    fetch(`${RP_BASE}/accounts/${encodeURIComponent(resolvedUsername)}/combat-achievements/tasks`, { headers: RP_HEADERS })
       .then((res) => (res.ok ? (res.json() as Promise<CombatAchievementTasksResponse>) : null))
       .catch(() => null),
     // WOM's per-player lookup isn't scoped to our group, so this can still
