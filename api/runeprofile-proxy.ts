@@ -344,8 +344,15 @@ async function refreshLeaderboard(res: VercelResponse) {
           return sum + stats.satisfiedCount + creditedUntrackable;
         }, 0);
 
-        byName.set(data.username || username, {
-          name: data.username || username,
+        // Keyed by the WOM roster name, not RuneProfile's own returned
+        // `data.username` — the two aren't guaranteed to match (that's the
+        // whole reason fetchWithUnderscoreFallback exists above), and
+        // `stillInClan` below is built from this same `usernames` list. Keying
+        // by RuneProfile's name instead let an underscore-substituted account
+        // succeed here and then get silently filtered out by that check, as
+        // if they'd left the clan.
+        byName.set(username, {
+          name: username,
           totalSatisfied,
           rankName: rankInfo?.name ?? null,
           rankColor: rankInfo?.color ?? null,
