@@ -71,7 +71,7 @@ const MAX_PLUGIN_PROOF_BYTES = 4 * 1024 * 1024;
  * (`useAuth().user.team`), and the plugin fetches `?resource=my-team` once a
  * session. That is a handful of tiny requests against many large ones.
  */
-async function getBoard(res: VercelResponse, slim: boolean) {
+async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) {
   // Short enough that a teammate's drop still lands on everyone's board
   // within about the same minute the plugin would have noticed it anyway,
   // long enough to collapse the simultaneous refetch that a single change
@@ -86,6 +86,38 @@ async function getBoard(res: VercelResponse, slim: boolean) {
   res.setHeader("Cache-Control", BOARD_CACHE_CONTROL);
 
   const config = await getOrCreateBoardConfig();
+
+  // While no event is running, teams/tiles are hidden from everyone except
+  // admins - an admin building the next event's teams and board shouldn't
+  // spoil it for the clan the moment a team exists. Checked (and the whole
+  // rest of this function skipped) only in the inactive case: while an event
+  // IS active the board is public to everyone same as always, so the normal,
+  // by-far-more-common path never pays for a session/token lookup it doesn't
+  // need. getRequestUser only ever runs on a cache MISS in the first place
+  // (a hit never reaches this function at all), so this adds at most one
+  // extra read per cache window, not per viewer.
+  if (!config.bingo_active) {
+    const requester = await getRequestUser(req);
+    if (requester?.isAdmin) {
+      // Never let an admin's own fetch land in the shared public cache slot -
+      // this is the one response that legitimately differs by who's asking,
+      // and the whole rest of this endpoint is deliberately identical for
+      // every caller so one cache entry can serve the entire clan. Bypassing
+      // the cache here, rather than keying it by identity, keeps that
+      // invariant intact for the traffic that actually matters in volume.
+      res.setHeader("Cache-Control", "private, no-store");
+    } else {
+      res.status(200).json({
+        config: { name: config.name, size: config.size },
+        boardChangedAt: config.board_changed_at,
+        teams: [],
+        myTeamId: null,
+        hidden: true,
+      });
+      return;
+    }
+  }
+
   const slotCount = config.size * config.size;
 
   // A bingo board is always size x size — tiles beyond that (left over from
@@ -764,7 +796,7 @@ export default withErrorHandling(async function handler(req, res) {
       // A separate cache entry from the full board, which is fine: two origin
       // renders per cache window instead of one, against a payload several
       // times smaller for every plugin in the clan.
-      await getBoard(res, req.query.view === "plugin");
+      await getBoard(req, res, req.query.view === "plugin");
     }
     return;
   }

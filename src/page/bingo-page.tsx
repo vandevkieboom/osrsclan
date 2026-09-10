@@ -320,14 +320,20 @@ export function BingoPage() {
               <TeamCard key={team.id} team={team} />
             ))}
             {board.teams.length === 0 && (
-              <div className="admin-empty">No teams yet.</div>
+              <div className="admin-empty">
+                {board.hidden
+                  ? "No bingo running right now — check back once one starts."
+                  : "No teams yet."}
+              </div>
             )}
           </div>
         )}
 
         {view === "board" && !boardTeam && (
           <div className="bingo-admin-empty">
-            No teams have been created yet.
+            {board.hidden
+              ? "No bingo running right now — check back once one starts."
+              : "No teams have been created yet."}
           </div>
         )}
 

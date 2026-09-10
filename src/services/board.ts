@@ -80,6 +80,15 @@ export interface BoardData {
    * on the type because the API still sends the field.
    */
   myTeamId: number | null;
+  /**
+   * True only while no event is active and the viewer isn't an admin —
+   * `teams` is deliberately emptied by the server in that case (see
+   * getBoard in api/board.ts), not actually empty. Lets the page tell "no
+   * bingo running right now" apart from a genuinely empty board, which
+   * otherwise look identical from here. Admins never see this: they get
+   * the real board regardless of whether an event is active.
+   */
+  hidden?: boolean;
 }
 
 export interface Donor {
