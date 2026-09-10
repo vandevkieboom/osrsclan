@@ -133,9 +133,15 @@ export function BingoPage() {
   // to focus. "grouped" (default) matches api/admin/submissions.ts's own
   // default order (tile then team, best for spotting duplicates); "oldest"
   // ignores grouping for clearing a launch-day backlog fastest.
-  const [submissionTeamFilter, setSubmissionTeamFilter] = useState<number | null>(null);
-  const [submissionTileFilter, setSubmissionTileFilter] = useState<number | null>(null);
-  const [submissionSort, setSubmissionSort] = useState<"grouped" | "oldest">("grouped");
+  const [submissionTeamFilter, setSubmissionTeamFilter] = useState<
+    number | null
+  >(null);
+  const [submissionTileFilter, setSubmissionTileFilter] = useState<
+    number | null
+  >(null);
+  const [submissionSort, setSubmissionSort] = useState<"grouped" | "oldest">(
+    "grouped",
+  );
 
   // Which team is "mine" comes from the session, not from the board response:
   // the board is now one cached copy shared by every viewer (see getBoard in
@@ -191,7 +197,11 @@ export function BingoPage() {
   const submissionTeamOptions = board?.teams ?? [];
   const submissionTileOptions = board?.teams?.[0]?.tiles ?? [];
 
-  async function handleSubmitProof(tileId: number, file: File, itemId?: number) {
+  async function handleSubmitProof(
+    tileId: number,
+    file: File,
+    itemId?: number,
+  ) {
     setUploadingTileId(tileId);
     setError(null);
     try {
@@ -321,9 +331,7 @@ export function BingoPage() {
             ))}
             {board.teams.length === 0 && (
               <div className="admin-empty">
-                {board.hidden
-                  ? "No bingo running right now — check back once one starts."
-                  : "No teams yet."}
+                {board.hidden ? "No bingo running right now." : "No teams yet."}
               </div>
             )}
           </div>
@@ -332,7 +340,7 @@ export function BingoPage() {
         {view === "board" && !boardTeam && (
           <div className="bingo-admin-empty">
             {board.hidden
-              ? "No bingo running right now — check back once one starts."
+              ? "No bingo running right now."
               : "No teams have been created yet."}
           </div>
         )}
@@ -429,7 +437,9 @@ export function BingoPage() {
                 className="admin-select"
                 value={submissionTeamFilter ?? ""}
                 onChange={(e) =>
-                  setSubmissionTeamFilter(e.target.value ? Number(e.target.value) : null)
+                  setSubmissionTeamFilter(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
                 }
                 aria-label="Filter by team"
               >
@@ -444,7 +454,9 @@ export function BingoPage() {
                 className="admin-select"
                 value={submissionTileFilter ?? ""}
                 onChange={(e) =>
-                  setSubmissionTileFilter(e.target.value ? Number(e.target.value) : null)
+                  setSubmissionTileFilter(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
                 }
                 aria-label="Filter by tile"
               >
@@ -458,14 +470,22 @@ export function BingoPage() {
               <div className="bingo-admin-sort-toggle">
                 <button
                   type="button"
-                  className={submissionSort === "grouped" ? "admin-btn-primary" : "admin-btn-ghost"}
+                  className={
+                    submissionSort === "grouped"
+                      ? "admin-btn-primary"
+                      : "admin-btn-ghost"
+                  }
                   onClick={() => setSubmissionSort("grouped")}
                 >
                   Grouped
                 </button>
                 <button
                   type="button"
-                  className={submissionSort === "oldest" ? "admin-btn-primary" : "admin-btn-ghost"}
+                  className={
+                    submissionSort === "oldest"
+                      ? "admin-btn-primary"
+                      : "admin-btn-ghost"
+                  }
                   onClick={() => setSubmissionSort("oldest")}
                 >
                   Oldest first
