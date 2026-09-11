@@ -647,12 +647,27 @@ export function evaluateItemRequirements(
 }
 
 /**
- * checkItemRequirements for one team+tile, counting approved-or-pending
- * submission rows per item id (each row is one unit — this schema has no
+ * checkItemRequirements for one team+tile, counting only APPROVED submission
+ * rows per item id (each row is one unit — this schema has no
  * per-submission amount/quantity column). `excludeSubmissionId` lets a
  * caller ask "would this be complete WITHOUT the row I'm about to
  * approve/reject" (it defaults to 0, an id that never matches a real
  * BIGSERIAL row, so passing nothing counts every row as normal).
+ *
+ * Approved-only on purpose, not approved-or-pending — a real drop in a live
+ * event traced to this exact distinction. A tile with several alternative
+ * sets (see item_requirements above) is "complete" the moment ONE set's
+ * items are all merely pending, before an admin has confirmed anything —
+ * and validateProofSubmission refuses every further submission once a tile
+ * reads complete, with no way to tell which set it thinks is done. So a
+ * second team member's genuinely different, valid drop for a DIFFERENT set
+ * got refused while the first set's proofs sat in review; when an admin
+ * later rejected one of those, the tile correctly reopened, but the second
+ * member's drop was already gone. Bingo tiles are built around drops that
+ * cannot realistically be spammed (nobody re-triggers a rare unique on
+ * demand), so there is no real over-submission risk to weigh against that —
+ * a handful of extra pending proofs on the same item while one is still in
+ * review is a cost worth paying to never silently lose a real one.
  */
 export async function checkItemRequirements(
   teamId: number,
@@ -667,7 +682,7 @@ export async function checkItemRequirements(
         SELECT item_id, COUNT(*)::int AS count
         FROM submissions
         WHERE team_id = ${teamId} AND tile_id = ${tileId}
-          AND item_id = ANY(${itemIds}::int[]) AND status IN ('approved', 'pending')
+          AND item_id = ANY(${itemIds}::int[]) AND status = 'approved'
           AND id != ${excludeSubmissionId}
         GROUP BY item_id`
       : [];
@@ -762,8 +777,13 @@ export async function validateProofSubmission(opts: {
     }
   }
 
+  // Approved-only, not approved-or-pending — see checkItemRequirements above
+  // for the full reasoning. The same risk applies here just as much: a
+  // requiredCount of 1 with one pending submission refused every other
+  // team member's genuinely separate drop of the same item, and a later
+  // rejection of that first proof had no way to get the second one back.
   const currentCompleteRows = await sql`
-    SELECT COUNT(*) FILTER (WHERE status IN ('approved', 'pending'))::int AS active_count
+    SELECT COUNT(*) FILTER (WHERE status = 'approved')::int AS active_count
     FROM submissions
     WHERE team_id = ${opts.teamId} AND tile_id = ${opts.tileId}`;
   const activeCount = currentCompleteRows[0]?.active_count ?? 0;

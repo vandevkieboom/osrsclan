@@ -377,22 +377,28 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
       const isComplete = itemRequirementsStatus
         ? itemRequirementsStatus.complete
         : approvedCount >= t.requiredCount;
-      // Whether a further proof would actually be accepted, computed with the
-      // same rule validateProofSubmission enforces - note it counts PENDING
-      // proofs toward the requirement, which `isComplete` above deliberately
-      // does not (a tile with an unreviewed proof on it is not green yet).
+      // Whether a further proof would actually be accepted. Both halves of
+      // isComplete above are approved-only (itemRequirementsStatus is built
+      // from itemCountsByTeamTile, which already filters to approved rows;
+      // the flat branch always was), and validateProofSubmission's own gate
+      // is approved-only too (see checkItemRequirements) - so this is simply
+      // the negation, not a second computation that could quietly drift from
+      // the first.
       //
-      // Those two rules disagreeing is a real bug the plugin hit in a live
-      // event: it retried any tile not yet marked "approved", so a tile
-      // sitting at its limit with proofs awaiting review was re-submitted on
-      // every matching drop and refused every time, with a misleading "that
-      // tile is already complete" in the player's chat and a wasted
-      // screenshot, upload and emote each time. Sending the accept rule
-      // itself, rather than leaving the plugin to infer it from status, is
-      // what stops the two sides drifting apart again.
-      const acceptsMoreProof = itemRequirementsStatus
-        ? !itemRequirementsStatus.complete
-        : approvedCount + pendingCount < t.requiredCount;
+      // Deliberately NOT approved-or-pending, which is what this used to be
+      // and what a plain reading of "don't resubmit something already
+      // pending" suggests. Traced to a real live-event bug: a tile with
+      // several alternative item sets reads complete the moment ANY one
+      // set's items are merely pending, before an admin confirms anything -
+      // so a second team member's genuinely different, valid drop for a
+      // DIFFERENT set got refused while the first sat in review, and when an
+      // admin later rejected that first one, the second member's drop was
+      // already gone with no way to get it back. Bingo tiles are built
+      // around drops nobody can realistically spam on demand, so there is no
+      // real over-submission cost to weigh against that - a few extra
+      // pending proofs on the same item while one is in review is cheap
+      // insurance against silently losing a real one.
+      const acceptsMoreProof = !isComplete;
       return {
         tileId: t.id,
         position: t.position,

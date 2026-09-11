@@ -1,4 +1,4 @@
-import type { ItemRequirementsStatus } from "../../services/board";
+import { itemIconUrl, type ItemRequirementsStatus } from "../../services/board";
 
 /** "Set A: Enhanced crystal weapon seed 0/1, ..." — the per-group/per-item
  * breakdown for an item_requirements tile (see db/schema.sql), so a viewer
@@ -34,6 +34,7 @@ export function ItemRequirementsProgress({
         key={i.itemId}
         className={`bingo-admin-req-pill${done ? " bingo-admin-req-pill--done" : ""}`}
       >
+        <img src={itemIconUrl(i.itemId)} alt="" className="bingo-admin-req-pill-icon" />
         {i.name} {i.currentAmount}/{i.requiredAmount}
       </span>
     );

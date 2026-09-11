@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { BoardTile } from "../../services/board";
+import { itemIconUrl, type BoardTile } from "../../services/board";
 import { initialsOf } from "./bingo-helpers";
 import { ItemRequirementsProgress } from "./item-requirements-progress";
 
@@ -98,6 +98,21 @@ export function TileDetailPanel({
         <div className="bingo-detail-description">{tile.description}</div>
       )}
 
+      {/* Plain multi-item tiles ("any 7 of these 11 uniques") have no sets to
+          break down — item_requirements-only ItemRequirementsProgress below
+          doesn't apply — but the description alone still leaves someone
+          guessing exactly which items qualify. A bare icon row (no names:
+          there's nowhere a per-item name is even stored for a flat tile,
+          only for item_requirements ones) is enough to recognize them at a
+          glance without needing the full breakdown a set-based tile gets. */}
+      {isItemGoal && !tile.itemRequirementsStatus && tile.itemIds.length > 0 && (
+        <div className="bingo-detail-qualifying-items">
+          {tile.itemIds.map((id) => (
+            <img key={id} src={itemIconUrl(id)} alt="" className="bingo-detail-qualifying-icon" />
+          ))}
+        </div>
+      )}
+
       {isItemGoal && tile.itemRequirementsStatus ? (
         // A tile using item_requirements (AND/OR item conditions — see
         // db/schema.sql) decides completeness per-group, not by counting
@@ -115,8 +130,18 @@ export function TileDetailPanel({
         tile.requiredCount > 1 && (
           <>
             <div className="bingo-detail-progress-label">
-              {tile.approvedCount} / {tile.requiredCount} contributed toward
-              this tile
+              {/* Approving a genuine extra contribution past the requirement
+                  is allowed now (see api/admin/submissions.ts) specifically
+                  so a real drop is never stuck permanently pending just for
+                  arriving after the tile was already satisfied - so
+                  approvedCount can legitimately exceed requiredCount. Capped
+                  at requiredCount here with the real total called out
+                  separately, rather than showing e.g. "6 / 5 contributed",
+                  which reads as a bug even though it isn't one. */}
+              {Math.min(tile.approvedCount, tile.requiredCount)} /{" "}
+              {tile.requiredCount} contributed toward this tile
+              {tile.approvedCount > tile.requiredCount &&
+                ` (+${tile.approvedCount - tile.requiredCount} extra)`}
             </div>
             <div className="bingo-detail-progress-track">
               <div

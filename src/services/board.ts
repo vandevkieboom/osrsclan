@@ -51,6 +51,20 @@ export interface BoardTile {
   goalTarget: number | null;
   teamProgress: number | null;
   itemRequirementsStatus: ItemRequirementsStatus | null;
+  /** Which OSRS items count toward this tile — every one of them for a
+   * plain tile, or every item across every set for an advanced one (in
+   * which case itemRequirementsStatus above is the one that actually
+   * explains how they combine; this is just "what to show an icon for"). */
+  itemIds: number[];
+}
+
+// Same public, static CDN api/_lib/icons.ts's itemIconUrl derives tile icons
+// from — a fixed URL formula from a numeric item id, not a lookup, so
+// there's nothing here that can drift from the server's own version. Shared
+// by ItemRequirementsProgress and TileDetailPanel's own qualifying-items
+// grid, rather than each keeping its own copy of one string template.
+export function itemIconUrl(itemId: number): string {
+  return `https://static.runelite.net/cache/item/icon/${itemId}.png`;
 }
 
 export interface BoardTeam {

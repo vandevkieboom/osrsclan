@@ -135,9 +135,7 @@ export function BoardConfigPanel() {
                 }
               />
               Show board publicly, even with bingo inactive. Use this to reveal
-              teams and tiles ahead of an event without turning bingo on early
-              — it only affects who can see the board, not polling speed,
-              progress tracking, or whether submissions are accepted.
+              teams and tiles ahead of an event without turning bingo on early.
             </label>
           </div>
 

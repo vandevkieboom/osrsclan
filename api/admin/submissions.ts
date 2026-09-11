@@ -244,6 +244,19 @@ async function reviewSubmission(
     const capRow = capRows[0];
     const itemRequirements = capRow ? parseItemRequirements(capRow.item_requirements) : null;
 
+    // A plain tile (no item_requirements) used to refuse this approval
+    // outright once approved_count already met required_count — "that tile
+    // is already complete". That check is gone: a real, separately-earned
+    // 6th drop on a 5-required tile has nowhere left to go once it hits
+    // that wall — permanently stuck pending, never approved, never
+    // credited, even though the admin actively wants to approve it. Same
+    // reasoning already applied below for item_requirements tiles:
+    // approving something can only ever add credit, it can never
+    // un-complete a tile that's already done, so there is no actual harm
+    // in letting it through here either. require_unique_items still has
+    // its own approved-only duplicate check a few lines down, so a second
+    // copy of the same item still can't double-count toward "N different
+    // items" — this only removes the blanket count-based lock.
     if (capRow && itemRequirements) {
       // Effective item id: what this review call is tagging it as, or (a plugin
       // submission, or one already tagged in an earlier review pass) what it
@@ -258,9 +271,12 @@ async function reviewSubmission(
         res.status(400).json({ error: "That item does not satisfy the requested tile" });
         return;
       }
-      // Excludes this row itself (still 'pending' at this point, so it would
-      // otherwise count against its own cap) — see checkItemRequirements.
-      // Deliberately does not reject once reqStatus.complete: a tile that is
+      // excludeSubmissionId no longer matters for this row specifically —
+      // checkItemRequirements counts approved rows only now, and this one is
+      // still 'pending' until the UPDATE below runs — but it costs nothing
+      // to keep passing it, and it stays correct if this is ever called after
+      // the status flip instead of before it. Deliberately does not reject
+      // once reqStatus.complete: a tile that is
       // already done via one group (e.g. a single-item "Set B") cannot be
       // made any less done by approving a genuine drop for another group
       // ("Set A") that happened to arrive afterward. Blocking that outright
@@ -280,9 +296,6 @@ async function reviewSubmission(
         });
         return;
       }
-    } else if (capRow && capRow.approved_count >= capRow.required_count) {
-      res.status(409).json({ error: "That tile is already complete" });
-      return;
     } else if (capRow?.require_unique_items && itemId !== undefined) {
       // Same rule the RuneLite plugin enforces automatically at submit time —
       // applied here too so a manually-tagged item id gets the same protection
