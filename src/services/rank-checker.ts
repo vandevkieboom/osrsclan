@@ -248,10 +248,13 @@ export function checkRequirement(
     }
 
     case "collection-all-checks": {
-      const allPass = check.checks.every(
-        (c) => checkRequirement(c, profile) !== "fail",
+      const results = check.checks.map((c) => checkRequirement(c, profile));
+      const allPass = results.every(
+        (r) => r === "pass" || r === "pass-alt",
       );
-      return allPass ? "pass" : "fail";
+      if (!allPass) return "fail";
+      const anyAlt = results.some((r) => r === "pass-alt");
+      return anyAlt ? "pass-alt" : "pass";
     }
 
     case "collection-masori-f": {
