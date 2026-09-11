@@ -215,22 +215,22 @@ export default withErrorHandling(async function handler(req, res) {
     const targets = ongoing.length > 0 ? ongoing : upcoming;
     const status = ongoing.length > 0 ? "ongoing" : upcoming.length > 0 ? "upcoming" : "none";
 
+    // Read unconditionally now, not only on the no-competition path: a real
+    // SOTW/BOTW can be genuinely running at the same time as a bingo (the
+    // clan doesn't always pause one for the other), and !event needs to say
+    // so either way rather than only when nothing else is happening to
+    // report. A free Blob read regardless of which branch below fires.
+    const marker = await readBoardMarker();
+    const bingoActive = marker?.bingoActive ?? false;
+
     if (targets.length === 0) {
       // Told apart from "there's genuinely nothing going on" so the plugin
       // can say something more useful than "no BOTW/SOTW" during a bingo -
       // the bingo's own xp/kc tracking competition (if any) was just
       // filtered out above precisely because it isn't a real event, but
-      // that doesn't mean nothing is happening. Only fetched here, on the
-      // no-competition path, rather than unconditionally: it's a free Blob
-      // read either way, but there's no reason to spend even that on the
-      // common case where a real competition was already found above.
-      const marker = await readBoardMarker();
+      // that doesn't mean nothing is happening.
       res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
-      res.status(200).json({
-        status,
-        competitions: [],
-        bingoActive: marker?.bingoActive ?? false,
-      });
+      res.status(200).json({ status, competitions: [], bingoActive });
       return;
     }
 
@@ -261,12 +261,12 @@ export default withErrorHandling(async function handler(req, res) {
     // repeating today's one bad moment.
     if (competitions.length === 0) {
       res.setHeader("Cache-Control", "no-store");
-      res.status(200).json({ status: "none", competitions: [] });
+      res.status(200).json({ status: "none", competitions: [], bingoActive });
       return;
     }
 
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=60");
-    res.status(200).json({ status, competitions });
+    res.status(200).json({ status, competitions, bingoActive });
   } else if (type === "player") {
     const { username } = req.query;
     if (typeof username !== "string" || !username.trim()) {
