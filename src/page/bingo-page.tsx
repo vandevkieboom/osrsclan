@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "../components/site-header";
 import { SiteFooter } from "../components/site-footer";
 import { useAuth } from "../context/auth-context";
-import { fetchBoard, submitTileProof, type BoardData } from "../services/board";
+import {
+  fetchBoard,
+  fetchBoardStatus,
+  submitTileProof,
+  type BoardData,
+} from "../services/board";
 import {
   fetchAdminSubmissions,
   reviewSubmission,
@@ -25,6 +30,11 @@ export function BingoPage() {
   const [view, setView] = useState<View>("leaderboard");
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The change stamp of the board currently on screen, for the poll below to
+  // compare against. A ref rather than state on purpose: the polling effect
+  // reads it on every tick and must not be torn down and rebuilt each time it
+  // moves, which is the same reason that effect is keyed on `view` alone.
+  const lastChangeRef = useRef<string | null>(null);
   const [uploadingTileId, setUploadingTileId] = useState<number | null>(null);
   // Only ever set by the user actually clicking a team tab. The default is
   // derived below rather than stored, because the two things it depends on
@@ -73,9 +83,33 @@ export function BingoPage() {
       if (wasIdle) reloadBoard();
     };
 
-    const tick = () => {
+    // Ask the cheap marker-backed endpoint whether anything actually moved
+    // before paying for a whole board.
+    //
+    // This tick used to re-fetch the full board unconditionally, which meant a
+    // single open tab rendered every tile, team and submission out of Postgres
+    // once a minute for as long as it stayed open, almost always to produce a
+    // byte-identical board. That is the site's most expensive response, and at
+    // one a minute it never let the database go the 5 unbroken minutes it needs
+    // to suspend, so one forgotten tab kept the compute billing around the
+    // clock. The status check costs no database time at all, and on the ticks
+    // where something genuinely did change the board still arrives in the same
+    // minute it always did. Any failure falls through to a plain reload rather
+    // than leaving the board frozen.
+    const tick = async () => {
       if (document.visibilityState !== "visible") return;
       if (Date.now() - lastInteraction > IDLE_CUTOFF_MS) return;
+      try {
+        const status = await fetchBoardStatus();
+        if (
+          status.boardChangedAt &&
+          status.boardChangedAt === lastChangeRef.current
+        ) {
+          return;
+        }
+      } catch {
+        // Fall through and just reload.
+      }
       reloadBoard();
     };
 
@@ -152,6 +186,7 @@ export function BingoPage() {
     fetchBoard(fresh)
       .then((data) => {
         setBoard(data);
+        lastChangeRef.current = data.boardChangedAt ?? null;
       })
       .catch((err: unknown) => {
         if (import.meta.env.DEV) {

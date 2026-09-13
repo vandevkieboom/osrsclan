@@ -19,7 +19,11 @@ import {
   recordProofSubmission,
   validateProofSubmission,
 } from "./_lib/board.js";
-import { publishBoardMarker } from "./_lib/board-marker.js";
+import {
+  isMarkerStale,
+  publishBoardMarker,
+  readBoardMarker,
+} from "./_lib/board-marker.js";
 import { deriveTileIconUrl } from "./_lib/icons.js";
 import { withErrorHandling } from "./_lib/handler.js";
 
@@ -190,8 +194,19 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
   // covers the case the poll endpoint can't: somebody opening the bingo page
   // in a browser at a moment when no plugin anywhere is online to have kept
   // the numbers current.
+  //
+  // Gated on bingo_active, which it was not originally, and that omission had
+  // real consequences the day board_visible was added. Before that flag there
+  // was no way to reach this code with no event running: a non-admin got the
+  // hidden-board response far above and never rendered tiles at all. Ticking
+  // "show the board early" removed that accident, and every browser sitting on
+  // the board page then ran a full render plus this pass every 60 seconds,
+  // against a board whose numbers nobody was competing over yet. Neon has no
+  // idle window big enough to suspend in when that is happening, so a purely
+  // cosmetic preview switch was quietly burning compute at event rates for
+  // days before the event. There is nothing to reconcile when no event is on.
   const hasGoalTiles = tiles.some((t) => t.goalKind !== "item");
-  if (hasGoalTiles) {
+  if (hasGoalTiles && config.bingo_active) {
     try {
       await maybeReconcileGoalProgress();
     } catch (err) {
@@ -635,6 +650,26 @@ async function getBingoStatus(res: VercelResponse) {
   // uncacheable response from a polled endpoint promotes every polling client
   // into a real invocation at precisely the wrong moment.
   res.setHeader("Cache-Control", boardConfigCacheControl(true));
+
+  // Answered from the Blob marker first, for the same reason api/plugin-poll.ts
+  // is. This endpoint is now polled by the website's board page too, once a
+  // minute per open tab, as its "did anything change?" check before re-fetching
+  // a whole board. Reading board_config to answer that would simply move the
+  // wake-up rather than remove it: Neon bills time awake and suspends only
+  // after 5 unbroken minutes, so a single tab asking every 60 seconds keeps the
+  // compute on regardless of how small the query is.
+  const marker = await readBoardMarker();
+  if (marker && !isMarkerStale(marker)) {
+    if (!marker.bingoActive) {
+      res.setHeader("Cache-Control", boardConfigCacheControl(false));
+    }
+    res.status(200).json({
+      bingoActive: marker.bingoActive,
+      boardChangedAt: marker.boardChangedAt,
+    });
+    return;
+  }
+
   const { row } = await getBoardConfigMemoised();
   // Then stretch to the long idle window once a real read confirms no event is
   // running. Without this the flat 30s window above applied year-round, which

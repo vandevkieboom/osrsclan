@@ -103,6 +103,34 @@ export interface BoardData {
    * the real board regardless of whether an event is active.
    */
   hidden?: boolean;
+  /**
+   * Opaque change stamp for the board this response represents. Only ever
+   * compared against the one fetchBoardStatus returns, never parsed or shown.
+   */
+  boardChangedAt?: string | null;
+}
+
+export interface BoardStatus {
+  bingoActive: boolean;
+  boardChangedAt: string | null;
+}
+
+/**
+ * The cheap "has anything actually changed?" check, answered from a CDN file
+ * rather than the database (see api/_lib/board-marker.ts).
+ *
+ * Polling this and only re-fetching the full board when the stamp moves is
+ * what keeps an open board tab from costing anything. The full board is the
+ * most expensive response the site produces, and re-rendering it every minute
+ * just to discover nothing had changed is enough on its own to keep Neon's
+ * compute from ever reaching the 5 idle minutes it needs to suspend. This is
+ * the same check the RuneLite plugin has always made on its own poll; the
+ * website was simply never taught to make it.
+ */
+export async function fetchBoardStatus(): Promise<BoardStatus> {
+  const res = await fetch("/api/board?resource=status");
+  if (!res.ok) throw new Error(`Failed to load board status (${res.status})`);
+  return res.json() as Promise<BoardStatus>;
 }
 
 export interface Donor {

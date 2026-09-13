@@ -93,6 +93,19 @@ export interface BoardMarker {
    * shape exactly.
    */
   goalProgress: Record<string, Record<string, number>>;
+  /**
+   * When the xp/kc reconcile last claimed its window, copied from board_config.
+   *
+   * This is what lets an xp/kc board use the cheap path at all. The poll used
+   * to skip this file entirely whenever `bingoActive && hasGoalTiles`, purely
+   * so it could read this one timestamp out of Postgres, and then found almost
+   * every time that no pass was due. That single read is what kept Neon awake
+   * for an event's entire duration: it landed far more often than the
+   * 5-minute suspend threshold, so the compute never once got to sleep.
+   * Carried here, the poll can tell whether a pass is due before deciding to
+   * touch the database at all. See isGoalReconcileDue.
+   */
+  goalReconciledAt: string | null;
   /** When this file was written, for the staleness backstop. */
   publishedAt: string;
 }
@@ -154,6 +167,7 @@ export async function publishBoardMarker(): Promise<void> {
       boardChangedAt: config.board_changed_at,
       hasGoalTiles: Boolean(goalRows[0]?.has_goal_tiles),
       goalProgress,
+      goalReconciledAt: config.goal_reconciled_at,
       publishedAt: new Date().toISOString(),
     };
 

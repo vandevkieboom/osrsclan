@@ -2,6 +2,7 @@ import {
   boardConfigCacheControl,
   clampEnvSeconds,
   getBoardConfigMemoised,
+  isGoalReconcileDue,
   maybeReconcileGoalProgress,
 } from "./_lib/board.js";
 import {
@@ -119,16 +120,27 @@ export default withErrorHandling(async function handler(req, res) {
   //
   //  - A stale or missing marker. Then the marker is not trustworthy and the
   //    database is the source of truth, which is also what republishes it.
-  //  - An active event whose board has xp/kc tiles. Their progress comes from
-  //    the timed hiscores pass below rather than from anyone submitting
-  //    anything, and that pass needs this endpoint as its carrier — so those
-  //    boards keep exactly today's behaviour and today's cost. A board of item
-  //    tiles only (the common case) never takes this path, so its database
-  //    sleeps through the quiet hours of an event as well as between events.
+  //  - An active event whose board has xp/kc tiles, on the ticks where the
+  //    hiscores pass below is actually due. Their progress comes from that
+  //    timed pass rather than from anyone submitting anything, and the pass
+  //    needs this endpoint as its carrier.
+  //
+  // That second case used to fire on *every* request rather than only on due
+  // ticks, because whether a pass was due could only be answered by reading
+  // board_config. So an xp/kc board sent every poll to Postgres for the
+  // event's whole duration, purely to be told there was nothing to do, and
+  // those reads landed far closer together than Neon's 5-minute suspend
+  // threshold: the compute simply never slept for two weeks. The marker now
+  // carries that timestamp too, so the question is answered from the CDN and
+  // only a genuinely-due pass wakes anything. Everything the plugin actually
+  // receives is unchanged, goalProgress included.
   const marker = await readBoardMarker();
   const markerUsable = marker !== null && !isMarkerStale(marker);
   if (marker && markerUsable) {
-    const needsGoalPass = marker.bingoActive && marker.hasGoalTiles;
+    const needsGoalPass =
+      marker.bingoActive &&
+      marker.hasGoalTiles &&
+      isGoalReconcileDue(marker.goalReconciledAt);
     if (!needsGoalPass) {
       if (!marker.bingoActive) {
         res.setHeader("Cache-Control", boardConfigCacheControl(false));
@@ -176,10 +188,10 @@ export default withErrorHandling(async function handler(req, res) {
   // is required rather than incidental. It is internally throttled, so all
   // but roughly one call per interval costs a single indexed row read, and it
   // only runs at all while an event is actually on.
-  let reconciled = false;
+  let reconcileClaimed = false;
   if (config.bingo_active) {
     try {
-      reconciled = await maybeReconcileGoalProgress();
+      reconcileClaimed = (await maybeReconcileGoalProgress()).claimed;
     } catch (err) {
       console.error("goal-progress reconciliation failed:", err);
     }
@@ -211,18 +223,22 @@ export default withErrorHandling(async function handler(req, res) {
 
   // Self-heal, after the response so nobody waits on it. Reaching here with an
   // unusable marker means either a fresh deploy that has never published one,
-  // or a write path that failed to — and this read already has the fresh
+  // or a write path that failed to, and this read already has the fresh
   // database state in hand. Republishing costs one CDN write and puts the next
   // 15 minutes of polls back on the cheap path, so no admin has to remember to
-  // "touch something" to bootstrap it. Skipped when the marker was fine and we
-  // came here only for the goal pass, which would otherwise rewrite the file
-  // every 30 seconds for the whole event.
-  // Republished when the reconcile actually moved xp/kc numbers, so they reach
-  // plugins on their next poll — that is the whole mechanism replacing the old
-  // "bump board_changed_at and make everyone re-download the board" route.
-  // Bounded by the reconcile's own throttle, so this is one CDN write per
-  // interval, not one per request.
-  if (reconciled || (!markerUsable && !stale)) {
+  // "touch something" to bootstrap it.
+  //
+  // Republished on a *claimed* reconcile window rather than only on one that
+  // moved numbers. Carrying new xp/kc values to plugins on their next poll is
+  // the mechanism that replaced the old "bump board_changed_at and make
+  // everyone re-download the whole board" route, but the timestamp has to
+  // advance in the marker even after a pass that found nothing to do. If it
+  // did not, the cheap path above would never judge itself current again and
+  // every poll for the rest of the event would go straight back to waking
+  // Postgres, which is the exact behaviour being fixed. Bounded by the
+  // reconcile's own throttle either way, so this stays one CDN write per
+  // interval rather than one per request.
+  if (reconcileClaimed || (!markerUsable && !stale)) {
     await publishBoardMarker();
   }
 });

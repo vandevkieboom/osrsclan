@@ -10,6 +10,11 @@ export interface BoardConfigRow {
    * getBoard's visibility gate. */
   board_visible: boolean;
   board_changed_at: string;
+  /** When the xp/kc reconcile pass last claimed its throttle window. Selected
+   * here so publishBoardMarker can carry it into the Blob marker, which is
+   * what lets the plugin poll decide whether a pass is due without reading
+   * this row at all - see isGoalReconcileDue. */
+  goal_reconciled_at: string | null;
 }
 
 // board_config is a singleton (id = 1), and it is by far the most-read row in
@@ -24,7 +29,8 @@ export interface BoardConfigRow {
 // the genuinely-missing case it was written for.
 export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const rows = await sql`
-    SELECT name, size, bingo_active, board_visible, board_changed_at
+    SELECT name, size, bingo_active, board_visible, board_changed_at,
+           goal_reconciled_at
     FROM board_config WHERE id = 1`;
   if (rows.length > 0) {
     return rows[0] as BoardConfigRow;
@@ -33,7 +39,8 @@ export async function getOrCreateBoardConfig(): Promise<BoardConfigRow> {
   const created = await sql`
     INSERT INTO board_config (id) VALUES (1)
     ON CONFLICT (id) DO UPDATE SET id = board_config.id
-    RETURNING name, size, bingo_active, board_visible, board_changed_at`;
+    RETURNING name, size, bingo_active, board_visible, board_changed_at,
+              goal_reconciled_at`;
   return created[0] as BoardConfigRow;
 }
 
@@ -471,20 +478,42 @@ export async function fetchWomStatsByRsnKey(): Promise<Map<string, WomStats> | n
 // (see below), so regardless of how many members are polling at once, this
 // only ever costs one bulk-hiscores call per window.
 //
-// This is also the one thing that keeps Neon awake for an xp/kc board's
-// entire active duration (see the board marker's hasGoalTiles doc) — every
-// plugin poll during an event falls through to Postgres on this exact
-// cadence, and Neon suspends only after 5 unbroken minutes with none at all.
-// 2 minutes was chosen when this was "how fresh should the progress bar be",
-// with the compute-uptime side effect undiscovered; 10 minutes cuts that
-// event-long cost by roughly half (~84 CU-hours -> ~28 over a two-week event)
-// at the cost of the xp/kc bar lagging up to 10 minutes instead of 2 — drop
-// tiles, screenshots, approvals and every chat command are completely
-// unaffected either way. A deliberate tradeoff, not a bug: lower
-// GOAL_RECONCILE_SECONDS for a future event if the lag ever actually matters
-// more than the cost.
+// This used to keep Neon awake for an xp/kc board's entire active duration,
+// and the cause was subtler than "the pass itself is expensive". The plugin
+// poll skipped its cheap Blob path on *every* request while such a board was
+// active, purely to read the timestamp below out of Postgres, and then
+// discovered almost every time that it had nothing to do. Raising this number
+// did nothing about that, because the throttle gated the WOM work and not the
+// read that was doing the waking. The timestamp now travels in the board
+// marker too (see isGoalReconcileDue), so a poll only reaches Postgres on the
+// ticks a pass is genuinely due.
+//
+// That makes this value what actually sets the duty cycle now: Neon wakes,
+// runs the pass, and suspends 5 minutes after the last query. At 900s that is
+// roughly 6 minutes awake in every 15. Note that the marker's own
+// BACKSTOP_ACTIVE_MS puts a floor under that gap regardless, so raising this
+// past the backstop buys nothing without raising that as well. Drop tiles,
+// screenshots, approvals and every chat command are unaffected by any of it;
+// the only thing that moves is how far the xp/kc bar can lag.
 const GOAL_RECONCILE_THROTTLE_MS =
   clampEnvSeconds(process.env.GOAL_RECONCILE_SECONDS, 600, 60, 3600) * 1000;
+
+/**
+ * Whether the reconcile window has rolled over, given when it was last
+ * claimed.
+ *
+ * Exported so api/plugin-poll.ts can answer this from the Blob marker's copy
+ * of the timestamp rather than from Postgres. The database check inside
+ * maybeReconcileGoalProgress is still the authority, so a marker that is a
+ * little behind can only ever cause one extra cheap read, never a second
+ * concurrent pass.
+ */
+export function isGoalReconcileDue(lastRun: string | null): boolean {
+  if (!lastRun) return true;
+  const at = new Date(lastRun).getTime();
+  if (!Number.isFinite(at)) return true;
+  return Date.now() - at >= GOAL_RECONCILE_THROTTLE_MS;
+}
 
 /**
  * Opportunistically corrects existing goal_progress rows, throttled to run
@@ -511,12 +540,25 @@ const GOAL_RECONCILE_THROTTLE_MS =
  * each of them to be "noticed" by an opportunistic pass like this one.
  */
 /**
- * Returns true when it actually updated progress, so the caller can republish
- * the board marker with the new numbers (see _lib/board-marker.ts). It can't
- * republish itself: board-marker.ts imports from this file, so calling back
- * the other way would be a cycle.
+ * Reports both whether this call claimed the throttle window and whether it
+ * actually moved any numbers, because the caller needs them for different
+ * reasons and they are not the same thing.
+ *
+ * `updated` means there are new xp/kc values worth publishing. `claimed` means
+ * the window rolled over, and the caller must republish the marker for that
+ * alone even when nothing moved: the marker carries goal_reconciled_at, and if
+ * that copy never advances then every subsequent poll falls through to
+ * Postgres to re-discover there is nothing to do, which is exactly the
+ * behaviour this whole mechanism exists to remove. A pass that finds no active
+ * goals, or that hits a WOM outage, still claims the window.
+ *
+ * It can't republish itself: board-marker.ts imports from this file, so
+ * calling back the other way would be a cycle.
  */
-export async function maybeReconcileGoalProgress(): Promise<boolean> {
+export async function maybeReconcileGoalProgress(): Promise<{
+  claimed: boolean;
+  updated: boolean;
+}> {
   // Throttle check first, and on its own: this function is called from the
   // plugin poll endpoint, so the overwhelming majority of calls are going to
   // be throttled out, and those need to cost exactly one indexed single-row
@@ -524,8 +566,8 @@ export async function maybeReconcileGoalProgress(): Promise<boolean> {
   // would add a second query to every one of those no-op calls.
   const rows = await sql`SELECT goal_reconciled_at FROM board_config WHERE id = 1`;
   const lastRun = rows[0]?.goal_reconciled_at as string | null;
-  if (lastRun && Date.now() - new Date(lastRun).getTime() < GOAL_RECONCILE_THROTTLE_MS) {
-    return false;
+  if (!isGoalReconcileDue(lastRun)) {
+    return { claimed: false, updated: false };
   }
 
   // Nothing to reconcile against if the board has no xp/kc tiles at all,
@@ -533,12 +575,12 @@ export async function maybeReconcileGoalProgress(): Promise<boolean> {
   // keeps that check to once per interval rather than once per poll.
   await sql`UPDATE board_config SET goal_reconciled_at = now() WHERE id = 1`;
   const activeGoals = await getActiveGoals();
-  if (activeGoals.length === 0) return false;
+  if (activeGoals.length === 0) return { claimed: true, updated: false };
 
   const womByRsnKey = await fetchWomStatsByRsnKey();
-  if (!womByRsnKey) return false;
+  if (!womByRsnKey) return { claimed: true, updated: false };
   await refreshGoalLatestValues(womByRsnKey);
-  return true;
+  return { claimed: true, updated: true };
 }
 
 export type ProofValidation =
