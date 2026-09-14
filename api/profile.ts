@@ -110,6 +110,19 @@ async function listVerifiedItems(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Matches the window on lookupRank/getClanRequirement, the other public
+  // read endpoints. This was the only read path on the site with no cache
+  // header at all, which mattered more than it looks: getVerifiedItemNames
+  // normally answers from a Blob marker and never touches Postgres, but that
+  // marker is only republished when an admin verifies or unverifies an item -
+  // a few times a month - and anything older than its 24h backstop falls
+  // straight through to a per-request database read. So for most of any given
+  // month the cheap path is switched off, and without a cache header every
+  // single profile view during that stretch was its own uncached query.
+  // Sixty seconds is plenty here: this list only changes on a deliberate
+  // admin action, which republishes the marker on the spot anyway.
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=60");
+
   const items = await getVerifiedItemNames(rsn.toLowerCase());
   res.status(200).json({ items: Array.from(items) });
 }

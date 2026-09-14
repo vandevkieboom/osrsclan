@@ -2,18 +2,15 @@ import React from "react";
 import { ItemCard } from "./item-card";
 import type { CheckResult } from "../types/item";
 import type { Rank } from "../types/rank";
-
-type RankStats = {
-  total: number;
-  requiredCount: number;
-  satisfiedCount: number;
-  isSatisfied: boolean;
-};
+// Imported rather than redeclared: this used to keep its own structural copy
+// of RankStats, so a field added to the real one was invisible here until
+// somebody remembered to mirror it by hand.
+import type { RankStats, RequirementProgress } from "../services/rank-checker";
 
 type RankCardProps = Rank & {
   rankIndex: number;
   apiVerified: Record<string, CheckResult>;
-  apiProgress: Record<string, { found: number; required: number }>;
+  apiProgress: Record<string, RequirementProgress>;
   hideCompleted: boolean;
   eligible: boolean;
   priorRanksMet: boolean;

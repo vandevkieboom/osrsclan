@@ -13,6 +13,7 @@ import {
   checkRequirement,
   computeClanRankProgress,
   getRequirementProgress,
+  type RequirementProgress,
 } from "../services/rank-checker";
 import { checkClanRequirement } from "../services/clan-requirement";
 import type { CheckResult } from "../types/item";
@@ -65,14 +66,21 @@ export const ClanRankings = () => {
     return result;
   }, [profile]);
 
-  const apiProgress = useMemo<
-    Record<string, { found: number; required: number }>
-  >(() => {
+  const apiProgress = useMemo<Record<string, RequirementProgress>>(() => {
     if (!profile) return {};
-    const result: Record<string, { found: number; required: number }> = {};
+    const result: Record<string, RequirementProgress> = {};
     ranks.forEach((rank, rankIndex) => {
       rank.items.forEach((item, itemIndex) => {
-        if (item.multiItem && item.apiCheck) {
+        // Computed for every item with an apiCheck, not gated on the item's
+        // own `multiItem` flag — that flag was a second, hand-maintained
+        // source of truth for "does this need more than one item", and it
+        // had already drifted out of sync with a real apiCheck (Zaryte
+        // crossbow needs 2, its data entry never set multiItem, so it silently
+        // showed no badge at all while the rank total — read straight off the
+        // check, not the flag — correctly counted it as 2). getRequirementProgress
+        // itself returns null for a plain pass/fail check, so this can't start
+        // showing a badge on something that never needed one.
+        if (item.apiCheck) {
           const progress = getRequirementProgress(item.apiCheck, profile);
           if (progress) {
             result[getKey(rankIndex, itemIndex)] = progress;

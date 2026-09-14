@@ -32,6 +32,5 @@ export type Item = {
   name: string;
   img: string;
   alt: string;
-  multiItem?: boolean;
   apiCheck?: ApiCheck;
 };

@@ -177,7 +177,6 @@ export const ranks: Rank[] = [
         name: "2/2 Titan prayer scrolls",
         img: "https://oldschool.runescape.wiki/images/Deadeye_prayer_scroll_detail.png",
         alt: "2/2 Titan prayer scrolls",
-        multiItem: true,
         apiCheck: {
           type: "collection-any-group",
           groups: [
@@ -356,7 +355,6 @@ export const ranks: Rank[] = [
         name: "2/3 Cerberus crystals",
         img: "https://oldschool.runescape.wiki/images/Primordial_crystal_detail.png",
         alt: "2/3 Cerberus crystals",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: ["Primordial crystal", "Pegasian crystal", "Eternal crystal"],
@@ -367,7 +365,6 @@ export const ranks: Rank[] = [
         name: "2/4 Zenyte shards",
         img: "https://oldschool.runescape.wiki/images/Zenyte_shard_detail.png",
         alt: "2/4 Zenyte shards",
-        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Zenyte shard",
@@ -379,7 +376,6 @@ export const ranks: Rank[] = [
         name: "1/2 Tormented synapses",
         img: "https://oldschool.runescape.wiki/images/Tormented_synapse_detail.png",
         alt: "1/2 Tormented synapses",
-        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Tormented synapse",
@@ -423,7 +419,6 @@ export const ranks: Rank[] = [
         name: "4/4 Zenyte shards",
         img: "https://oldschool.runescape.wiki/images/Zenyte_shard_detail.png",
         alt: "4/4 Zenyte shards",
-        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Zenyte shard",
@@ -434,7 +429,6 @@ export const ranks: Rank[] = [
         name: "2/2 Tormented synapses",
         img: "https://oldschool.runescape.wiki/images/Tormented_synapse_detail.png",
         alt: "2/2 Tormented synapses",
-        multiItem: true,
         apiCheck: {
           type: "collection-quantity",
           name: "Tormented synapse",
@@ -445,7 +439,6 @@ export const ranks: Rank[] = [
         name: "1/3 Doom uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
         alt: "1/3 Doom uniques",
-        multiItem: true,
         apiCheck: {
           type: "collection-item",
           names: [
@@ -539,7 +532,6 @@ export const ranks: Rank[] = [
         name: "2/3 Doom uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
         alt: "2/3 Doom uniques",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -612,7 +604,6 @@ export const ranks: Rank[] = [
         name: "2/3 Masori armour",
         img: "https://oldschool.runescape.wiki/images/Masori_mask_detail.png",
         alt: "2/3 Masori armour",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: ["Masori mask", "Masori body", "Masori chaps"],
@@ -623,7 +614,6 @@ export const ranks: Rank[] = [
         name: "2/3 Oathplate armour",
         img: "https://oldschool.runescape.wiki/images/Oathplate_helm_detail.png",
         alt: "2/3 Oathplate armour",
-        multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
@@ -638,7 +628,6 @@ export const ranks: Rank[] = [
         name: "1/4 DT2 rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "1/4 DT2 rings",
-        multiItem: true,
         apiCheck: {
           type: "collection-item",
           names: [
@@ -653,7 +642,6 @@ export const ranks: Rank[] = [
         name: "3/3 Doom uniques",
         img: "https://oldschool.runescape.wiki/images/Avernic_treads_detail.png",
         alt: "3/3 Doom uniques",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -668,7 +656,6 @@ export const ranks: Rank[] = [
         name: "2/3 Virtus robes",
         img: "https://oldschool.runescape.wiki/images/Virtus_mask_detail.png",
         alt: "2/3 Virtus robes",
-        multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
@@ -731,7 +718,6 @@ export const ranks: Rank[] = [
         name: "3/3 Oathplate armour",
         img: "https://oldschool.runescape.wiki/images/Oathplate_helm_detail.png",
         alt: "3/3 Oathplate armour",
-        multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
@@ -746,7 +732,6 @@ export const ranks: Rank[] = [
         name: "1/2 Blorva or Radiant",
         img: "/clan-emblem.png",
         alt: "1/2 Blorva or Radiant",
-        multiItem: true,
         apiCheck: {
           type: "collection-item",
           names: ["Ancient blood ornament kit", "Radiant oathplate armour"],
@@ -756,7 +741,6 @@ export const ranks: Rank[] = [
         name: "2/4 DT2 rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "2/4 DT2 rings",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -772,7 +756,6 @@ export const ranks: Rank[] = [
         name: "3/3 Virtus robes",
         img: "https://oldschool.runescape.wiki/images/Virtus_mask_detail.png",
         alt: "3/3 Virtus robes",
-        multiItem: true,
         apiCheck: {
           type: "collection-piece-types",
           pieceGroups: [
@@ -787,14 +770,12 @@ export const ranks: Rank[] = [
         name: "3/3 Masori armour (f)",
         img: "https://oldschool.runescape.wiki/images/Masori_mask_%28f%29_detail.png",
         alt: "3/3 Masori armour (f)",
-        multiItem: true,
         apiCheck: { type: "collection-masori-f" },
       },
       {
         name: "1/3 Megarares",
         img: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png",
         alt: "1/3 Megarares",
-        multiItem: true,
         apiCheck: {
           type: "collection-item",
           names: [
@@ -843,7 +824,6 @@ export const ranks: Rank[] = [
         name: "3/3 Ancestral robes",
         img: "https://oldschool.runescape.wiki/images/Ancestral_hat_detail.png",
         alt: "3/3 Ancestral robes",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -858,7 +838,6 @@ export const ranks: Rank[] = [
         name: "3/3 Torva armour",
         img: "https://oldschool.runescape.wiki/images/Torva_full_helm_detail.png",
         alt: "3/3 Torva armour",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -873,7 +852,6 @@ export const ranks: Rank[] = [
         name: "2/2 Blorva and Radiant",
         img: "/clan-emblem.png",
         alt: "2/2 Blorva and Radiant",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: ["Ancient blood ornament kit", "Radiant oathplate armour"],
@@ -894,7 +872,6 @@ export const ranks: Rank[] = [
         name: "4/4 DT2 rings",
         img: "https://oldschool.runescape.wiki/images/Ultor_ring_detail.png",
         alt: "4/4 DT2 rings",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
@@ -910,7 +887,6 @@ export const ranks: Rank[] = [
         name: "3/3 Megarares",
         img: "https://oldschool.runescape.wiki/images/Twisted_bow_detail.png",
         alt: "3/3 Megarares",
-        multiItem: true,
         apiCheck: {
           type: "collection-count",
           names: [
