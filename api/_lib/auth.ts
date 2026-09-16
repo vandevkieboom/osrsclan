@@ -128,7 +128,17 @@ export async function getSessionUser(
   return toSessionUser(rows[0]);
 }
 
-const LAST_USED_WRITE_INTERVAL_MS = 60 * 60 * 1000;
+// Widened from 1 hour to 1 day (2026-09-16): bounding this per-token was
+// never the whole story. With 60-100+ distinct tokens each independently
+// due for their own write at their own hourly mark, the combined write
+// rate across the clan landed well under 5 minutes apart in practice -
+// confirmed live during a bingo event where the reconcile and the
+// team-membership recheck had both already been fixed, and Neon's compute
+// still never found a real gap. This is a write, not a read, so no
+// caching fixes it; the only lever is asking less often. A day is still
+// far more precision than "can an admin tell a token is dead" needs -
+// see the comment below.
+const LAST_USED_WRITE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Resolves the caller from an `Authorization: Bearer <token>` header backed by
@@ -159,11 +169,15 @@ export async function getPluginUser(
   if (rows.length === 0) return null;
 
   // last_used_at exists so an admin can spot a token nobody uses any more —
-  // hour-granularity is entirely sufficient for that. Writing it on *every*
-  // authenticated request meant one row update per plugin per minute for as
-  // long as an event ran, purely to overwrite a timestamp with a nearly
-  // identical one. Skipping the write when the stored value is already recent
-  // keeps the same answer at a tiny fraction of the write volume.
+  // day-granularity is entirely sufficient for that; nobody needs to know a
+  // token was used at 14:02 versus 14:47, only that it's still in use at
+  // all. Writing it on *every* authenticated request meant one row update
+  // per plugin per minute for as long as an event ran; the hourly throttle
+  // this comment used to describe cut that a great deal, but not enough —
+  // with 60-100+ distinct tokens each due for their own write on their own
+  // independent hourly clock, the combined write rate across the clan still
+  // landed well under Neon's 5-minute suspend threshold, confirmed live
+  // during the September event (see LAST_USED_WRITE_INTERVAL_MS above).
   const lastUsed = rows[0].last_used_at as string | null;
   if (
     !lastUsed ||
