@@ -1,10 +1,11 @@
 import { head, put } from "@vercel/blob";
+import { waitUntil } from "@vercel/functions";
 import { sql } from "./db.js";
 
 /**
  * Manually-verified rank items, kept in Vercel Blob instead of Postgres for
- * every *read* — the same pattern as `board-marker.ts`, applied to a much
- * smaller, much less frequently written table.
+ * every *read* — the pattern the (since replaced) board marker used, applied
+ * to a much smaller, much less frequently written table.
  *
  * **The problem this exists to solve.** `!rank`/`!needed` and the website's
  * own Clan Ranks search both read `manual_item_verifications` on every single
@@ -18,7 +19,9 @@ import { sql } from "./db.js";
  * source of truth in Postgres — admin writes still go there first — but a
  * flat `{rsnKey: itemNames[]}` snapshot is republished to Blob after every
  * write, and every read-heavy caller (`!rank`, `!needed`, the website search)
- * reads that snapshot instead. A clan's total verified-item count is small
+ * reads that snapshot instead. Not moved to the board's tag-purged CDN cache
+ * (_lib/board-cache.ts) because it is read inside other functions, per RSN,
+ * rather than served as one response. A clan's total verified-item count is small
  * enough that republishing the *whole* table on every write, rather than
  * patching one entry, is simpler and still cheap.
  *
@@ -38,9 +41,22 @@ const MARKER_PATH = "verifications/marker.json";
 const MARKER_CACHE_SECONDS = 60;
 
 // Purely a net for a missed publish (see the file doc above) — not a real
-// schedule, so it can afford to be generous. 24h comfortably outlasts any
-// realistic gap between an admin's write and someone actually reading it.
-const BACKSTOP_MS = 24 * 60 * 60 * 1000;
+// schedule. Was 24h, which was the same bug the board marker once had: this
+// table can go weeks without a write, and being older than the window is
+// then its normal resting state, not a sign of a missed publish. Found live
+// on 2026-09-23 nine days stale, with every !rank, !needed and ranks search
+// quietly back on Postgres. A stale or missing marker now also republishes
+// itself (see getVerifiedItemNames), so this window only decides how long a
+// genuinely missed publish can go unnoticed.
+const BACKSTOP_MS = 30 * 24 * 60 * 60 * 1000;
+
+// One self-heal republish in flight per instance at most.
+let republishing = false;
+
+// What this instance last wrote. The CDN keeps serving the previous copy for
+// up to MARKER_CACHE_SECONDS after a write, and without this each read in that
+// window would look stale and trigger yet another republish.
+let lastPublished: VerificationsMarker | null = null;
 
 export interface VerificationsMarker {
   /** rsn_key -> that member's manually-verified (lowercased) item names. */
@@ -70,7 +86,7 @@ async function resolveMarkerUrl(): Promise<string | null> {
  *
  * Call this after any admin add/remove. Always called from a request that
  * just wrote to Postgres anyway, so this costs nothing in the terms that
- * actually matter — same reasoning as `publishBoardMarker`.
+ * actually matter.
  *
  * Never throws — a failed publish must not fail the admin action that
  * triggered it. The backstop above turns a missed publish into "stale for a
@@ -99,6 +115,7 @@ export async function publishVerificationsMarker(): Promise<void> {
       cacheControlMaxAge: MARKER_CACHE_SECONDS,
     });
     markerUrl = result.url;
+    lastPublished = marker;
   } catch (err) {
     console.error("verifications marker publish failed:", err);
   }
@@ -143,9 +160,23 @@ function isMarkerStale(marker: VerificationsMarker): boolean {
  * a wrong answer.
  */
 export async function getVerifiedItemNames(rsnKey: string): Promise<Set<string>> {
-  const marker = await readVerificationsMarker();
+  const fetched = await readVerificationsMarker();
+  const marker =
+    lastPublished &&
+    (!fetched || lastPublished.publishedAt > fetched.publishedAt)
+      ? lastPublished
+      : fetched;
   if (marker && !isMarkerStale(marker)) {
     return new Set(marker.byRsn[rsnKey] ?? []);
+  }
+  // Heal it rather than paying this fallback on every call from now on.
+  if (!republishing) {
+    republishing = true;
+    waitUntil(
+      publishVerificationsMarker().finally(() => {
+        republishing = false;
+      }),
+    );
   }
   const rows = await sql`
     SELECT item_name FROM manual_item_verifications WHERE rsn_key = ${rsnKey}`;

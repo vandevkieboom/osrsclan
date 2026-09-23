@@ -62,6 +62,72 @@ ready but not committed alongside this — see the plugin's own `CLAUDE.md`.
 Nothing breaks by that gap: an un-updated plugin install just keeps falling
 back to `itemIds[0]` for everything, same as before any of this existed.
 
+## The poll and the board are cached until something changes (2026-09-23)
+
+**Supersedes the Blob board marker** (`_lib/board-marker.ts`, deleted) and
+every section below that relies on it. Read this first; the older sections
+are history.
+
+Measured on day 10 of a live event, before this change (Vercel usage page +
+`pg_stat_statements`, which was enabled on Neon for this):
+
+- **The full board was rendered from Postgres every ~27 seconds** (314 renders
+  in 140 minutes) while only one real change happened in six hours. Its cache
+  was time-based (60s), so any request after the window lapsed re-rendered
+  all 723 submissions (443 KB). That alone kept Neon awake and was the whole
+  14 GB of Fast Origin Transfer.
+- **Screenshots: 32 GB of Blob transfer from ~420 MB stored.** The tile
+  detail panel showed every proof at full resolution as its "thumbnail";
+  each image was downloaded ~75 times. Website uploads averaged 1.46 MB (raw
+  PNG) against 190 KB for the plugin's JPEG captures.
+- **The marker itself was 51 Blob puts in 140 minutes** (reconcile claims,
+  the 15-minute backstop republishing, write sites) plus a Blob read per
+  poll invocation - over the Hobby limits for advanced and simple operations.
+- `verifications-marker.ts` had been past its 24h backstop for nine days, so
+  every `!rank`/`!needed`/ranks search had quietly fallen back to Postgres.
+
+What replaced it (`_lib/board-cache.ts`):
+
+- **The poll** (`/api/plugin-poll`, and the superseded
+  `/api/board?resource=status`) is cached at the CDN with
+  `Vercel-CDN-Cache-Control` and tag `board-poll`, until something changes.
+  Every write that matters calls `notifyBoardChanged()`, which purges the tag
+  (`invalidateByTag`, not billed) twice, 3s apart, so a render that raced the
+  write can't re-cache stale data. Windows: 1 day idle, 6h active item-only
+  (only a net under a failed purge), and on a board with xp/kc tiles exactly
+  until the next hiscores pass is due, which is what triggers the pass - all
+  regions expire together, so Neon wakes once per interval. The website's
+  board tab polls this same URL, so tabs and plugins share one CDN entry.
+- **`canPurgeCdn()`**: `invalidateByTag` resolves silently when the runtime
+  offers no purge API, which would freeze boards for the length of the cache.
+  Every poll response checks for the API and falls back to the old short
+  windows without it. `X-Poll-Cache: until-changed | fallback` shows which.
+- **The board** is requested by version, `/api/board?v=<boardVersion>`,
+  where `boardVersion` (from the poll) hashes board_changed_at, the rendered
+  config fields and the xp/kc totals. A version names one state and is
+  rendered from a database at or past it, so it is cached for a day with no
+  purge at all. `?fresh=` (own submission/review) is never shared; requests
+  with neither (plugins older than this) keep the 60s window.
+- **Clients never step backwards**: right after a fresh fetch the cached poll
+  can briefly still describe the pre-submission state. Stamps only move
+  forward, so both the website (`isOlderStamp` in `src/services/board.ts`)
+  and the plugin ignore a poll or board older than the one held.
+- **The hiscores pass** moved off the board render onto the poll render, with
+  an atomic `UPDATE ... WHERE due RETURNING` claim, because aligned expiry
+  brings several regions in at once.
+- **Thumbnails** go through Vercel Image Optimization (`images` in
+  vercel.json, `proofImageUrl` in `src/services/board.ts`): 320px q60 in the
+  panel (a 1.5 MB PNG becomes ~8 KB WebP), 1920px q80 in the lightbox. Hobby
+  allows 5K transformations a month; one per image per size. Website uploads
+  are re-encoded to JPEG (1920px, 0.85) in the browser before upload.
+- `verifications-marker.ts`: backstop 30 days, and a stale or missing marker
+  now republishes itself once per instance instead of falling back forever.
+
+Plugin side (see its `CLAUDE.md`): fetches the board by version, no longer
+asks for an uncached board on startup, and polls every 3 minutes instead of
+every minute while its sidebar panel is closed. Edge Requests are billed on
+cache hits too, so the poll rate is the only lever on that meter.
+
 ## Hosting cost — the incident, and the shape of the fix
 
 > **Superseded 2026-09-02** — the fix below shipped and genuinely cut

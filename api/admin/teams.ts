@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "../_lib/db.js";
 import { requireAdmin, discordAvatarUrl } from "../_lib/auth.js";
-import { publishBoardMarker } from "../_lib/board-marker.js";
+import { notifyBoardChanged } from "../_lib/board-cache.js";
 import { withErrorHandling } from "../_lib/handler.js";
 
 // Matches api/board.ts's ACCENT_PALETTE — used only to pick a sensible
@@ -344,11 +344,11 @@ export default withErrorHandling(async function handler(req, res) {
   // Teams and rosters are part of the board every plugin renders, so any
   // change here has to reach them — same single-chokepoint reasoning as
   // api/admin/board.ts. Donations are the one non-board resource routed
-  // through this endpoint; republishing for those too is a wasted CDN write a
-  // handful of times a year, which is a better trade than a `resource` check
-  // that silently stops matching when a route is renamed.
+  // through this endpoint; purging for those too costs nothing (purges are
+  // not billed), which is a better trade than a `resource` check that
+  // silently stops matching when a route is renamed.
   if (req.method !== "GET") {
-    await publishBoardMarker();
+    await notifyBoardChanged();
   }
 });
 

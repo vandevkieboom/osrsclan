@@ -9,38 +9,35 @@ import {
   requireUser,
 } from "./_lib/auth.js";
 import {
-  boardConfigCacheControl,
   evaluateItemRequirements,
   getBoardConfigMemoised,
   getOrCreateBoardConfig,
   getTeamGoalProgress,
-  maybeReconcileGoalProgress,
   parseItemRequirements,
   recordProofSubmission,
   validateProofSubmission,
 } from "./_lib/board.js";
 import {
-  isMarkerStale,
-  publishBoardMarker,
-  readBoardMarker,
-} from "./_lib/board-marker.js";
+  VERSIONED_BOARD_CDN_SECONDS,
+  cachePollResponse,
+  loadPollState,
+  notifyBoardChanged,
+  setCdnCache,
+  setNoCdnCache,
+} from "./_lib/board-cache.js";
 import { deriveTileIconUrl } from "./_lib/icons.js";
 import { withErrorHandling } from "./_lib/handler.js";
 
+// The CDN window for a board requested *without* a version - plugins older
+// than 2026-09-23 - and the fallback nothing else uses. Versioned requests
+// (?v=, see _lib/board-cache.ts) are cached until the board changes instead.
 // Bounded rather than trusted: a typo here should not be able to render the
 // board on every single request, nor to freeze it for an hour.
 const BOARD_CACHE_SECONDS = (() => {
   const parsed = Number(process.env.BOARD_CACHE_SECONDS);
-  // 60s rather than the original 20s: this is the most expensive response the
-  // site produces, and during an event enough participants fetch it that a
-  // longer window collapses substantially more of them into one origin render.
-  // 60s of staleness on standings is not something anyone can perceive when
-  // the plugin only polls once a minute anyway.
   if (!Number.isFinite(parsed)) return 60;
   return Math.min(300, Math.max(5, Math.round(parsed)));
 })();
-
-const BOARD_CACHE_CONTROL = `s-maxage=${BOARD_CACHE_SECONDS}, stale-while-revalidate=${BOARD_CACHE_SECONDS * 3}`;
 
 const PROOF_CONTENT_TYPES: Record<string, string> = {
   "image/png": "png",
@@ -76,18 +73,20 @@ const MAX_PLUGIN_PROOF_BYTES = 4 * 1024 * 1024;
  * session. That is a handful of tiny requests against many large ones.
  */
 async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) {
-  // Short enough that a teammate's drop still lands on everyone's board
-  // within about the same minute the plugin would have noticed it anyway,
-  // long enough to collapse the simultaneous refetch that a single change
-  // triggers across every online member.
-  //
-  // An environment variable rather than a constant because this is the single
-  // most expensive response the site produces, and if compute ever runs hot
-  // mid-event this is the fastest thing to turn down - no deploy, no plugin
-  // release, effective on the next request. Raising it trades board freshness
-  // for compute directly: at double the window the site renders the board half
-  // as often.
-  res.setHeader("Cache-Control", BOARD_CACHE_CONTROL);
+  // Three kinds of request, cached three ways:
+  //  - `fresh` (right after the caller's own submission or review): never
+  //    shared, it exists precisely to skip whatever the CDN holds;
+  //  - `v=<boardVersion>`: names one state of the board, rendered from a
+  //    database that is already at or past that state, so it can stay cached
+  //    until the version moves on - no purge needed;
+  //  - neither (plugins older than 2026-09-23): the old short window.
+  if (req.query.fresh !== undefined) {
+    setNoCdnCache(res);
+  } else if (typeof req.query.v === "string" && req.query.v) {
+    setCdnCache(res, VERSIONED_BOARD_CDN_SECONDS);
+  } else {
+    setCdnCache(res, BOARD_CACHE_SECONDS);
+  }
 
   const config = await getOrCreateBoardConfig();
 
@@ -115,7 +114,7 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
       // every caller so one cache entry can serve the entire clan. Bypassing
       // the cache here, rather than keying it by identity, keeps that
       // invariant intact for the traffic that actually matters in volume.
-      res.setHeader("Cache-Control", "private, no-store");
+      setNoCdnCache(res);
     } else {
       res.status(200).json({
         config: { name: config.name, size: config.size },
@@ -183,38 +182,10 @@ async function getBoard(req: VercelRequest, res: VercelResponse, slim: boolean) 
 
   // Only fetched/summed when at least one tile actually needs it — most
   // boards are item-only and this avoids the extra query and join for them.
-  // The reconcile pass runs first (throttled — see maybeReconcileGoalProgress)
-  // so a correction it makes shows up in this same response instead of
-  // waiting for the next request.
-  //
-  // The plugin poll endpoint now triggers this too, and is the *primary*
-  // trigger — it runs unconditionally, whereas this fetch only happens when
-  // the board has changed, and this pass is itself one of the things that
-  // changes it. Keeping it here as well costs one throttled row read and
-  // covers the case the poll endpoint can't: somebody opening the bingo page
-  // in a browser at a moment when no plugin anywhere is online to have kept
-  // the numbers current.
-  //
-  // Gated on bingo_active, which it was not originally, and that omission had
-  // real consequences the day board_visible was added. Before that flag there
-  // was no way to reach this code with no event running: a non-admin got the
-  // hidden-board response far above and never rendered tiles at all. Ticking
-  // "show the board early" removed that accident, and every browser sitting on
-  // the board page then ran a full render plus this pass every 60 seconds,
-  // against a board whose numbers nobody was competing over yet. Neon has no
-  // idle window big enough to suspend in when that is happening, so a purely
-  // cosmetic preview switch was quietly burning compute at event rates for
-  // days before the event. There is nothing to reconcile when no event is on.
+  // The hiscores pass that moves these numbers runs on the poll, not here
+  // (see loadPollState in _lib/board-cache.ts): a board is only rendered after
+  // something changed, so hanging the pass off it would be circular.
   const hasGoalTiles = tiles.some((t) => t.goalKind !== "item");
-  if (hasGoalTiles && config.bingo_active) {
-    try {
-      await maybeReconcileGoalProgress();
-    } catch (err) {
-      // A WOM hiccup should never take the board down with it — this pass
-      // just gets retried on a later request.
-      console.error("goal-progress reconciliation failed:", err);
-    }
-  }
   const goalProgressByGoal = hasGoalTiles
     ? await getTeamGoalProgress()
     : new Map<string, Map<number, number>>();
@@ -624,66 +595,21 @@ async function getMyTeam(req: VercelRequest, res: VercelResponse) {
 }
 
 /**
- * A deliberately tiny, cheap, public check for "is a bingo event running
- * right now" — the plugin polls this every minute regardless of whether
- * bingo is active, so it needs to cost almost nothing (unlike getBoard,
- * which queries tiles/teams/submissions and can't be blanket-cached since
- * its response is personalized per viewer via myTeamId). Cached at the
- * edge for 30s: this is what lets the plugin check every minute for
- * practically free, rather than needing to slow down or back off polling
- * this specific check to control cost.
- */
-/**
- * Superseded by GET /api/plugin-poll, which carries the same two fields.
- * Kept for plugin installs that haven't updated yet — they'll keep polling
- * this until they do.
- *
- * Cache header is set before the read and the read can no longer produce a
- * 5xx, because Vercel's edge won't cache an error response: an endpoint this
- * heavily polled that starts failing stops absorbing traffic at precisely
- * the moment it needs to most, and every polling client is promoted to a
- * real function invocation. See api/plugin-poll.ts.
+ * Superseded by GET /api/plugin-poll, which carries the same fields and more
+ * and is what both the current plugin and the website ask for. Kept for plugin
+ * installs old enough to still call it; cached exactly like the poll (see
+ * _lib/board-cache.ts), so a straggler costs a CDN hit, not a database read.
  */
 async function getBingoStatus(res: VercelResponse) {
-  // Short/active window first, before the read that could fail — same
-  // fail-safe ordering as api/plugin-poll.ts, and for the same reason: an
-  // uncacheable response from a polled endpoint promotes every polling client
-  // into a real invocation at precisely the wrong moment.
-  res.setHeader("Cache-Control", boardConfigCacheControl(true));
-
-  // Answered from the Blob marker first, for the same reason api/plugin-poll.ts
-  // is. This endpoint is now polled by the website's board page too, once a
-  // minute per open tab, as its "did anything change?" check before re-fetching
-  // a whole board. Reading board_config to answer that would simply move the
-  // wake-up rather than remove it: Neon bills time awake and suspends only
-  // after 5 unbroken minutes, so a single tab asking every 60 seconds keeps the
-  // compute on regardless of how small the query is.
-  const marker = await readBoardMarker();
-  if (marker && !isMarkerStale(marker)) {
-    if (!marker.bingoActive) {
-      res.setHeader("Cache-Control", boardConfigCacheControl(false));
-    }
-    res.status(200).json({
-      bingoActive: marker.bingoActive,
-      boardChangedAt: marker.boardChangedAt,
-    });
-    return;
-  }
-
-  const { row } = await getBoardConfigMemoised();
-  // Then stretch to the long idle window once a real read confirms no event is
-  // running. Without this the flat 30s window above applied year-round, which
-  // meant a single plugin install that never updated — still polling this
-  // superseded endpoint once a minute — kept Neon's compute awake around the
-  // clock on its own, whether or not a bingo existed. Neon suspends only after
-  // 5 unbroken minutes with no query, so one straggler at 30s intervals is all
-  // it takes to defeat the idle window everywhere else.
-  if (row && !row.bingo_active) {
-    res.setHeader("Cache-Control", boardConfigCacheControl(false));
-  }
+  // Before anything that can fail: an uncacheable response from a polled
+  // endpoint promotes every polling client into a real invocation.
+  setCdnCache(res, 30);
+  const { state, degraded } = await loadPollState();
+  cachePollResponse(res, state, degraded);
   res.status(200).json({
-    bingoActive: row?.bingo_active ?? false,
-    boardChangedAt: row?.board_changed_at ?? null,
+    bingoActive: state?.config.bingo_active ?? false,
+    boardChangedAt: state?.config.board_changed_at ?? null,
+    boardVersion: state?.boardVersion ?? null,
   });
 }
 
@@ -907,8 +833,10 @@ export default withErrorHandling(async function handler(req, res) {
       await submitTile(req, res);
     }
     // A new submission moves the tile's pending count, which is on the board
-    // every plugin renders. See _lib/board-marker.ts.
-    await publishBoardMarker();
+    // every plugin renders. Refused submissions changed nothing.
+    if (res.statusCode < 400) {
+      await notifyBoardChanged();
+    }
     return;
   }
 

@@ -8,6 +8,19 @@
       "dest": "/index.html"
     }
   ],
+  "images": {
+    "sizes": [320, 1920],
+    "qualities": [60, 80],
+    "formats": ["image/webp"],
+    "minimumCacheTTL": 2592000,
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "o3vcuwswsm0xzkof.public.blob.vercel-storage.com",
+        "pathname": "^/proofs/.*$"
+      }
+    ]
+  },
   "crons": [
     {
       "path": "/api/runeprofile-proxy?resource=leaderboard-refresh",

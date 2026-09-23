@@ -5,8 +5,10 @@ import { useAuth } from "../context/auth-context";
 import {
   fetchBoard,
   fetchBoardStatus,
+  isOlderStamp,
   submitTileProof,
   type BoardData,
+  type BoardStatus,
 } from "../services/board";
 import {
   fetchAdminSubmissions,
@@ -30,11 +32,18 @@ export function BingoPage() {
   const [view, setView] = useState<View>("leaderboard");
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // The change stamp of the board currently on screen, for the poll below to
-  // compare against. A ref rather than state on purpose: the polling effect
-  // reads it on every tick and must not be torn down and rebuilt each time it
-  // moves, which is the same reason that effect is keyed on `view` alone.
-  const lastChangeRef = useRef<string | null>(null);
+  // The change stamp of the board currently on screen, and the version it was
+  // fetched as (null for a fresh, unversioned fetch), for the poll below to
+  // compare against. Refs rather than state on purpose: the polling effect
+  // reads them on every tick and must not be torn down and rebuilt each time
+  // they move, which is the same reason that effect is keyed on `view` alone.
+  const heldStampRef = useRef<string | null>(null);
+  const heldVersionRef = useRef<string | null>(null);
+  // Read by loadBoard, which the polling effect captures once per `view`.
+  const isAdminRef = useRef(isAdmin);
+  useEffect(() => {
+    isAdminRef.current = isAdmin;
+  }, [isAdmin]);
   const [uploadingTileId, setUploadingTileId] = useState<number | null>(null);
   // Only ever set by the user actually clicking a team tab. The default is
   // derived below rather than stored, because the two things it depends on
@@ -99,18 +108,14 @@ export function BingoPage() {
     const tick = async () => {
       if (document.visibilityState !== "visible") return;
       if (Date.now() - lastInteraction > IDLE_CUTOFF_MS) return;
+      let status: BoardStatus | null = null;
       try {
-        const status = await fetchBoardStatus();
-        if (
-          status.boardChangedAt &&
-          status.boardChangedAt === lastChangeRef.current
-        ) {
-          return;
-        }
+        status = await fetchBoardStatus();
       } catch {
         // Fall through and just reload.
       }
-      reloadBoard();
+      if (status && !statusNeedsReload(status)) return;
+      void loadBoard(status?.boardVersion ?? null);
     };
 
     const start = () => {
@@ -182,25 +187,82 @@ export function BingoPage() {
   // api/board.ts), so it can't carry anything per-viewer.
   const myTeamId = user?.team?.id ?? null;
 
-  function reloadBoard(fresh = false) {
-    fetchBoard(fresh)
-      .then((data) => {
-        setBoard(data);
-        lastChangeRef.current = data.boardChangedAt ?? null;
-      })
-      .catch((err: unknown) => {
-        if (import.meta.env.DEV) {
-          setBoard(PLACEHOLDER_BOARD);
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Failed to load board");
-      });
+  // Whether the status check describes a board other than the one on screen.
+  // The status is CDN-cached until the board changes (api/_lib/board-cache.ts),
+  // so right after this viewer's own fresh reload it can briefly still
+  // describe the state from before it: a stamp older than the one held is that
+  // lag, not a change, and following it would put the pre-submission board
+  // back on screen.
+  function statusNeedsReload(status: BoardStatus): boolean {
+    if (status.boardVersion && status.boardVersion === heldVersionRef.current) {
+      return false;
+    }
+    if (isOlderStamp(status.boardChangedAt, heldStampRef.current)) return false;
+    if (!status.boardVersion) {
+      return status.boardChangedAt !== heldStampRef.current;
+    }
+    return true;
+  }
+
+  function applyBoard(data: BoardData, version: string | null) {
+    // Same reasoning as statusNeedsReload: never replace a board with an older one.
+    if (isOlderStamp(data.boardChangedAt, heldStampRef.current)) return;
+    setBoard(data);
+    heldStampRef.current = data.boardChangedAt ?? null;
+    heldVersionRef.current = version;
+  }
+
+  function handleLoadError(err: unknown) {
+    if (import.meta.env.DEV) {
+      setBoard(PLACEHOLDER_BOARD);
+      return;
+    }
+    setError(err instanceof Error ? err.message : "Failed to load board");
+  }
+
+  // By version: a versioned board is cached at the CDN until the board next
+  // changes, so however many people open this page it is rendered once per
+  // change. Without a version (the status check failed) it falls back to the
+  // short-lived unversioned copy.
+  //
+  // An admin looking at a board that isn't public yet is the one exception:
+  // the shared copy is the "hidden" placeholder every non-admin gets, so an
+  // admin who receives it asks again uncached, which the server answers with
+  // the real board and keeps out of the shared cache.
+  async function loadBoard(version: string | null) {
+    try {
+      const data = await fetchBoard({ version });
+      if (data.hidden && isAdminRef.current) {
+        applyBoard(await fetchBoard({ fresh: true }), null);
+        return;
+      }
+      applyBoard(data, version);
+    } catch (err) {
+      handleLoadError(err);
+    }
+  }
+
+  // `fresh` right after this viewer's own submission or review: skips every
+  // cache, so what they just did is on screen immediately.
+  async function reloadBoard(fresh = false) {
+    if (fresh) {
+      try {
+        applyBoard(await fetchBoard({ fresh: true }), null);
+      } catch (err) {
+        handleLoadError(err);
+      }
+      return;
+    }
+    const status = await fetchBoardStatus().catch(() => null);
+    await loadBoard(status?.boardVersion ?? null);
   }
 
   // Re-fetch whenever the active tab changes, not just on first load — the
   // Admin Panel tab mutates teams/members/tiles state, so switching back to
   // Leaderboard/Board needs a fresh fetch to see it.
-  useEffect(reloadBoard, [view]);
+  useEffect(() => {
+    void reloadBoard();
+  }, [view]);
 
   function reloadSubmissions() {
     if (!isAdmin) {

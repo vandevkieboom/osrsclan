@@ -7,7 +7,7 @@ import {
   parseItemRequirements,
   type ItemRequirementsStatus,
 } from "../_lib/board.js";
-import { publishBoardMarker } from "../_lib/board-marker.js";
+import { notifyBoardChanged } from "../_lib/board-cache.js";
 import { deriveTileIconUrl, itemIconUrl } from "../_lib/icons.js";
 
 // Fired on approval, not submission — a rejected screenshot (wrong item,
@@ -354,8 +354,8 @@ export default withErrorHandling(async function handler(req, res) {
   if (req.method === "POST") {
     await reviewSubmission(req, res, admin.id);
     // An approval or rejection moves a tile, so every plugin holding a board
-    // needs to learn it has changed. See _lib/board-marker.ts.
-    await publishBoardMarker();
+    // needs to learn it has changed. See _lib/board-cache.ts.
+    await notifyBoardChanged();
     return;
   }
 

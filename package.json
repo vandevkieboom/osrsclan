@@ -17,6 +17,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.6.1",
+    "@vercel/functions": "^3.9.9",
     "html2canvas": "^1.4.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

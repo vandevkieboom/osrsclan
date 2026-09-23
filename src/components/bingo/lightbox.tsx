@@ -1,3 +1,5 @@
+import { proofImageUrl } from "../../services/board";
+
 export function Lightbox({
   url,
   onClose,
@@ -7,7 +9,7 @@ export function Lightbox({
 }) {
   return (
     <div className="bingo-lightbox-backdrop" onClick={onClose}>
-      <img src={url} alt="" className="bingo-lightbox-img" />
+      <img src={proofImageUrl(url, "full")} alt="" className="bingo-lightbox-img" />
     </div>
   );
 }

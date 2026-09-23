@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { itemIconUrl, type BoardTile } from "../../services/board";
+import { itemIconUrl, proofImageUrl, type BoardTile } from "../../services/board";
 import { initialsOf } from "./bingo-helpers";
 import { ItemRequirementsProgress } from "./item-requirements-progress";
 
@@ -217,8 +217,10 @@ export function TileDetailPanel({
                 {tile.proofs.map((p) => (
                   <img
                     key={p.id}
-                    src={p.proofUrl}
+                    src={proofImageUrl(p.proofUrl, "thumb")}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="bingo-detail-thumb"
                     onClick={() => onOpenLightbox(p.proofUrl)}
                   />

@@ -1,7 +1,11 @@
 import { withErrorHandling } from "./_lib/handler.js";
-import { refreshGoalLatestValues, fetchWomStatsByRsnKey } from "./_lib/board.js";
+import {
+  fetchWomStatsByRsnKey,
+  getBoardConfigMemoised,
+  refreshGoalLatestValues,
+} from "./_lib/board.js";
+import { notifyBoardChanged } from "./_lib/board-cache.js";
 import { isSkillMetric } from "./_lib/icons.js";
-import { readBoardMarker } from "./_lib/board-marker.js";
 
 const BASE_URL = "https://api.wiseoldman.net/v2";
 // Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts, and
@@ -219,9 +223,9 @@ export default withErrorHandling(async function handler(req, res) {
     // SOTW/BOTW can be genuinely running at the same time as a bingo (the
     // clan doesn't always pause one for the other), and !event needs to say
     // so either way rather than only when nothing else is happening to
-    // report. A free Blob read regardless of which branch below fires.
-    const marker = await readBoardMarker();
-    const bingoActive = marker?.bingoActive ?? false;
+    // report. One tiny read per cache window of this response (see the
+    // s-maxage below), and only when somebody actually typed !event.
+    const bingoActive = (await getBoardConfigMemoised()).row?.bingo_active ?? false;
 
     if (targets.length === 0) {
       // Told apart from "there's genuinely nothing going on" so the plugin
@@ -294,9 +298,9 @@ export default withErrorHandling(async function handler(req, res) {
       return;
     }
 
-    // This is now a redundant fallback for periods with zero site/plugin
-    // traffic — the real backstop is maybeReconcileGoalProgress, triggered
-    // from GET /api/board on every plugin refresh (see api/_lib/board.ts).
+    // A redundant daily fallback for periods with zero site/plugin traffic —
+    // the real pass runs on the poll (see loadPollState in
+    // _lib/board-cache.ts).
     const womByRsnKey = await fetchWomStatsByRsnKey();
     if (!womByRsnKey) {
       res.status(502).json({ error: "Failed to load WOM hiscores." });
@@ -304,6 +308,8 @@ export default withErrorHandling(async function handler(req, res) {
     }
 
     const result = await refreshGoalLatestValues(womByRsnKey);
+    // The poll carries these totals and is cached until told otherwise.
+    if (result.updated > 0) await notifyBoardChanged();
     res.status(200).json({ ok: true, ...result });
   } else {
     res.status(400).json({ error: "Invalid type" });

@@ -113,24 +113,41 @@ export interface BoardData {
 export interface BoardStatus {
   bingoActive: boolean;
   boardChangedAt: string | null;
+  /**
+   * Names one exact state of the board. Pass it to fetchBoard to get a copy
+   * that is cached until the board next changes. Null during an outage.
+   */
+  boardVersion?: string | null;
 }
 
 /**
- * The cheap "has anything actually changed?" check, answered from a CDN file
- * rather than the database (see api/_lib/board-marker.ts).
+ * The cheap "has anything actually changed?" check.
  *
- * Polling this and only re-fetching the full board when the stamp moves is
- * what keeps an open board tab from costing anything. The full board is the
- * most expensive response the site produces, and re-rendering it every minute
- * just to discover nothing had changed is enough on its own to keep Neon's
- * compute from ever reaching the 5 idle minutes it needs to suspend. This is
- * the same check the RuneLite plugin has always made on its own poll; the
- * website was simply never taught to make it.
+ * The same endpoint the RuneLite plugin polls, deliberately: it is identical
+ * for every caller, so every open tab and every plugin share one CDN entry,
+ * and it is cached until the board actually changes (see
+ * api/_lib/board-cache.ts). Polling this and only fetching the board when the
+ * version moves is what keeps an open board tab from costing anything.
  */
 export async function fetchBoardStatus(): Promise<BoardStatus> {
-  const res = await fetch("/api/board?resource=status");
+  const res = await fetch("/api/plugin-poll");
   if (!res.ok) throw new Error(`Failed to load board status (${res.status})`);
   return res.json() as Promise<BoardStatus>;
+}
+
+/**
+ * Whether change stamp `a` is strictly older than `b`. Stamps only ever move
+ * forward (db/schema.sql), so an older one is a lagging cache, never a real
+ * state to go back to. Unknown or unparseable stamps are never "older".
+ */
+export function isOlderStamp(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  if (!a || !b) return false;
+  const at = Date.parse(a);
+  const bt = Date.parse(b);
+  return Number.isFinite(at) && Number.isFinite(bt) && at < bt;
 }
 
 export interface Donor {
@@ -139,17 +156,22 @@ export interface Donor {
 }
 
 /**
- * @param fresh bypass the CDN copy. The board is edge-cached for a few
- *   seconds so that one change doesn't cost one render per viewer (see
- *   getBoard in api/board.ts), which is right for ordinary page loads and
- *   wrong immediately after *you* did something: seeing your own submission
- *   missing from the board you just submitted it to reads as a bug, not as a
- *   cache. A unique query string gives those few reloads an uncached answer,
- *   at the cost of one extra render each — they only happen on a real user
- *   action, so there are very few of them.
+ * @param version from fetchBoardStatus: the CDN keeps a versioned board until
+ *   the board changes, so it is rendered once per change however many people
+ *   look at it.
+ * @param fresh bypass every cache - only right after *you* did something:
+ *   seeing your own submission missing from the board you just submitted it
+ *   to reads as a bug, not as a cache. Costs one render each, and only happens
+ *   on a real user action, so there are very few of them.
  */
-export async function fetchBoard(fresh = false): Promise<BoardData> {
-  const url = fresh ? `/api/board?fresh=${Date.now()}` : "/api/board";
+export async function fetchBoard(
+  opts: { fresh?: boolean; version?: string | null } = {},
+): Promise<BoardData> {
+  const url = opts.fresh
+    ? `/api/board?fresh=${Date.now()}`
+    : opts.version
+      ? `/api/board?v=${encodeURIComponent(opts.version)}`
+      : "/api/board";
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to load board (${res.status})`);
   return res.json() as Promise<BoardData>;
@@ -162,11 +184,74 @@ export async function fetchDonors(): Promise<Donor[]> {
   return data.donors;
 }
 
+// The Blob store proof screenshots live in. Must match
+// images.remotePatterns in vercel.json: the optimizer refuses any other host.
+const PROOF_IMAGE_HOST = "o3vcuwswsm0xzkof.public.blob.vercel-storage.com";
+
+/**
+ * A proof screenshot's URL, resized through Vercel's image optimizer (sizes
+ * and qualities must match images.sizes/qualities in vercel.json).
+ *
+ * The board's detail panel used to show every screenshot of a tile at full
+ * resolution as its "thumbnail": 32 GB of Blob transfer in ten days of an
+ * event from ~420 MB of stored images, each one downloaded ~75 times. A
+ * resized WebP is cached at the CDN, costs one transformation per image per
+ * size, and is served as ordinary CDN transfer rather than Blob transfer.
+ * Anything not on the proof store (dev placeholders) is returned untouched.
+ */
+export function proofImageUrl(url: string, size: "thumb" | "full"): string {
+  if (!import.meta.env.PROD) return url;
+  try {
+    if (new URL(url).hostname !== PROOF_IMAGE_HOST) return url;
+  } catch {
+    return url;
+  }
+  const [width, quality] = size === "thumb" ? [320, 60] : [1920, 80];
+  return `/_vercel/image?url=${encodeURIComponent(url)}&w=${width}&q=${quality}`;
+}
+
+// A proof has to stay readable (the codeword overlay especially), not be a
+// photograph: 1920px wide at JPEG quality 0.85 keeps small text crisp.
+const PROOF_MAX_WIDTH = 1920;
+const PROOF_JPEG_QUALITY = 0.85;
+
+/**
+ * Re-encodes a screenshot as JPEG before upload, the way the RuneLite plugin
+ * already does for its own captures. Measured live: website uploads averaged
+ * 1.46 MB (raw PNG screenshots), plugin captures 190 KB, for the same kind of
+ * image. Every byte stored is a byte every viewer downloads. Falls back to the
+ * original file if the browser can't decode it or the result isn't smaller.
+ */
+async function compressProof(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, PROOF_MAX_WIDTH / bitmap.width);
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", PROOF_JPEG_QUALITY),
+    );
+    if (!blob || blob.size >= file.size) return file;
+    const name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], name, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 export async function submitTileProof(
   tileId: number,
-  file: File,
+  original: File,
   itemId?: number,
 ): Promise<void> {
+  const file = await compressProof(original);
   const blob = await upload(
     `proofs/${tileId}-${Date.now()}-${file.name}`,
     file,
