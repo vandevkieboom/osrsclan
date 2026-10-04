@@ -188,7 +188,7 @@ export const ranks: Rank[] = [
       },
       {
         name: "Blood moon armour",
-        img: "https://oldschool.runescape.wiki/images/Blood_moon_helm_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Blood_Moon_helm_detail.png",
         alt: "Blood moon armour",
         apiCheck: {
           type: "collection-all-checks",
@@ -265,7 +265,7 @@ export const ranks: Rank[] = [
       },
       {
         name: "Blue moon armour",
-        img: "https://oldschool.runescape.wiki/images/Blue_moon_helm_detail.png",
+        img: "https://oldschool.runescape.wiki/images/Blue_Moon_helm_detail.png",
         alt: "Blue moon armour",
         apiCheck: {
           type: "collection-all-checks",
