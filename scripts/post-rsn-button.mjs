@@ -41,8 +41,8 @@ const res = await fetch(
               type: 2,
               style: 1,
               label: "Verify",
-              // The server's own :GMToBlorva: emoji.
-              emoji: { id: "1503356098156036191", name: "GMToBlorva" },
+              // The server's own :Gnome: emoji.
+              emoji: { id: "1501227645650604215", name: "Gnome" },
               custom_id: "set-rsn",
             },
           ],
