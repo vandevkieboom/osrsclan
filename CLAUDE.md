@@ -253,6 +253,13 @@ only reads Postgres if the fetch fails. Don't move it back into Blob.
 **Check `vercel blob list-stores` after an event** — "Suspended" there is
 invisible everywhere else.
 
+Same day, same reason: `?resource=my-team` (asked by every key-holding plugin
+at each client start, uncacheable, a Postgres read for the key) now answers
+`{teamId: null}` straight away when the CDN-cached poll says no event is on
+(`bingoActiveFromCdn` in `_lib/board-cache.ts`; unknown → reads the database
+as before). The plugin re-asks when an event starts. 24 keys were used in a
+single day two weeks after the bingo, each one waking Neon.
+
 ## Hosting cost — the incident, and the shape of the fix
 
 > **Superseded 2026-09-02** — the fix below shipped and genuinely cut

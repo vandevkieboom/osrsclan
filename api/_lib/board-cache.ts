@@ -37,6 +37,31 @@ import {
  */
 export const POLL_CACHE_TAG = "board-poll";
 
+/** This site's production origin, for reading its own CDN-cached responses. */
+export const SITE_ORIGIN = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "timeserved.vercel.app"}`;
+
+/**
+ * Whether an event is on, read from the CDN-cached poll instead of Postgres:
+ * a cache hit costs no database time. Null when it can't be told (the fetch
+ * failed, or the poll itself was a degraded answer), so callers fall back to
+ * reading the database exactly as they would have.
+ */
+export async function bingoActiveFromCdn(): Promise<boolean | null> {
+  try {
+    const r = await fetch(`${SITE_ORIGIN}/api/plugin-poll`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return null;
+    const body = (await r.json()) as { bingoActive?: unknown; degraded?: unknown };
+    if (body.degraded === true || typeof body.bingoActive !== "boolean") {
+      return null;
+    }
+    return body.bingoActive;
+  } catch {
+    return null;
+  }
+}
+
 /** While no event runs: nothing changes except via an admin write, which purges. */
 const POLL_CDN_SECONDS_IDLE = 24 * 60 * 60;
 /**

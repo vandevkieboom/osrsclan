@@ -1,7 +1,7 @@
 import type { VercelResponse } from "@vercel/node";
 import { invalidateByTag, waitUntil } from "@vercel/functions";
 import { sql } from "./db.js";
-import { canPurgeCdn, setCdnCache } from "./board-cache.js";
+import { SITE_ORIGIN, canPurgeCdn, setCdnCache } from "./board-cache.js";
 
 /**
  * Manually-verified rank items, read from a CDN-cached snapshot instead of
@@ -36,9 +36,7 @@ const SNAPSHOT_FALLBACK_SECONDS = 5 * 60;
 // One warm instance answering a burst of lookups asks the CDN once.
 const INSTANCE_MEMO_MS = 60 * 1000;
 
-const SITE_HOST =
-  process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "timeserved.vercel.app";
-const SNAPSHOT_URL = `https://${SITE_HOST}/api/profile?resource=verified-items-snapshot`;
+const SNAPSHOT_URL = `${SITE_ORIGIN}/api/profile?resource=verified-items-snapshot`;
 
 interface Snapshot {
   /** rsn_key -> that member's manually-verified (lowercased) item names. */

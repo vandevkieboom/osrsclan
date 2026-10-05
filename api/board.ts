@@ -19,6 +19,7 @@ import {
 } from "./_lib/board.js";
 import {
   VERSIONED_BOARD_CDN_SECONDS,
+  bingoActiveFromCdn,
   cachePollResponse,
   loadPollState,
   notifyBoardChanged,
@@ -590,6 +591,16 @@ async function requireBingoActive(res: VercelResponse): Promise<boolean> {
 }
 
 async function getMyTeam(req: VercelRequest, res: VercelResponse) {
+  // Between events nobody's team matters to the plugin, and it asks again the
+  // moment one starts (the bingo-just-started branch of BingoPlugin#onPolled).
+  // The plugin asks at every client start, and the key lookup below is a
+  // Postgres read, so between events this kept waking Neon: 24 keys were
+  // used in one day two weeks after an event. The cached poll says whether
+  // one is on without touching the database.
+  if ((await bingoActiveFromCdn()) === false) {
+    res.status(200).json({ teamId: null });
+    return;
+  }
   const user = await getRequestUser(req);
   res.status(200).json({ teamId: user?.teamId ?? null });
 }
