@@ -45,6 +45,17 @@ old name; matched on the change's player id). Decisions made with the user:
   member search + WOM + a cold database don't fit Discord's 3 seconds.
 - `GET /names` without `status=pending` took 38s when measured; keep the filter.
 
+**Leaving the clan takes the roles away** (`syncClanLeavers`, daily cron
+`/api/auth/me?resource=discord-sync`). It reads WOM's group *activity* feed,
+which records explicit `left` events, instead of inferring leaves from who is
+missing from the group. Leavers are matched to Discord by nickname (falling back
+to display name), lose Time Served and their rank role (`RANK_ROLES`), and the
+bot reports it in #logging, along with leavers it couldn't find in the server.
+More than `MASS_LEAVE_LIMIT` leaves in one day is treated as a botched WOM sync:
+reported, nothing removed. The 26h window overlaps consecutive runs on
+purpose; removing a role twice is harmless. Discord's member search allows 10
+requests per 10 seconds, so `botFetch` retries on 429.
+
 ## Tile icons and item requirements (AND/OR item conditions)
 
 Two related additions, written 2026-09-06, reviewed and bug-fixed before

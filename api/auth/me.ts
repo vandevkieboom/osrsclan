@@ -8,7 +8,10 @@ import {
   requireUser,
 } from "../_lib/auth.js";
 import { withErrorHandling } from "../_lib/handler.js";
-import { handleDiscordInteraction } from "../_lib/discord.js";
+import {
+  handleDiscordInteraction,
+  syncClanLeavers,
+} from "../_lib/discord.js";
 
 const MAX_RUNESCAPE_NAME_LENGTH = 30;
 const MAX_TOKEN_LABEL_LENGTH = 60;
@@ -102,11 +105,24 @@ async function handlePluginTokens(req: VercelRequest, res: VercelResponse) {
 // "Who am I", "log out", "update my settings" (RSN + rankings remember-me
 // preference), and RuneLite plugin token management are combined into one
 // function to stay under the Vercel Hobby plan's 12-function-per-deployment
-// cap. So is the Discord bot's interactions endpoint (the #set-your-rsn
-// button), which belongs here because all it does is set the member's RSN.
+// cap. So are the Discord bot's interactions endpoint (the #set-your-rsn
+// button) and its daily clan-leaver sync, which belong here because they
+// set a member's RSN and the roles that go with it.
 export default withErrorHandling(async function handler(req, res) {
   if (req.query.resource === "discord-interactions") {
     await handleDiscordInteraction(req, res);
+    return;
+  }
+
+  if (req.query.resource === "discord-sync") {
+    // Vercel sends this header on cron-triggered invocations when
+    // CRON_SECRET is set — same auth as the other crons in vercel.json.
+    const expected = process.env.CRON_SECRET;
+    if (!expected || req.headers.authorization !== `Bearer ${expected}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    await syncClanLeavers(res);
     return;
   }
 

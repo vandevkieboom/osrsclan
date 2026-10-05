@@ -19,6 +19,19 @@ const API = "https://discord.com/api/v10";
 const MEMBER_ROLE_ID = "1501333285421322410";
 const VERIFICATION_CHANNEL = "<#1506007935216648212>";
 const RANKS_CHANNEL = "<#1503144145404035254>";
+const LOG_CHANNEL_ID = "1556708563991269446";
+
+// Taken away, together with the member role, from anyone who leaves the clan.
+const RANK_ROLES: Record<string, string> = {
+  "1504249730576945302": "Sapphire",
+  "1504249773274955816": "Emerald",
+  "1504249796934893779": "Ruby",
+  "1504249839620198491": "Diamond",
+  "1504249866162012210": "Dragonstone",
+  "1504249909363347596": "Onyx",
+  "1504249934486962206": "Zenyte",
+  "1504252647392280658": "Infernal",
+};
 
 // Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts,
 // api/wom-proxy.ts, api/runeprofile-proxy.ts and api/_lib/board.ts.
@@ -146,16 +159,30 @@ function showRsnModal(res: VercelResponse, interaction: Interaction) {
   });
 }
 
-function botFetch(path: string, init: RequestInit = {}) {
-  return fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bot ${BOT_TOKEN}`,
-      "Content-Type": "application/json",
-      "X-Audit-Log-Reason": "Set RSN via button",
-    },
-    signal: AbortSignal.timeout(5000),
-  });
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retries when Discord rate-limits, which it does quickly on member search
+// (10 per 10 seconds, measured): a 429 there would otherwise read as "that
+// name is taken" to the button and abort the leaver sync.
+async function botFetch(
+  path: string,
+  init: RequestInit = {},
+  auditReason = "Set RSN via button",
+): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const r = await fetch(`${API}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bot ${BOT_TOKEN}`,
+        "Content-Type": "application/json",
+        "X-Audit-Log-Reason": encodeURIComponent(auditReason),
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    const retryAfter = Number(r.headers.get("retry-after"));
+    if (r.status !== 429 || attempt >= 3 || !(retryAfter <= 15)) return r;
+    await sleep(retryAfter * 1000 + 250);
+  }
 }
 
 // OSRS treats spaces, underscores and hyphens in a name as the same
@@ -196,19 +223,32 @@ interface ClanMatch {
   previousName: string | null;
 }
 
+interface WomMembership {
+  playerId: number;
+  player: { username: string; displayName: string };
+}
+
+// Throws when WOM can't be asked, which must never be mistaken for "nobody
+// is in the clan".
+async function fetchWomClan(): Promise<WomMembership[]> {
+  const r = await fetch(`${WOM_BASE_URL}/groups/${WOM_GROUP_ID}`, {
+    headers: WOM_HEADERS,
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!r.ok) throw new Error(`WOM group lookup failed: ${r.status}`);
+  return ((await r.json()) as { memberships: WomMembership[] }).memberships;
+}
+
 /**
  * Looks the RSN up in the WOM clan group. An approved name change renames
  * the player in the group, so that case is a plain match; a pending one still
  * lists the old name, and is found through the change record's player id.
  * Returns null when the RSN isn't in the clan, and throws when WOM can't be
- * asked, which must not be mistaken for "not a member".
+ * asked.
  */
 async function findInWomClan(rsn: string): Promise<ClanMatch | null> {
-  const [groupRes, changes] = await Promise.all([
-    fetch(`${WOM_BASE_URL}/groups/${WOM_GROUP_ID}`, {
-      headers: WOM_HEADERS,
-      signal: AbortSignal.timeout(8000),
-    }),
+  const [memberships, changes] = await Promise.all([
+    fetchWomClan(),
     // `status=pending` matters: without it this search took 38s when tried.
     fetch(
       `${WOM_BASE_URL}/names?username=${encodeURIComponent(rsn)}&status=pending&limit=20`,
@@ -223,24 +263,13 @@ async function findInWomClan(rsn: string): Promise<ClanMatch | null> {
       )
       .catch(() => []),
   ]);
-  if (!groupRes.ok) {
-    throw new Error(`WOM group lookup failed: ${groupRes.status}`);
-  }
 
-  const group = (await groupRes.json()) as {
-    memberships: {
-      playerId: number;
-      player: { username: string; displayName: string };
-    }[];
-  };
   const key = rsnKey(rsn);
-  const direct = group.memberships.find(
-    (m) => rsnKey(m.player.username) === key,
-  );
+  const direct = memberships.find((m) => rsnKey(m.player.username) === key);
   if (direct) {
     return { displayName: direct.player.displayName, previousName: null };
   }
-  const memberIds = new Set(group.memberships.map((m) => m.playerId));
+  const memberIds = new Set(memberships.map((m) => m.playerId));
   const change = changes.find(
     (c) => rsnKey(c.newName) === key && memberIds.has(c.playerId),
   );
@@ -455,4 +484,161 @@ export async function fetchGuildNickname(
   } catch {
     return null;
   }
+}
+
+// Leaves are read from WOM's group activity feed, which records an explicit
+// "left" event, rather than inferred from someone missing from the group.
+// A little over a day, so consecutive daily cron runs (whose start time
+// drifts within the hour) overlap instead of leaving a gap. Re-processing a
+// leave is harmless: the roles are already gone the second time.
+const LEAVE_WINDOW_MS = 26 * 60 * 60 * 1000;
+// More leaves than this in one day is far likelier to be a botched WOM sync
+// than a real exodus, so the sync then only reports and removes nothing.
+const MASS_LEAVE_LIMIT = 15;
+const CLAN_ROLE_NAMES: Record<string, string> = {
+  [MEMBER_ROLE_ID]: "Time Served",
+  ...RANK_ROLES,
+};
+
+interface WomLeave {
+  playerId: number;
+  createdAt: string;
+  player: { displayName: string };
+}
+
+async function fetchRecentLeaves(since: number): Promise<WomLeave[]> {
+  const leaves = new Map<number, WomLeave>();
+  for (let offset = 0; offset < 1000; offset += 50) {
+    const r = await fetch(
+      `${WOM_BASE_URL}/groups/${WOM_GROUP_ID}/activity?limit=50&offset=${offset}`,
+      { headers: WOM_HEADERS, signal: AbortSignal.timeout(8000) },
+    );
+    if (!r.ok) throw new Error(`WOM activity lookup failed: ${r.status}`);
+    const page = (await r.json()) as (WomLeave & { type: string })[];
+    for (const event of page) {
+      if (
+        event.type === "left" &&
+        Date.parse(event.createdAt) >= since &&
+        !leaves.has(event.playerId)
+      ) {
+        leaves.set(event.playerId, event);
+      }
+    }
+    // Newest first, so once a page reaches past the window nothing older
+    // can matter.
+    const oldest = page[page.length - 1];
+    if (page.length < 50 || Date.parse(oldest.createdAt) < since) break;
+  }
+  return [...leaves.values()];
+}
+
+interface GuildMember {
+  nick?: string | null;
+  roles: string[];
+  user: { id: string; username: string; global_name?: string | null };
+}
+
+async function findMembersNamed(rsn: string): Promise<GuildMember[]> {
+  const r = await botFetch(
+    `/guilds/${GUILD_ID}/members/search?query=${encodeURIComponent(rsn)}&limit=100`,
+  );
+  if (!r.ok) throw new Error(`Discord member search failed: ${r.status}`);
+  return ((await r.json()) as GuildMember[]).filter(
+    (m) => rsnKey(m.nick ?? m.user.global_name ?? m.user.username) === rsnKey(rsn),
+  );
+}
+
+async function postLog(lines: string[]) {
+  // Discord caps a message at 2000 characters.
+  const messages: string[] = [];
+  for (const line of lines) {
+    const last = messages[messages.length - 1];
+    if (last !== undefined && last.length + line.length + 1 <= 1900) {
+      messages[messages.length - 1] = `${last}\n${line}`;
+    } else {
+      messages.push(line);
+    }
+  }
+  for (const content of messages) {
+    await botFetch(`/channels/${LOG_CHANNEL_ID}/messages`, {
+      method: "POST",
+      // Name people with a mention but don't ping them.
+      body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+    });
+  }
+}
+
+/**
+ * Daily cron: takes the member role and rank roles away from anyone WOM says
+ * left the clan in the last day, and reports what it did in #logging. People
+ * are found by their server nickname, which the #set-your-rsn button keeps
+ * equal to their RSN; leavers nobody in the server is named after are
+ * reported instead, for a mod to handle.
+ */
+export async function syncClanLeavers(res: VercelResponse) {
+  if (!BOT_TOKEN || !GUILD_ID) {
+    res.status(500).json({ error: "Discord bot is not configured" });
+    return;
+  }
+
+  const [leaves, clan] = await Promise.all([
+    fetchRecentLeaves(Date.now() - LEAVE_WINDOW_MS),
+    fetchWomClan(),
+  ]);
+  // Left and came back since: still a member.
+  const inClan = new Set(clan.map((m) => m.playerId));
+  const leavers = leaves.filter((l) => !inClan.has(l.playerId));
+
+  if (leavers.length > MASS_LEAVE_LIMIT) {
+    await postLog([
+      `⚠️ Wise Old Man says ${leavers.length} members left the clan in the last day. That looks more like a sync mistake than real leaves, so I removed no roles. Please check: ${leavers.map((l) => l.player.displayName).join(", ")}`,
+    ]);
+    res.status(200).json({ leavers: leavers.length, skipped: "mass-leave" });
+    return;
+  }
+
+  const log: string[] = [];
+  let removed = 0;
+  for (const leave of leavers) {
+    const name = leave.player.displayName;
+    const members = await findMembersNamed(name);
+    if (members.length === 0) {
+      log.push(
+        `❔ **${name}** left the clan, but nobody in the server has that nickname.`,
+      );
+      continue;
+    }
+    for (const member of members) {
+      const roles = member.roles.filter((id) => id in CLAN_ROLE_NAMES);
+      // A guest who was never given clan roles: nothing to do or report.
+      if (roles.length === 0) continue;
+
+      const failed: string[] = [];
+      for (const roleId of roles) {
+        const r = await botFetch(
+          `/guilds/${GUILD_ID}/members/${member.user.id}/roles/${roleId}`,
+          { method: "DELETE" },
+          `${name} left the clan (Wise Old Man)`,
+        );
+        if (!r.ok) failed.push(CLAN_ROLE_NAMES[roleId]);
+      }
+      const done = roles
+        .map((id) => CLAN_ROLE_NAMES[id])
+        .filter((n) => !failed.includes(n));
+      if (done.length > 0) {
+        removed++;
+        log.push(
+          `🔻 **${name}** left the clan: removed ${done.join(", ")} from <@${member.user.id}>.`,
+        );
+      }
+      if (failed.length > 0) {
+        log.push(
+          `⚠️ **${name}** left the clan, but I couldn't remove ${failed.join(", ")} from <@${member.user.id}>.`,
+        );
+      }
+    }
+  }
+
+  if (log.length > 0) await postLog(log);
+  res.status(200).json({ leavers: leavers.length, removed });
 }
