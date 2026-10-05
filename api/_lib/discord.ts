@@ -14,10 +14,9 @@ const GUILD_ID = process.env.DISCORD_GUILD_ID ?? "";
 
 const API = "https://discord.com/api/v10";
 
-// The Time Served server's member role and the channels replies point to.
+// The Time Served server's member role and the channels the bot points to.
 // The member role is granted to anyone whose RSN is in the WOM clan group.
 const MEMBER_ROLE_ID = "1501333285421322410";
-const VERIFICATION_CHANNEL = "<#1506007935216648212>";
 const RANKS_CHANNEL = "<#1503144145404035254>";
 const LOG_CHANNEL_ID = "1556708563991269446";
 
@@ -284,7 +283,7 @@ async function processRsn(interaction: Interaction, typed: string) {
   const userId = member.user.id;
 
   if (await isNameTaken(guildId, userId, typed)) {
-    return `Someone else in this server already uses **${typed}** as their nickname. If that really is your name, ask a mod in ${VERIFICATION_CHANNEL}.`;
+    return `Someone else in this server already uses **${typed}** as their nickname. If that really is your name, contact a mod.`;
   }
 
   // undefined: WOM couldn't be asked. null: asked, and not in the clan.
@@ -335,7 +334,7 @@ async function processRsn(interaction: Interaction, typed: string) {
   if (clan === undefined) {
     if (!hasRole) {
       lines.push(
-        `I couldn't reach Wise Old Man to check your clan membership. Try again in a minute, or ask in ${VERIFICATION_CHANNEL}.`,
+        `I couldn't reach Wise Old Man to check your clan membership. Try again in a minute, or contact a mod.`,
       );
     }
   } else if (clan && !hasRole) {
@@ -354,12 +353,12 @@ async function processRsn(interaction: Interaction, typed: string) {
         await granted.text(),
       );
       lines.push(
-        `You're in the clan, but I couldn't give you the **Time Served** role. Please ask in ${VERIFICATION_CHANNEL}.`,
+        `You're in the clan, but I couldn't give you the **Time Served** role. Please contact a mod.`,
       );
     }
   } else if (!clan && !hasRole) {
     lines.push(
-      `I couldn't find **${rsn}** in the Time Served clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. Just joined the clan or changed your name? It can take a while to show up, so ask in ${VERIFICATION_CHANNEL}.`,
+      `I couldn't find **${rsn}** in the Time Served clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. Just joined the clan or changed your name? It can take a while to show up, so contact a mod.`,
     );
   } else if (!clan && hasRole) {
     // Deliberately never removes the role: a typo, or a name change WOM
@@ -401,7 +400,7 @@ async function applyRsn(res: VercelResponse, interaction: Interaction) {
     processRsn(interaction, rsn)
       .catch((err) => {
         console.error("Set RSN failed:", err);
-        return `Something went wrong. Try again, or ask in ${VERIFICATION_CHANNEL}.`;
+        return `Something went wrong. Try again, or contact a mod.`;
       })
       .then((content) =>
         fetch(

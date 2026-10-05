@@ -36,7 +36,8 @@ directly or through a *pending* WOM name change (the group still lists the
 old name; matched on the change's player id). Decisions made with the user:
 
 - **Never removes the role.** A typo or a name change WOM hasn't seen would
-  otherwise strip a real member. #member-verification stays as the fallback.
+  otherwise strip a real member. Replies point to "contact a mod" for anything
+  the button can't settle; #member-verification is being retired.
 - **Duplicate check instead of proof of ownership.** The button can't prove an
   RSN is yours, so a name another server member already goes by is refused
   (including the *old* name of a pending change, since anyone can submit one
