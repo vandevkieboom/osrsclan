@@ -91,7 +91,7 @@ export default withErrorHandling(async function handler(req, res) {
       RETURNING id, runescape_name`;
 
     // Members are asked to set their server nickname to their RSN (the
-    // #set-your-rsn button does it for them), so an empty profile field can
+    // #member-verification button does it for them), so an empty profile field can
     // be filled from it. Never overwrites a name the member set themselves.
     if (!rows[0].runescape_name) {
       const nick = await fetchGuildNickname(me.id);

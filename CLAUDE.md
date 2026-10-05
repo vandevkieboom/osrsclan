@@ -46,16 +46,27 @@ old name; matched on the change's player id). Decisions made with the user:
   member search + WOM + a cold database don't fit Discord's 3 seconds.
 - `GET /names` without `status=pending` took 38s when measured; keep the filter.
 
-**Leaving the clan takes the roles away** (`syncClanLeavers`, daily cron
-`/api/auth/me?resource=discord-sync`). It reads WOM's group *activity* feed,
-which records explicit `left` events, instead of inferring leaves from who is
-missing from the group. Leavers are matched to Discord by nickname (falling back
-to display name), lose Time Served and their rank role (`RANK_ROLES`), and the
-bot reports it in #logging, along with leavers it couldn't find in the server.
-More than `MASS_LEAVE_LIMIT` leaves in one day is treated as a botched WOM sync:
-reported, nothing removed. The 26h window overlaps consecutive runs on
-purpose; removing a role twice is harmless. Discord's member search allows 10
+**Joining and leaving the clan updates the roles** (`syncClanRoles`, daily
+cron `/api/auth/me?resource=discord-sync`). It reads WOM's group *activity*
+feed, which records explicit `joined`/`left` events, instead of inferring them
+from who appears in or is missing from the group. Members are matched to
+Discord by nickname (falling back to display name):
+
+- **Joiners** who already set their nickname before joining get Time Served
+  (never a rank role), so they don't have to click the button again. Only
+  when exactly one server member has that name; several is reported instead.
+- **Leavers** lose Time Served and their rank role (`RANK_ROLES`); leavers
+  nobody in the server is named after are reported.
+
+Everything it does is reported in #logging. More than `MASS_CHANGE_LIMIT`
+joins or leaves in one day is treated as a botched WOM sync: reported, nothing
+changed for that direction. The 26h window overlaps consecutive runs on
+purpose; repeating an event is a no-op. Discord's member search allows 10
 requests per 10 seconds, so `botFetch` retries on 429.
+
+The button's channel was renamed from #set-your-rsn to #member-verification
+(the old verification channel was retired); the bot uses channel ids, so
+renames need no code change.
 
 ## Tile icons and item requirements (AND/OR item conditions)
 

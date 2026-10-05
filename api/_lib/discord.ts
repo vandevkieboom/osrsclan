@@ -354,7 +354,7 @@ async function processRsn(interaction: Interaction, typed: string) {
     }
   } else if (!clan && !hasRole) {
     lines.push(
-      `I couldn't find **${rsn}** in the clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. If you just joined or changed your name, it can take a bit to update.`,
+      `I couldn't find **${rsn}** in the clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. If you just joined or changed your name, it can take a bit to update. Not in the clan yet? You'll get the role automatically within a day of joining.`,
     );
   } else if (!clan && hasRole) {
     // Deliberately never removes the role: a typo, or a name change WOM
@@ -481,42 +481,48 @@ export async function fetchGuildNickname(
   }
 }
 
-// Leaves are read from WOM's group activity feed, which records an explicit
-// "left" event, rather than inferred from someone missing from the group.
-// A little over a day, so consecutive daily cron runs (whose start time
-// drifts within the hour) overlap instead of leaving a gap. Re-processing a
-// leave is harmless: the roles are already gone the second time.
-const LEAVE_WINDOW_MS = 26 * 60 * 60 * 1000;
-// More leaves than this in one day is far likelier to be a botched WOM sync
-// than a real exodus, so the sync then only reports and removes nothing.
-const MASS_LEAVE_LIMIT = 15;
+// Joins and leaves are read from WOM's group activity feed, which records
+// explicit "joined"/"left" events, rather than inferred from who appears in or
+// disappears from the group. A little over a day, so consecutive daily cron
+// runs (whose start time drifts within the hour) overlap instead of leaving a
+// gap. Re-processing an event is harmless: the role is already given or gone
+// the second time, and nothing is logged for a no-op.
+const ACTIVITY_WINDOW_MS = 26 * 60 * 60 * 1000;
+// More joins or leaves than this in one day is far likelier to be a botched
+// WOM sync than real movement, so the sync then only reports and changes
+// nothing for that direction.
+const MASS_CHANGE_LIMIT = 15;
 const CLAN_ROLE_NAMES: Record<string, string> = {
   [MEMBER_ROLE_ID]: "Time Served",
   ...RANK_ROLES,
 };
 
-interface WomLeave {
+interface WomActivity {
   playerId: number;
+  type: string;
   createdAt: string;
   player: { displayName: string };
 }
 
-async function fetchRecentLeaves(since: number): Promise<WomLeave[]> {
-  const leaves = new Map<number, WomLeave>();
+// The latest joined and left event per player since `since`.
+async function fetchRecentActivity(
+  since: number,
+): Promise<{ joins: WomActivity[]; leaves: WomActivity[] }> {
+  const joins = new Map<number, WomActivity>();
+  const leaves = new Map<number, WomActivity>();
   for (let offset = 0; offset < 1000; offset += 50) {
     const r = await fetch(
       `${WOM_BASE_URL}/groups/${WOM_GROUP_ID}/activity?limit=50&offset=${offset}`,
       { headers: WOM_HEADERS, signal: AbortSignal.timeout(8000) },
     );
     if (!r.ok) throw new Error(`WOM activity lookup failed: ${r.status}`);
-    const page = (await r.json()) as (WomLeave & { type: string })[];
+    const page = (await r.json()) as WomActivity[];
     for (const event of page) {
-      if (
-        event.type === "left" &&
-        Date.parse(event.createdAt) >= since &&
-        !leaves.has(event.playerId)
-      ) {
-        leaves.set(event.playerId, event);
+      if (Date.parse(event.createdAt) < since) continue;
+      const byType =
+        event.type === "joined" ? joins : event.type === "left" ? leaves : null;
+      if (byType && !byType.has(event.playerId)) {
+        byType.set(event.playerId, event);
       }
     }
     // Newest first, so once a page reaches past the window nothing older
@@ -524,7 +530,7 @@ async function fetchRecentLeaves(since: number): Promise<WomLeave[]> {
     const oldest = page[page.length - 1];
     if (page.length < 50 || Date.parse(oldest.createdAt) < since) break;
   }
-  return [...leaves.values()];
+  return { joins: [...joins.values()], leaves: [...leaves.values()] };
 }
 
 interface GuildMember {
@@ -563,77 +569,134 @@ async function postLog(lines: string[]) {
   }
 }
 
+// Gives the member role to whoever set their nickname to this RSN before
+// joining the clan, so they don't have to click the button again afterwards.
+// Never rank roles: those are still requested through #clan-ranks.
+async function grantJoinerRole(name: string, log: string[]): Promise<boolean> {
+  const members = await findMembersNamed(name);
+  // Not in the server yet, or already verified: nothing to do or report.
+  if (members.length === 0) return false;
+  if (members.some((m) => m.roles.includes(MEMBER_ROLE_ID))) return false;
+  if (members.length > 1) {
+    log.push(
+      `⚠️ **${name}** joined the clan, but ${members.length} people in the server have that nickname, so I gave nobody the **Time Served** role.`,
+    );
+    return false;
+  }
+
+  const [member] = members;
+  const r = await botFetch(
+    `/guilds/${GUILD_ID}/members/${member.user.id}/roles/${MEMBER_ROLE_ID}`,
+    { method: "PUT" },
+    `${name} joined the clan (Wise Old Man)`,
+  );
+  if (!r.ok) {
+    log.push(
+      `⚠️ **${name}** joined the clan, but I couldn't give <@${member.user.id}> the **Time Served** role.`,
+    );
+    return false;
+  }
+  log.push(
+    `🔺 **${name}** joined the clan: gave Time Served to <@${member.user.id}>.`,
+  );
+  return true;
+}
+
+// Takes the member role and rank roles away from a clan leaver.
+async function removeLeaverRoles(name: string, log: string[]): Promise<boolean> {
+  const members = await findMembersNamed(name);
+  if (members.length === 0) {
+    log.push(
+      `❔ **${name}** left the clan, but nobody in the server has that nickname.`,
+    );
+    return false;
+  }
+  let removedAny = false;
+  for (const member of members) {
+    const roles = member.roles.filter((id) => id in CLAN_ROLE_NAMES);
+    // A guest who was never given clan roles: nothing to do or report.
+    if (roles.length === 0) continue;
+
+    const failed: string[] = [];
+    for (const roleId of roles) {
+      const r = await botFetch(
+        `/guilds/${GUILD_ID}/members/${member.user.id}/roles/${roleId}`,
+        { method: "DELETE" },
+        `${name} left the clan (Wise Old Man)`,
+      );
+      if (!r.ok) failed.push(CLAN_ROLE_NAMES[roleId]);
+    }
+    const done = roles
+      .map((id) => CLAN_ROLE_NAMES[id])
+      .filter((n) => !failed.includes(n));
+    if (done.length > 0) {
+      removedAny = true;
+      log.push(
+        `🔻 **${name}** left the clan: removed ${done.join(", ")} from <@${member.user.id}>.`,
+      );
+    }
+    if (failed.length > 0) {
+      log.push(
+        `⚠️ **${name}** left the clan, but I couldn't remove ${failed.join(", ")} from <@${member.user.id}>.`,
+      );
+    }
+  }
+  return removedAny;
+}
+
 /**
- * Daily cron: takes the member role and rank roles away from anyone WOM says
- * left the clan in the last day, and reports what it did in #logging. People
- * are found by their server nickname, which the #set-your-rsn button keeps
- * equal to their RSN; leavers nobody in the server is named after are
- * reported instead, for a mod to handle.
+ * Daily cron: keeps Discord's clan roles in step with WOM. Anyone who joined
+ * the clan in the last day and already set their nickname to their RSN gets
+ * the member role; anyone who left loses it and their rank role. People are
+ * found by their server nickname, which the #member-verification button
+ * keeps equal to their RSN. Everything it does, and every leaver it couldn't
+ * find, is reported in #logging.
  */
-export async function syncClanLeavers(res: VercelResponse) {
+export async function syncClanRoles(res: VercelResponse) {
   if (!BOT_TOKEN || !GUILD_ID) {
     res.status(500).json({ error: "Discord bot is not configured" });
     return;
   }
 
-  const [leaves, clan] = await Promise.all([
-    fetchRecentLeaves(Date.now() - LEAVE_WINDOW_MS),
+  const [activity, clan] = await Promise.all([
+    fetchRecentActivity(Date.now() - ACTIVITY_WINDOW_MS),
     fetchWomClan(),
   ]);
-  // Left and came back since: still a member.
+  // Judged by where they stand now, so joining and leaving again on the same
+  // day (or the reverse) only counts the way it ended.
   const inClan = new Set(clan.map((m) => m.playerId));
-  const leavers = leaves.filter((l) => !inClan.has(l.playerId));
-
-  if (leavers.length > MASS_LEAVE_LIMIT) {
-    await postLog([
-      `⚠️ Wise Old Man says ${leavers.length} members left the clan in the last day. That looks more like a sync mistake than real leaves, so I removed no roles. Please check: ${leavers.map((l) => l.player.displayName).join(", ")}`,
-    ]);
-    res.status(200).json({ leavers: leavers.length, skipped: "mass-leave" });
-    return;
-  }
+  const joiners = activity.joins.filter((e) => inClan.has(e.playerId));
+  const leavers = activity.leaves.filter((e) => !inClan.has(e.playerId));
 
   const log: string[] = [];
+  let granted = 0;
   let removed = 0;
-  for (const leave of leavers) {
-    const name = leave.player.displayName;
-    const members = await findMembersNamed(name);
-    if (members.length === 0) {
-      log.push(
-        `❔ **${name}** left the clan, but nobody in the server has that nickname.`,
-      );
-      continue;
-    }
-    for (const member of members) {
-      const roles = member.roles.filter((id) => id in CLAN_ROLE_NAMES);
-      // A guest who was never given clan roles: nothing to do or report.
-      if (roles.length === 0) continue;
 
-      const failed: string[] = [];
-      for (const roleId of roles) {
-        const r = await botFetch(
-          `/guilds/${GUILD_ID}/members/${member.user.id}/roles/${roleId}`,
-          { method: "DELETE" },
-          `${name} left the clan (Wise Old Man)`,
-        );
-        if (!r.ok) failed.push(CLAN_ROLE_NAMES[roleId]);
-      }
-      const done = roles
-        .map((id) => CLAN_ROLE_NAMES[id])
-        .filter((n) => !failed.includes(n));
-      if (done.length > 0) {
-        removed++;
-        log.push(
-          `🔻 **${name}** left the clan: removed ${done.join(", ")} from <@${member.user.id}>.`,
-        );
-      }
-      if (failed.length > 0) {
-        log.push(
-          `⚠️ **${name}** left the clan, but I couldn't remove ${failed.join(", ")} from <@${member.user.id}>.`,
-        );
-      }
+  if (joiners.length > MASS_CHANGE_LIMIT) {
+    log.push(
+      `⚠️ Wise Old Man says ${joiners.length} members joined the clan in the last day. That looks more like a sync mistake than real joins, so I gave out no roles. Please check: ${joiners.map((e) => e.player.displayName).join(", ")}`,
+    );
+  } else {
+    for (const e of joiners) {
+      if (await grantJoinerRole(e.player.displayName, log)) granted++;
+    }
+  }
+
+  if (leavers.length > MASS_CHANGE_LIMIT) {
+    log.push(
+      `⚠️ Wise Old Man says ${leavers.length} members left the clan in the last day. That looks more like a sync mistake than real leaves, so I removed no roles. Please check: ${leavers.map((e) => e.player.displayName).join(", ")}`,
+    );
+  } else {
+    for (const e of leavers) {
+      if (await removeLeaverRoles(e.player.displayName, log)) removed++;
     }
   }
 
   if (log.length > 0) await postLog(log);
-  res.status(200).json({ leavers: leavers.length, removed });
+  res.status(200).json({
+    joiners: joiners.length,
+    granted,
+    leavers: leavers.length,
+    removed,
+  });
 }
