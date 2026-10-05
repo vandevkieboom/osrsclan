@@ -64,6 +64,22 @@ changed for that direction. The 26h window overlaps consecutive runs on
 purpose; repeating an event is a no-op. Discord's member search allows 10
 requests per 10 seconds, so `botFetch` retries on 429.
 
+**Name changes** come first in the same daily run: WOM's approved group
+name changes (`/groups/{id}/name-changes`) move the member's nickname and
+website RSN along, so the joins/leaves matching after it, and the button's
+duplicate check, keep finding them. Skipped (and reported) when the old name
+matches several members or the new one is already taken.
+
+**Slash commands `/rank [rsn]` and `/profile [rsn]`** (`handleCommand`),
+registered once with `pnpm discord:register-commands` (re-run after changing
+a command's name or options). With no name they use the caller's nickname.
+Replies are public, like `!rank` in the clan chat, and deferred
+(`replyLater`). `/rank` runs the exact code behind the plugin's `!rank`:
+`resolveMemberProfile`/`lookupRankProgress` were moved unchanged from
+runeprofile-proxy.ts into `api/_lib/rank-lookup.ts` so the two can't drift.
+`/profile` shows the stats at the top of the website's profile page from WOM,
+plus the clan rank via `getRankForRole`, linking to the page.
+
 The button's channel was renamed from #set-your-rsn to #member-verification
 (the old verification channel was retired); the bot uses channel ids, so
 renames need no code change.

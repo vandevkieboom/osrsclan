@@ -2,6 +2,9 @@ import { createPublicKey, verify } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { waitUntil } from "@vercel/functions";
 import { sql } from "./db.js";
+import { lookupRankProgress, resolveMemberProfile } from "./rank-lookup.js";
+import { ranks } from "../../src/data/ranks-data.js";
+import { getRankForRole } from "../../src/services/profile.js";
 
 // The same Discord application the website's OAuth login uses, with a bot
 // user added. The bot does not run anywhere: Discord POSTs button clicks and
@@ -55,7 +58,12 @@ export function normalizeRsn(raw: string): string | null {
   return RSN_PATTERN.test(rsn) ? rsn : null;
 }
 
-const InteractionType = { PING: 1, COMPONENT: 3, MODAL_SUBMIT: 5 } as const;
+const InteractionType = {
+  PING: 1,
+  COMMAND: 2,
+  COMPONENT: 3,
+  MODAL_SUBMIT: 5,
+} as const;
 const ResponseType = {
   PONG: 1,
   MESSAGE: 4,
@@ -77,7 +85,51 @@ interface Interaction {
   data?: {
     custom_id?: string;
     components?: { components: { custom_id: string; value: string }[] }[];
+    // Slash commands.
+    name?: string;
+    options?: { name: string; value: string }[];
   };
+}
+
+// A message body for a reply: text, embeds, or both.
+interface ReplyBody {
+  content?: string;
+  embeds?: object[];
+}
+
+/**
+ * Discord wants an answer within 3 seconds, which a cold database or a slow
+ * WOM/RuneProfile can't promise. So the immediate answer is "thinking…" and
+ * the real reply replaces it once `work` is done.
+ */
+function replyLater(
+  res: VercelResponse,
+  interaction: Interaction,
+  work: () => Promise<ReplyBody>,
+  { ephemeral }: { ephemeral: boolean },
+) {
+  res.status(200).json({
+    type: ResponseType.DEFERRED_MESSAGE,
+    data: ephemeral ? { flags: EPHEMERAL } : {},
+  });
+  waitUntil(
+    work()
+      .catch((err): ReplyBody => {
+        console.error(`Discord interaction failed:`, err);
+        return { content: "Something went wrong. Try again, or contact a mod." };
+      })
+      .then((body) =>
+        fetch(
+          `${API}/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...body, allowed_mentions: { parse: [] } }),
+          },
+        ),
+      )
+      .catch((err) => console.error("Discord follow-up failed:", err)),
+  );
 }
 
 // Discord signs the raw bytes, so the body has to be read before (and
@@ -220,6 +272,7 @@ interface ClanMatch {
 
 interface WomMembership {
   playerId: number;
+  role: string;
   player: { username: string; displayName: string };
 }
 
@@ -385,31 +438,169 @@ async function applyRsn(res: VercelResponse, interaction: Interaction) {
     return;
   }
 
-  // Discord wants an answer within 3 seconds, which the member search, WOM
-  // and a cold database together can't promise. So the answer is "thinking…"
-  // and the real reply replaces it once the work is done.
-  res.status(200).json({
-    type: ResponseType.DEFERRED_MESSAGE,
-    data: { flags: EPHEMERAL },
-  });
-  waitUntil(
-    processRsn(interaction, rsn)
-      .catch((err) => {
-        console.error("Set RSN failed:", err);
-        return `Something went wrong. Try again, or contact a mod.`;
-      })
-      .then((content) =>
-        fetch(
-          `${API}/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content }),
-          },
-        ),
-      )
-      .catch((err) => console.error("Set RSN follow-up failed:", err)),
+  // The member search, WOM and a cold database together don't fit Discord's
+  // 3 seconds.
+  replyLater(
+    res,
+    interaction,
+    async () => ({ content: await processRsn(interaction, rsn) }),
+    { ephemeral: true },
   );
+}
+
+const SITE_URL = "https://timeserved.vercel.app";
+
+function embedColor(hex: string | undefined): number | undefined {
+  return hex && /^#[0-9a-f]{6}$/i.test(hex) ? parseInt(hex.slice(1), 16) : undefined;
+}
+
+// The `rsn` option, or the caller's own nickname when they left it out.
+function commandRsn(interaction: Interaction): string | null {
+  const typed = interaction.data?.options?.find((o) => o.name === "rsn")?.value;
+  return normalizeRsn(typed ?? interaction.member?.nick ?? "");
+}
+
+// `/rank [rsn]`: the same answer as the plugin's `!rank`, from the same code
+// (`lookupRankProgress`).
+async function rankReply(rsn: string): Promise<ReplyBody> {
+  const resolved = await resolveMemberProfile(rsn);
+  if (!resolved.ok) {
+    if (resolved.reason === "not-on-runeprofile") {
+      return {
+        content: `**${rsn}** isn't on RuneProfile yet. Install the RuneProfile plugin in RuneLite and sync your account, then try again.`,
+      };
+    }
+    return {
+      content:
+        resolved.status === 429
+          ? "RuneProfile is busy right now. Try again in a minute."
+          : `I couldn't load **${rsn}** from RuneProfile. Try again later.`,
+    };
+  }
+
+  const lookup = await lookupRankProgress(resolved.displayName, resolved.profile);
+  const eligible = ranks.find((r) => r.name === lookup.eligibleRank);
+  const lines = [
+    eligible
+      ? `Eligible for **${eligible.name}**`
+      : "Not eligible for a rank yet",
+    `${lookup.overallSatisfied}/${lookup.overallTotal} rank items done`,
+  ];
+  if (lookup.nextRank && lookup.neededForNextRank !== null) {
+    lines.push(
+      "",
+      `**Next: ${lookup.nextRank}**, ${lookup.neededForNextRank} more item${lookup.neededForNextRank === 1 ? "" : "s"} needed`,
+    );
+    if (lookup.missingItemNames.length > 0) {
+      lines.push(`Missing: ${lookup.missingItemNames.join(", ")}`);
+    }
+  } else {
+    lines.push("", "That's the highest rank!");
+  }
+
+  return {
+    embeds: [
+      {
+        title: lookup.rsn,
+        url: `${SITE_URL}/rankings?u=${encodeURIComponent(lookup.rsn)}`,
+        description: lines.join("\n"),
+        color: embedColor(eligible?.textColor),
+        thumbnail: eligible ? { url: eligible.icon } : undefined,
+      },
+    ],
+  };
+}
+
+interface WomPlayer {
+  id: number;
+  displayName: string;
+  combatLevel: number;
+  exp: number;
+  ehp: number;
+  ehb: number;
+  latestSnapshot?: { data?: { skills?: { overall?: { level?: number } } } };
+}
+
+// `/profile [rsn]`: the stats at the top of the website's profile page, with
+// a link to it.
+async function profileReply(rsn: string): Promise<ReplyBody> {
+  const [playerRes, clan] = await Promise.all([
+    fetch(`${WOM_BASE_URL}/players/${encodeURIComponent(rsn)}`, {
+      headers: WOM_HEADERS,
+      signal: AbortSignal.timeout(8000),
+    }),
+    // Only for the clan rank; the profile still shows without it.
+    fetchWomClan().catch(() => null),
+  ]);
+  if (playerRes.status === 404) {
+    return { content: `**${rsn}** isn't tracked on Wise Old Man.` };
+  }
+  if (playerRes.status === 429) {
+    return { content: "Wise Old Man is busy right now. Try again in a minute." };
+  }
+  if (!playerRes.ok) {
+    return { content: `I couldn't load **${rsn}** from Wise Old Man. Try again later.` };
+  }
+
+  const player = (await playerRes.json()) as WomPlayer;
+  // WOM keeps an empty record (all zeros, no snapshot) for names it was asked
+  // about but never managed to track, e.g. ones not on the hiscores.
+  if (!player.latestSnapshot) {
+    return { content: `**${rsn}** isn't tracked on Wise Old Man.` };
+  }
+  const membership = clan?.find((m) => m.playerId === player.id);
+  const rank = getRankForRole(membership?.role);
+  const totalLevel = player.latestSnapshot?.data?.skills?.overall?.level;
+
+  return {
+    embeds: [
+      {
+        title: player.displayName,
+        url: `${SITE_URL}/profile?rsn=${encodeURIComponent(player.displayName)}`,
+        description: rank
+          ? `**${rank.name}** in Time Served`
+          : membership
+            ? "Member of Time Served"
+            : clan
+              ? "Not in Time Served"
+              : undefined,
+        color: embedColor(rank?.color),
+        thumbnail: rank ? { url: rank.icon } : undefined,
+        fields: [
+          { name: "Combat", value: String(player.combatLevel), inline: true },
+          { name: "Total level", value: totalLevel ? String(totalLevel) : "?", inline: true },
+          { name: "Total XP", value: `${(player.exp / 1e6).toFixed(1)}M`, inline: true },
+          { name: "EHP", value: String(Math.round(player.ehp)), inline: true },
+          { name: "EHB", value: String(Math.round(player.ehb)), inline: true },
+        ],
+      },
+    ],
+  };
+}
+
+function handleCommand(res: VercelResponse, interaction: Interaction) {
+  const build =
+    interaction.data?.name === "rank"
+      ? rankReply
+      : interaction.data?.name === "profile"
+        ? profileReply
+        : null;
+  if (!build) {
+    reply(res, "Unknown command.");
+    return;
+  }
+  const rsn = commandRsn(interaction);
+  if (!rsn) {
+    reply(
+      res,
+      "Which player? Add a name, like `/" +
+        interaction.data?.name +
+        " Zezima`, or set your nickname to your RSN in #member-verification first.",
+    );
+    return;
+  }
+  // Public, like `!rank` in the clan chat.
+  replyLater(res, interaction, () => build(rsn), { ephemeral: false });
 }
 
 export async function handleDiscordInteraction(
@@ -437,6 +628,10 @@ export async function handleDiscordInteraction(
 
   if (interaction.type === InteractionType.PING) {
     res.status(200).json({ type: ResponseType.PONG });
+    return;
+  }
+  if (interaction.type === InteractionType.COMMAND) {
+    handleCommand(res, interaction);
     return;
   }
   if (
@@ -644,13 +839,83 @@ async function removeLeaverRoles(name: string, log: string[]): Promise<boolean> 
   return removedAny;
 }
 
+interface WomNameChange {
+  oldName: string;
+  newName: string;
+  resolvedAt: string | null;
+}
+
+// Name changes WOM approved since `since`, oldest first so a member who
+// renamed twice in a day ends up on the latest name.
+async function fetchRecentNameChanges(since: number): Promise<WomNameChange[]> {
+  const r = await fetch(
+    `${WOM_BASE_URL}/groups/${WOM_GROUP_ID}/name-changes?limit=50`,
+    { headers: WOM_HEADERS, signal: AbortSignal.timeout(8000) },
+  );
+  if (!r.ok) throw new Error(`WOM name-change lookup failed: ${r.status}`);
+  return ((await r.json()) as (WomNameChange & { status: string })[])
+    .filter(
+      (c) =>
+        c.status === "approved" &&
+        c.resolvedAt !== null &&
+        Date.parse(c.resolvedAt) >= since,
+    )
+    .reverse();
+}
+
+// Moves a member's nickname (and website RSN) along with an in-game name
+// change, so the joins/leaves matching after it, and the duplicate check on
+// the button, keep finding them.
+async function applyNameChange(
+  change: WomNameChange,
+  log: string[],
+): Promise<boolean> {
+  const { oldName, newName } = change;
+  const members = await findMembersNamed(oldName);
+  // Not in the server, or already renamed (a re-run, or they did it).
+  if (members.length === 0) return false;
+  if (members.length > 1) {
+    log.push(
+      `⚠️ **${oldName}** changed their name to **${newName}**, but ${members.length} people in the server are called ${oldName}, so I renamed nobody.`,
+    );
+    return false;
+  }
+  const [member] = members;
+  if ((await findMembersNamed(newName)).some((m) => m.user.id !== member.user.id)) {
+    log.push(
+      `⚠️ **${oldName}** changed their name to **${newName}**, but someone else in the server already uses that name, so I left <@${member.user.id}>'s nickname alone.`,
+    );
+    return false;
+  }
+
+  const r = await botFetch(
+    `/guilds/${GUILD_ID}/members/${member.user.id}`,
+    { method: "PATCH", body: JSON.stringify({ nick: newName }) },
+    `${oldName} changed their name to ${newName} (Wise Old Man)`,
+  );
+  if (!r.ok) {
+    log.push(
+      `⚠️ **${oldName}** changed their name to **${newName}**, but I couldn't change <@${member.user.id}>'s nickname.`,
+    );
+    return false;
+  }
+  await sql`UPDATE users SET runescape_name = ${newName} WHERE discord_id = ${member.user.id}`.catch(
+    (err) => console.error("Saving renamed RSN failed:", err),
+  );
+  log.push(
+    `✏️ **${oldName}** changed their name to **${newName}**: updated <@${member.user.id}>'s nickname.`,
+  );
+  return true;
+}
+
 /**
- * Daily cron: keeps Discord's clan roles in step with WOM. Anyone who joined
- * the clan in the last day and already set their nickname to their RSN gets
- * the member role; anyone who left loses it and their rank role. People are
- * found by their server nickname, which the #member-verification button
- * keeps equal to their RSN. Everything it does, and every leaver it couldn't
- * find, is reported in #logging.
+ * Daily cron: keeps Discord in step with WOM. Members who changed their name
+ * in-game get their nickname updated; anyone who joined the clan in the last
+ * day and already set their nickname to their RSN gets the member role;
+ * anyone who left loses it and their rank role. People are found by their
+ * server nickname, which the #member-verification button keeps equal to their
+ * RSN. Everything it does, and every leaver it couldn't find, is reported in
+ * #logging.
  */
 export async function syncClanRoles(res: VercelResponse) {
   if (!BOT_TOKEN || !GUILD_ID) {
@@ -658,9 +923,11 @@ export async function syncClanRoles(res: VercelResponse) {
     return;
   }
 
-  const [activity, clan] = await Promise.all([
-    fetchRecentActivity(Date.now() - ACTIVITY_WINDOW_MS),
+  const since = Date.now() - ACTIVITY_WINDOW_MS;
+  const [activity, clan, nameChanges] = await Promise.all([
+    fetchRecentActivity(since),
     fetchWomClan(),
+    fetchRecentNameChanges(since),
   ]);
   // Judged by where they stand now, so joining and leaving again on the same
   // day (or the reverse) only counts the way it ended.
@@ -669,8 +936,14 @@ export async function syncClanRoles(res: VercelResponse) {
   const leavers = activity.leaves.filter((e) => !inClan.has(e.playerId));
 
   const log: string[] = [];
+  let renamed = 0;
   let granted = 0;
   let removed = 0;
+
+  // First, so the joins and leaves below find people under their new name.
+  for (const change of nameChanges) {
+    if (await applyNameChange(change, log)) renamed++;
+  }
 
   if (joiners.length > MASS_CHANGE_LIMIT) {
     log.push(
@@ -694,6 +967,8 @@ export async function syncClanRoles(res: VercelResponse) {
 
   if (log.length > 0) await postLog(log);
   res.status(200).json({
+    nameChanges: nameChanges.length,
+    renamed,
     joiners: joiners.length,
     granted,
     leavers: leavers.length,

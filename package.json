@@ -9,6 +9,7 @@
     "dev:vercel": "vercel dev",
     "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
     "discord:post-rsn-button": "node --env-file=.env.local scripts/post-rsn-button.mjs",
+    "discord:register-commands": "node --env-file=.env.local scripts/register-discord-commands.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",
