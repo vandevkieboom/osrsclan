@@ -10,7 +10,7 @@ import {
   type RuneProfile,
   type WomPlayerResponse,
 } from "../../src/services/runeprofile.js";
-import { getVerifiedItemNames } from "./verifications-marker.js";
+import { getVerifiedItemNames } from "./verifications.js";
 
 // A member's clan-rank progress from a live RuneProfile, shared by the
 // plugin's `!rank`/`!needed` (api/runeprofile-proxy.ts) and the Discord bot's

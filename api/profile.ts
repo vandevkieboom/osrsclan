@@ -4,8 +4,9 @@ import { requireAdmin, discordAvatarUrl } from "./_lib/auth.js";
 import { withErrorHandling } from "./_lib/handler.js";
 import {
   getVerifiedItemNames,
-  publishVerificationsMarker,
-} from "./_lib/verifications-marker.js";
+  notifyVerificationsChanged,
+  renderVerificationsSnapshot,
+} from "./_lib/verifications.js";
 
 const MAX_LABEL_LENGTH = 120;
 const MAX_DATE_LABEL_LENGTH = 40;
@@ -111,16 +112,8 @@ async function listVerifiedItems(req: VercelRequest, res: VercelResponse) {
   }
 
   // Matches the window on lookupRank/getClanRequirement, the other public
-  // read endpoints. This was the only read path on the site with no cache
-  // header at all, which mattered more than it looks: getVerifiedItemNames
-  // normally answers from a Blob marker and never touches Postgres, but that
-  // marker is only republished when an admin verifies or unverifies an item -
-  // a few times a month - and anything older than its 24h backstop falls
-  // straight through to a per-request database read. So for most of any given
-  // month the cheap path is switched off, and without a cache header every
-  // single profile view during that stretch was its own uncached query.
-  // Sixty seconds is plenty here: this list only changes on a deliberate
-  // admin action, which republishes the marker on the spot anyway.
+  // read endpoints. getVerifiedItemNames answers from the CDN-cached snapshot
+  // (_lib/verifications.ts), so a miss here costs no database read either.
   res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=60");
 
   const items = await getVerifiedItemNames(rsn.toLowerCase());
@@ -143,7 +136,7 @@ async function addVerifiedItem(req: VercelRequest, res: VercelResponse) {
     INSERT INTO manual_item_verifications (rsn_key, item_name, verified_by)
     VALUES (${rsn.toLowerCase()}, ${itemName.toLowerCase()}, ${admin.id})
     ON CONFLICT (rsn_key, item_name) DO NOTHING`;
-  await publishVerificationsMarker();
+  await notifyVerificationsChanged();
   res.status(201).json({ ok: true });
 }
 
@@ -162,7 +155,7 @@ async function removeVerifiedItem(req: VercelRequest, res: VercelResponse) {
   await sql`
     DELETE FROM manual_item_verifications
     WHERE rsn_key = ${rsn.toLowerCase()} AND item_name = ${itemName.toLowerCase()}`;
-  await publishVerificationsMarker();
+  await notifyVerificationsChanged();
   res.status(200).json({ ok: true });
 }
 
@@ -170,6 +163,17 @@ async function removeVerifiedItem(req: VercelRequest, res: VercelResponse) {
 // manually-verified items) are combined into one function to stay under the
 // Vercel Hobby plan's 12-function-per-deployment cap.
 export default withErrorHandling(async function handler(req, res) {
+  // The whole verified-items table, CDN-cached until an admin changes it;
+  // what getVerifiedItemNames reads instead of Postgres (_lib/verifications.ts).
+  if (req.query.resource === "verified-items-snapshot") {
+    if (req.method !== "GET") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+    await renderVerificationsSnapshot(res);
+    return;
+  }
+
   if (req.query.resource === "verified-items") {
     if (req.method === "GET") {
       await listVerifiedItems(req, res);

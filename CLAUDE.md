@@ -226,6 +226,33 @@ asks for an uncached board on startup, and polls every 3 minutes instead of
 every minute while its sidebar panel is closed. Edge Requests are billed on
 cache hits too, so the poll rate is the only lever on that meter.
 
+## Verified items come from the CDN, not Blob (2026-10-05)
+
+**Supersedes the `verifications-marker.ts` paragraph above** (file deleted).
+Two weeks after the bingo ended Neon was still awake nearly 24/7 (21 CU-hours
+in the first 5 days of October, on pace to hit the 100 CU-hour cap mid-month).
+Causes, found with `pg_stat_statements` and the Vercel CLI:
+
+- **The Blob store was suspended** (`limits-exceeded-suspended`, since
+  2026-09-24) after the bingo's screenshot traffic. The verifications marker
+  lived in that store, so every `!rank`/`!needed`, every plugin's daily
+  RuneProfile check, `/rank` and the ranks search fell back to Postgres,
+  twice per call (the fallback also tried to republish). Every answer stayed
+  correct, which is why nobody noticed. **A store-wide Blob suspension takes
+  out everything in it**, not just the screenshots that caused it.
+- **Neon Auth** had been enabled when the Neon project was created (0 users,
+  never used; the site has its own Discord login) and read its config from
+  the database every ~10 minutes. Disabled by the user in the Neon console.
+
+`_lib/verifications.ts` now serves the whole table from
+`GET /api/profile?resource=verified-items-snapshot`, CDN-cached for a day
+with tag `verifications` and purged on admin writes, the same pattern as the
+poll. `getVerifiedItemNames` fetches that URL (memoised 60s per instance) and
+only reads Postgres if the fetch fails. Don't move it back into Blob.
+
+**Check `vercel blob list-stores` after an event** — "Suspended" there is
+invisible everywhere else.
+
 ## Hosting cost — the incident, and the shape of the fix
 
 > **Superseded 2026-09-02** — the fix below shipped and genuinely cut
