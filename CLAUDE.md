@@ -41,7 +41,16 @@ old name; matched on the change's player id). Decisions made with the user:
 - **Duplicate check instead of proof of ownership.** The button can't prove an
   RSN is yours, so a name another server member already goes by is refused
   (including the *old* name of a pending change, since anyone can submit one
-  to WOM). A failed member search counts as taken.
+  to WOM). "Goes by" means their Discord nickname *or* the RSN on their
+  website profile, so a member may keep a nickname that isn't their RSN
+  (e.g. a known name that was taken in-game) without their real RSN becoming
+  claimable. A failed member search counts as taken; a failed database read
+  counts as free, so a Neon outage can't block every Verify.
+- `/rank` and `/profile` without a name use the caller's website RSN first,
+  then their nickname.
+- Not done (discussed): storing a Discord↔RSN↔WOM-player link on every
+  Verify, which would make the duplicate check and the daily sync independent
+  of nicknames entirely. The user chose the website-RSN version instead.
 - The reply is deferred (`DEFERRED_MESSAGE`, then the follow-up webhook), since
   member search + WOM + a cold database don't fit Discord's 3 seconds.
 - `GET /names` without `status=pending` took 38s when measured; keep the filter.

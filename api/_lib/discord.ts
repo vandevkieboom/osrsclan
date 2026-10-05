@@ -271,14 +271,39 @@ function rsnKey(name: string): string {
   return name.replace(/[-_\s]+/g, " ").trim().toLowerCase();
 }
 
-// Whether another member of the server already goes by this name. This is the
-// only thing stopping a guest from typing a clan member's RSN to get the
-// member role, so a failed search counts as taken rather than as free.
+// Whether another Discord account has set this RSN on its website profile.
+// That covers members whose nickname isn't their RSN (a known name that was
+// taken in-game, say), whom the nickname search below can't see. A database
+// failure counts as free, unlike a failed member search: the nickname check
+// still runs, and refusing every Verify while Neon is unreachable would be
+// worse than missing this one extra check for a moment.
+async function isRsnLinkedElsewhere(
+  userId: string,
+  rsn: string,
+): Promise<boolean> {
+  try {
+    const rows = await sql`
+      SELECT 1 FROM users
+      WHERE discord_id <> ${userId}
+        AND lower(btrim(regexp_replace(runescape_name, '[-_[:space:]]+', ' ', 'g'))) = ${rsnKey(rsn)}
+      LIMIT 1`;
+    return rows.length > 0;
+  } catch (err) {
+    console.error("Website RSN duplicate check failed:", err);
+    return false;
+  }
+}
+
+// Whether another member already goes by this name, as their Discord
+// nickname or as the RSN on their website profile. This is the only thing
+// stopping a guest from typing a clan member's RSN to get the member role, so
+// a failed member search counts as taken rather than as free.
 async function isNameTaken(
   guildId: string,
   userId: string,
   rsn: string,
 ): Promise<boolean> {
+  if (await isRsnLinkedElsewhere(userId, rsn)) return true;
   const r = await botFetch(
     `/guilds/${guildId}/members/search?query=${encodeURIComponent(rsn)}&limit=100`,
   );
@@ -364,7 +389,7 @@ async function processRsn(interaction: Interaction, typed: string) {
   const userId = member.user.id;
 
   if (await isNameTaken(guildId, userId, typed)) {
-    return `Someone else in this server already uses **${typed}** as their nickname. If that really is your name, contact a mod.`;
+    return `Someone else in this server already uses **${typed}**. If that really is your name, contact a mod.`;
   }
 
   // undefined: WOM couldn't be asked. null: asked, and not in the clan.
@@ -490,10 +515,22 @@ function embedColor(hex: string | undefined): number | undefined {
   return hex && /^#[0-9a-f]{6}$/i.test(hex) ? parseInt(hex.slice(1), 16) : undefined;
 }
 
-// The `rsn` option, or the caller's own nickname when they left it out.
-function commandRsn(interaction: Interaction): string | null {
-  const typed = interaction.data?.options?.find((o) => o.name === "rsn")?.value;
-  return normalizeRsn(typed ?? interaction.member?.nick ?? "");
+// Who a command without a name is about: the caller's website RSN first,
+// since that's the one they chose (a nickname can be a known name that was
+// taken in-game), then their nickname.
+async function callerRsn(interaction: Interaction): Promise<string | null> {
+  const userId = interaction.member?.user.id;
+  if (userId) {
+    try {
+      const rows =
+        await sql`SELECT runescape_name FROM users WHERE discord_id = ${userId}`;
+      const site = normalizeRsn((rows[0]?.runescape_name as string | null) ?? "");
+      if (site) return site;
+    } catch (err) {
+      console.error("Looking up the caller's website RSN failed:", err);
+    }
+  }
+  return normalizeRsn(interaction.member?.nick ?? "");
 }
 
 // `/rank [rsn]`: the same answer as the plugin's `!rank`, from the same code
@@ -624,18 +661,31 @@ function handleCommand(res: VercelResponse, interaction: Interaction) {
     reply(res, "Unknown command.");
     return;
   }
-  const rsn = commandRsn(interaction);
-  if (!rsn) {
+  const typed = interaction.data?.options?.find((o) => o.name === "rsn")?.value;
+  if (typed !== undefined && !normalizeRsn(typed)) {
     reply(
       res,
-      "Which player? Add a name, like `/" +
-        interaction.data?.name +
-        " Zezima`, or set your nickname to your RSN in #member-verification first.",
+      "That doesn't look like a RuneScape name: 1-12 characters, only letters, numbers, spaces, `-` and `_`.",
     );
     return;
   }
-  // Public, like `!rank` in the clan chat.
-  replyLater(res, interaction, () => build(rsn), { ephemeral: false });
+
+  // Public, like `!rank` in the clan chat. Deferred before working out who a
+  // name-less command is about, since that can wait on a cold database.
+  replyLater(
+    res,
+    interaction,
+    async () => {
+      const rsn = typed !== undefined ? normalizeRsn(typed) : await callerRsn(interaction);
+      if (!rsn) {
+        return {
+          content: `Which player? Add a name, like \`/${interaction.data?.name} Zezima\`, or verify in #member-verification first.`,
+        };
+      }
+      return build(rsn);
+    },
+    { ephemeral: false },
+  );
 }
 
 export async function handleDiscordInteraction(
