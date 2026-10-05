@@ -39,10 +39,38 @@ const RANK_ROLES: Record<string, string> = {
 // api/wom-proxy.ts, api/runeprofile-proxy.ts and api/_lib/board.ts.
 const WOM_GROUP_ID = 22206;
 const WOM_BASE_URL = "https://api.wiseoldman.net/v2";
+// Same headers as the WOM calls elsewhere in api/, which are known to work
+// from Vercel.
 const WOM_HEADERS: Record<string, string> = {
+  "Content-Type": "application/json",
   "User-Agent": "vandevkieboom",
   ...(process.env.WOM_API_KEY ? { "x-api-key": process.env.WOM_API_KEY } : {}),
 };
+
+// Everything the bot does runs after Discord already has its "thinking…"
+// reply, and Discord allows the real answer 15 minutes, so a slow upstream
+// only needs a generous ceiling, not a tight one. From Vercel's region WOM's
+// group endpoint was measured at 3-4.5s against ~1s locally, and the 5-8s
+// limits first used here timed out in production.
+const UPSTREAM_TIMEOUT_MS = 20_000;
+
+// fetch() with that ceiling, whose error names the request and how long it
+// ran: a bare "The operation was aborted due to timeout" in the logs says
+// nothing about which of the several calls behind one reply was slow.
+async function fetchWithin(url: string, init: RequestInit = {}): Promise<Response> {
+  const started = Date.now();
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new Error(
+      `${init.method ?? "GET"} ${url.split("?")[0]} failed after ${Date.now() - started}ms`,
+      { cause: err },
+    );
+  }
+}
 
 export const SET_RSN_BUTTON_ID = "set-rsn";
 const SET_RSN_MODAL_ID = "set-rsn-modal";
@@ -112,10 +140,16 @@ function replyLater(
     type: ResponseType.DEFERRED_MESSAGE,
     data: ephemeral ? { flags: EPHEMERAL } : {},
   });
+  const started = Date.now();
+  const what = interaction.data?.name ? `/${interaction.data.name}` : "Verify";
   waitUntil(
     work()
       .catch((err): ReplyBody => {
-        console.error(`Discord interaction failed:`, err);
+        console.error(
+          `Discord ${what} failed after ${Date.now() - started}ms:`,
+          err,
+          err instanceof Error ? err.cause : "",
+        );
         return { content: "Something went wrong. Try again, or contact a mod." };
       })
       .then((body) =>
@@ -217,14 +251,13 @@ async function botFetch(
   auditReason = "Set RSN via button",
 ): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
-    const r = await fetch(`${API}${path}`, {
+    const r = await fetchWithin(`${API}${path}`, {
       ...init,
       headers: {
         Authorization: `Bot ${BOT_TOKEN}`,
         "Content-Type": "application/json",
         "X-Audit-Log-Reason": encodeURIComponent(auditReason),
       },
-      signal: AbortSignal.timeout(5000),
     });
     const retryAfter = Number(r.headers.get("retry-after"));
     if (r.status !== 429 || attempt >= 3 || !(retryAfter <= 15)) return r;
@@ -279,9 +312,8 @@ interface WomMembership {
 // Throws when WOM can't be asked, which must never be mistaken for "nobody
 // is in the clan".
 async function fetchWomClan(): Promise<WomMembership[]> {
-  const r = await fetch(`${WOM_BASE_URL}/groups/${WOM_GROUP_ID}`, {
+  const r = await fetchWithin(`${WOM_BASE_URL}/groups/${WOM_GROUP_ID}`, {
     headers: WOM_HEADERS,
-    signal: AbortSignal.timeout(8000),
   });
   if (!r.ok) throw new Error(`WOM group lookup failed: ${r.status}`);
   return ((await r.json()) as { memberships: WomMembership[] }).memberships;
@@ -298,9 +330,9 @@ async function findInWomClan(rsn: string): Promise<ClanMatch | null> {
   const [memberships, changes] = await Promise.all([
     fetchWomClan(),
     // `status=pending` matters: without it this search took 38s when tried.
-    fetch(
+    fetchWithin(
       `${WOM_BASE_URL}/names?username=${encodeURIComponent(rsn)}&status=pending&limit=20`,
-      { headers: WOM_HEADERS, signal: AbortSignal.timeout(5000) },
+      { headers: WOM_HEADERS },
     )
       .then((r) =>
         r.ok
@@ -340,7 +372,11 @@ async function processRsn(interaction: Interaction, typed: string) {
   try {
     clan = await findInWomClan(typed);
   } catch (err) {
-    console.error(err);
+    console.error(
+      "Verify: WOM clan lookup failed:",
+      err,
+      err instanceof Error ? err.cause : "",
+    );
   }
   // Anyone can submit a name change to WOM, so a pending one away from a name
   // someone else here goes by would be a way around the check above.
@@ -525,9 +561,8 @@ interface WomPlayer {
 // a link to it.
 async function profileReply(rsn: string): Promise<ReplyBody> {
   const [playerRes, clan] = await Promise.all([
-    fetch(`${WOM_BASE_URL}/players/${encodeURIComponent(rsn)}`, {
+    fetchWithin(`${WOM_BASE_URL}/players/${encodeURIComponent(rsn)}`, {
       headers: WOM_HEADERS,
-      signal: AbortSignal.timeout(8000),
     }),
     // Only for the clan rank; the profile still shows without it.
     fetchWomClan().catch(() => null),
@@ -706,9 +741,9 @@ async function fetchRecentActivity(
   const joins = new Map<number, WomActivity>();
   const leaves = new Map<number, WomActivity>();
   for (let offset = 0; offset < 1000; offset += 50) {
-    const r = await fetch(
+    const r = await fetchWithin(
       `${WOM_BASE_URL}/groups/${WOM_GROUP_ID}/activity?limit=50&offset=${offset}`,
-      { headers: WOM_HEADERS, signal: AbortSignal.timeout(8000) },
+      { headers: WOM_HEADERS },
     );
     if (!r.ok) throw new Error(`WOM activity lookup failed: ${r.status}`);
     const page = (await r.json()) as WomActivity[];
@@ -801,9 +836,8 @@ async function grantJoinerRole(name: string, log: string[]): Promise<boolean> {
 // null when the hiscores couldn't be asked.
 async function existsOnHiscores(name: string): Promise<boolean | null> {
   try {
-    const r = await fetch(
+    const r = await fetchWithin(
       `https://secure.runescape.com/m=hiscore_oldschool/index_lite.json?player=${encodeURIComponent(name)}`,
-      { signal: AbortSignal.timeout(8000) },
     );
     if (r.status === 404) return false;
     return r.ok ? true : null;
@@ -896,9 +930,9 @@ interface WomNameChange {
 // Name changes WOM approved since `since`, oldest first so a member who
 // renamed twice in a day ends up on the latest name.
 async function fetchRecentNameChanges(since: number): Promise<WomNameChange[]> {
-  const r = await fetch(
+  const r = await fetchWithin(
     `${WOM_BASE_URL}/groups/${WOM_GROUP_ID}/name-changes?limit=50`,
-    { headers: WOM_HEADERS, signal: AbortSignal.timeout(8000) },
+    { headers: WOM_HEADERS },
   );
   if (!r.ok) throw new Error(`WOM name-change lookup failed: ${r.status}`);
   return ((await r.json()) as (WomNameChange & { status: string })[])
