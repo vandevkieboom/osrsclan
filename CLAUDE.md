@@ -95,7 +95,8 @@ Replies are public, like `!rank` in the clan chat, and deferred
 (`replyLater`). `/rank` runs the exact code behind the plugin's `!rank`:
 `resolveMemberProfile`/`lookupRankProgress` were moved unchanged from
 runeprofile-proxy.ts into `api/_lib/rank-lookup.ts` so the two can't drift.
-`/profile` shows the stats at the top of the website's profile page from WOM,
+`/profile` shows combat, total level, total XP and the top 3 bosses (raids left
+out, as on the website's profile page) from WOM,
 plus the clan rank via `getRankForRole`, linking to the page.
 
 The button's channel was renamed from #set-your-rsn to #member-verification

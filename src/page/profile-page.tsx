@@ -28,7 +28,7 @@ const BOSS_METRICS = METRIC_GROUPS.find(
 // Raid bosses are split into their own section — a raw top-KC sort buries
 // them under whichever easy boss the player happens to grind the most,
 // even though raids are the actual difficulty benchmark clan members care
-// about.
+// about. Keep in sync with RAID_METRICS in api/_lib/discord.ts (/profile).
 const RAID_METRIC_VALUES = [
   "theatre_of_blood",
   "theatre_of_blood_hard_mode",

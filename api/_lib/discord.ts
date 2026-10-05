@@ -5,6 +5,7 @@ import { sql } from "./db.js";
 import { lookupRankProgress, resolveMemberProfile } from "./rank-lookup.js";
 import { ranks } from "../../src/data/ranks-data.js";
 import { getRankForRole } from "../../src/services/profile.js";
+import { METRIC_GROUPS } from "../../src/services/wom.js";
 
 // The same Discord application the website's OAuth login uses, with a bot
 // user added. The bot does not run anywhere: Discord POSTs button clicks and
@@ -589,9 +590,37 @@ interface WomPlayer {
   displayName: string;
   combatLevel: number;
   exp: number;
-  ehp: number;
-  ehb: number;
-  latestSnapshot?: { data?: { skills?: { overall?: { level?: number } } } };
+  latestSnapshot?: {
+    data?: {
+      skills?: { overall?: { level?: number } };
+      bosses?: Record<string, { kills: number }>;
+    };
+  };
+}
+
+const BOSS_METRICS = METRIC_GROUPS.find((g) => g.groupLabel === "Bosses")!.metrics;
+// Left out of the top bosses, as on the website's profile page, which gives
+// raids their own section rather than letting them compete with easy bosses.
+// Keep in sync with RAID_METRIC_VALUES in src/page/profile-page.tsx.
+const RAID_METRICS = new Set([
+  "theatre_of_blood",
+  "theatre_of_blood_hard_mode",
+  "tombs_of_amascut",
+  "tombs_of_amascut_expert",
+  "chambers_of_xeric",
+  "chambers_of_xeric_challenge_mode",
+]);
+
+function topBosses(player: WomPlayer, count: number): string {
+  const kills = player.latestSnapshot?.data?.bosses ?? {};
+  const top = BOSS_METRICS.filter((m) => !RAID_METRICS.has(m.value))
+    .map((m) => ({ name: m.label, kc: kills[m.value]?.kills ?? 0 }))
+    .filter((b) => b.kc > 0)
+    .sort((a, b) => b.kc - a.kc)
+    .slice(0, count);
+  return top.length > 0
+    ? top.map((b) => `${b.name}: ${b.kc.toLocaleString("en-US")} kc`).join("\n")
+    : "None yet";
 }
 
 // `/profile [rsn]`: the stats at the top of the website's profile page, with
@@ -642,8 +671,7 @@ async function profileReply(rsn: string): Promise<ReplyBody> {
           { name: "Combat", value: String(player.combatLevel), inline: true },
           { name: "Total level", value: totalLevel ? String(totalLevel) : "?", inline: true },
           { name: "Total XP", value: `${(player.exp / 1e6).toFixed(1)}M`, inline: true },
-          { name: "EHP", value: String(Math.round(player.ehp)), inline: true },
-          { name: "EHB", value: String(Math.round(player.ehb)), inline: true },
+          { name: "Top bosses", value: topBosses(player, 3) },
         ],
       },
     ],
