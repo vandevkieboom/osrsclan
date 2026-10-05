@@ -5,6 +5,7 @@ import {
   serializeCookie,
 } from "../_lib/auth.js";
 import { withErrorHandling } from "../_lib/handler.js";
+import { fetchGuildNickname } from "../_lib/discord.js";
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? "";
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET ?? "";
@@ -87,7 +88,17 @@ export default withErrorHandling(async function handler(req, res) {
         discord_global_name = EXCLUDED.discord_global_name,
         discord_avatar_hash = EXCLUDED.discord_avatar_hash,
         last_login_at = now()
-      RETURNING id`;
+      RETURNING id, runescape_name`;
+
+    // Members are asked to set their server nickname to their RSN (the
+    // #set-your-rsn button does it for them), so an empty profile field can
+    // be filled from it. Never overwrites a name the member set themselves.
+    if (!rows[0].runescape_name) {
+      const nick = await fetchGuildNickname(me.id);
+      if (nick) {
+        await sql`UPDATE users SET runescape_name = ${nick} WHERE id = ${rows[0].id} AND runescape_name IS NULL`;
+      }
+    }
 
     await createSession(rows[0].id, res);
     res.redirect(302, next);

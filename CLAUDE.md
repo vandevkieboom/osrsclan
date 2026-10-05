@@ -5,6 +5,30 @@ Vercel serverless functions in `api/`, Postgres via `@neondatabase/serverless`).
 Talks to the RuneLite plugin in the sibling `osrsclanplugin` repo via
 `plugin_tokens` bearer-auth (see `api/_lib/auth.ts`).
 
+## Discord "Set my RSN" button (2026-10-05)
+
+Members forgot to set their server nickname to their RSN, and the website only
+ever saw their Discord name. A message with a button in a separate channel
+(posted once with `pnpm discord:post-rsn-button <channel id>`) opens a form,
+and the bot sets the nickname to what was typed (`api/_lib/discord.ts`). The
+welcome screen was deliberately left alone.
+
+- **No bot process.** Discord POSTs clicks to the Interactions Endpoint URL,
+  `/api/auth/me?resource=discord-interactions` (folded into `me.ts` for the
+  12-function cap). One request per click, nothing on a timer, so none of
+  the polling-cost reasoning below applies.
+- **The raw body is read for the Ed25519 signature check**; don't touch
+  `req.body` before it. Discord sends deliberately bad signatures when the URL
+  is saved and rejects the URL unless they get a 401.
+- **The website profile** is updated after the reply (`waitUntil`, since
+  Discord's 3s deadline can't wait on a cold Neon), and only for an existing
+  account. Login (`api/auth/callback.ts`) fills an *empty* `runescape_name`
+  from the server nickname via the bot token, so no extra OAuth scope.
+  Nicknames that aren't RSN-shaped (`normalizeRsn`) are never copied.
+- Env: `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`. The bot
+  needs Manage Nicknames and a role above the members it renames; it can never
+  rename the server owner (the reply then explains how to do it by hand).
+
 ## Tile icons and item requirements (AND/OR item conditions)
 
 Two related additions, written 2026-09-06, reviewed and bug-fixed before

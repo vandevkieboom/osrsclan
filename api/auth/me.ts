@@ -8,6 +8,7 @@ import {
   requireUser,
 } from "../_lib/auth.js";
 import { withErrorHandling } from "../_lib/handler.js";
+import { handleDiscordInteraction } from "../_lib/discord.js";
 
 const MAX_RUNESCAPE_NAME_LENGTH = 30;
 const MAX_TOKEN_LABEL_LENGTH = 60;
@@ -101,8 +102,14 @@ async function handlePluginTokens(req: VercelRequest, res: VercelResponse) {
 // "Who am I", "log out", "update my settings" (RSN + rankings remember-me
 // preference), and RuneLite plugin token management are combined into one
 // function to stay under the Vercel Hobby plan's 12-function-per-deployment
-// cap.
+// cap. So is the Discord bot's interactions endpoint (the #set-your-rsn
+// button), which belongs here because all it does is set the member's RSN.
 export default withErrorHandling(async function handler(req, res) {
+  if (req.query.resource === "discord-interactions") {
+    await handleDiscordInteraction(req, res);
+    return;
+  }
+
   if (req.query.resource === "plugin-tokens") {
     await handlePluginTokens(req, res);
     return;
