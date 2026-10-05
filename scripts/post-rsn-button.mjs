@@ -1,4 +1,4 @@
-// Posts the "Set my RSN" button message to a Discord channel. Run once (or
+// Posts the "Verify" button message to a Discord channel. Run once (or
 // again after deleting the old message to change its text):
 //
 //   pnpm discord:post-rsn-button <channel id>
@@ -37,7 +37,15 @@ const res = await fetch(
         {
           type: 1,
           components: [
-            { type: 2, style: 1, label: "Set my RSN", custom_id: "set-rsn" },
+            {
+              type: 2,
+              style: 1,
+              label: "Verify",
+              // The server's own :ModAsh: emoji, the face the welcome
+              // message already asks people to click.
+              emoji: { id: "1501225354814165073", name: "ModAsh" },
+              custom_id: "set-rsn",
+            },
           ],
         },
       ],
@@ -48,4 +56,4 @@ const res = await fetch(
 if (!res.ok) {
   throw new Error(`Discord answered ${res.status}: ${await res.text()}`);
 }
-console.log("Posted the Set my RSN message.");
+console.log("Posted the Verify message.");
