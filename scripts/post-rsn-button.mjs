@@ -41,9 +41,8 @@ const res = await fetch(
               type: 2,
               style: 1,
               label: "Verify",
-              // The server's own :ModAsh: emoji, the face the welcome
-              // message already asks people to click.
-              emoji: { id: "1501225354814165073", name: "ModAsh" },
+              // The server's own :GMToBlorva: emoji.
+              emoji: { id: "1503356098156036191", name: "GMToBlorva" },
               custom_id: "set-rsn",
             },
           ],
