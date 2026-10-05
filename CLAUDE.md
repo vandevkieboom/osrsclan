@@ -76,6 +76,18 @@ Discord by nickname (falling back to display name):
   leaves: the two renames were gone from the hiscores, all 12 real leavers
   were still there.
 
+**Which Discord account is "that RSN"** (`findTrustedMembers`, "option C",
+decided with the user 2026-10-06): nothing stores the link, so it's by name. A
+**server nickname** is trusted for everything. A **display name** (no nickname)
+only counts for members who already have Time Served (77 verified members
+rely on it: display name = RSN, never set a nickname, and forcing one on them
+would freeze their name if they later change it), and never to *give* the
+role on a join. When anyone has the name as nickname, display names are
+ignored (four main/second-account pairs share an RSN that way). Several
+trusted matches on a rename or leave → nobody touched, ⚠️ reported. Rejected
+alternatives: ignoring display names (drops those 77) and copying display
+names into nicknames.
+
 Everything it does is reported in #logging. More than `MASS_CHANGE_LIMIT`
 joins or leaves in one day is treated as a botched WOM sync: reported, nothing
 changed for that direction. The 26h window overlaps consecutive runs on

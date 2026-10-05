@@ -847,6 +847,8 @@ interface GuildMember {
   user: { id: string; username: string; global_name?: string | null };
 }
 
+// Everyone shown under this name in the server: their server nickname, or
+// without one their display name, or without that their username.
 async function findMembersNamed(rsn: string): Promise<GuildMember[]> {
   const r = await botFetch(
     `/guilds/${GUILD_ID}/members/search?query=${encodeURIComponent(rsn)}&limit=100`,
@@ -855,6 +857,30 @@ async function findMembersNamed(rsn: string): Promise<GuildMember[]> {
   return ((await r.json()) as GuildMember[]).filter(
     (m) => rsnKey(m.nick ?? m.user.global_name ?? m.user.username) === rsnKey(rsn),
   );
+}
+
+/**
+ * Who the daily sync may rename or strip for this RSN. Decided with the user
+ * ("option C"), because nothing records which Discord account is which RSN:
+ *
+ * - A **server nickname** is set deliberately in this server (by the Verify
+ *   button, the member or a mod), so it is trusted.
+ * - A **display name** is the member's own Discord name and can be anything
+ *   ("Brenda"), so it only counts for members who already have Time Served,
+ *   i.e. were verified once. 77 such members rely on it (display name = RSN,
+ *   no nickname), which is why it isn't simply ignored.
+ * - When someone has the name as nickname, display names are ignored: a
+ *   second account named after the same player (four such pairs existed)
+ *   must not block renaming the main one.
+ *
+ * Granting the member role on a join never uses display names at all; see
+ * grantJoinerRole.
+ */
+async function findTrustedMembers(rsn: string): Promise<GuildMember[]> {
+  const shownAs = await findMembersNamed(rsn);
+  const byNickname = shownAs.filter((m) => m.nick);
+  if (byNickname.length > 0) return byNickname;
+  return shownAs.filter((m) => m.roles.includes(MEMBER_ROLE_ID));
 }
 
 async function postLog(lines: string[]) {
@@ -877,14 +903,19 @@ async function postLog(lines: string[]) {
   }
 }
 
-// Gives the member role to whoever set their nickname to this RSN before
-// joining the clan, so they don't have to click the button again afterwards.
-// Never rank roles: those are still requested through #clan-ranks.
+// Gives the member role to whoever set their server nickname to this RSN
+// before joining the clan, so they don't have to click the button again
+// afterwards. Only a nickname counts here, never a display name: this is the
+// one step that *gives* something, and anyone can be called "Brenda" in
+// their own Discord profile (see findTrustedMembers). Never rank roles: those
+// are still requested through #clan-ranks.
 async function grantJoinerRole(name: string, log: string[]): Promise<boolean> {
-  const members = await findMembersNamed(name);
-  // Not in the server yet, or already verified: nothing to do or report.
+  const shownAs = await findMembersNamed(name);
+  // Already verified under this name: nothing to do or report.
+  if (shownAs.some((m) => m.roles.includes(MEMBER_ROLE_ID))) return false;
+  const members = shownAs.filter((m) => m.nick);
+  // Not in the server yet, or only a display name matches: they use Verify.
   if (members.length === 0) return false;
-  if (members.some((m) => m.roles.includes(MEMBER_ROLE_ID))) return false;
   if (members.length > 1) {
     log.push(
       `⚠️ **${name}** joined the clan, but ${members.length} people in the server have that nickname, so I gave nobody the **Time Served** role.`,
@@ -940,15 +971,22 @@ async function removeLeaverRoles(
   sameSyncJoiners: string[],
   log: string[],
 ): Promise<boolean> {
-  const members = await findMembersNamed(name);
-  if (members.length === 0) {
+  const trusted = await findTrustedMembers(name);
+  if (trusted.length === 0) {
     log.push(
       `❔ **${name}** left the clan, but nobody in the server has that nickname.`,
     );
     return false;
   }
   // A guest who was never given clan roles: nothing to do or report.
-  if (!members.some((m) => m.roles.some((id) => id in CLAN_ROLE_NAMES))) {
+  const members = trusted.filter((m) =>
+    m.roles.some((id) => id in CLAN_ROLE_NAMES),
+  );
+  if (members.length === 0) return false;
+  if (members.length > 1) {
+    log.push(
+      `⚠️ **${name}** left the clan, but ${members.length} people in the server with clan roles are called ${name}, so I removed nobody's roles.`,
+    );
     return false;
   }
 
@@ -1031,7 +1069,7 @@ async function applyNameChange(
   log: string[],
 ): Promise<boolean> {
   const { oldName, newName } = change;
-  const members = await findMembersNamed(oldName);
+  const members = await findTrustedMembers(oldName);
   // Not in the server, or already renamed (a re-run, or they did it).
   if (members.length === 0) return false;
   if (members.length > 1) {
@@ -1072,10 +1110,10 @@ async function applyNameChange(
  * Daily cron: keeps Discord in step with WOM. Members who changed their name
  * in-game get their nickname updated; anyone who joined the clan in the last
  * day and already set their nickname to their RSN gets the member role;
- * anyone who left loses it and their rank role. People are found by their
- * server nickname, which the #member-verification button keeps equal to their
- * RSN. Everything it does, and every leaver it couldn't find, is reported in
- * #logging.
+ * anyone who left loses it and their rank role. People are found by name,
+ * trusted as findTrustedMembers describes: a server nickname always, a display
+ * name only for members who already have Time Served. Everything it does, and
+ * every leaver it couldn't find, is reported in #logging.
  */
 export async function syncClanRoles(res: VercelResponse) {
   if (!BOT_TOKEN || !GUILD_ID) {
