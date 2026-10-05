@@ -14,6 +14,21 @@ const GUILD_ID = process.env.DISCORD_GUILD_ID ?? "";
 
 const API = "https://discord.com/api/v10";
 
+// The Time Served server's member role and the channels replies point to.
+// The member role is granted to anyone whose RSN is in the WOM clan group.
+const MEMBER_ROLE_ID = "1501333285421322410";
+const VERIFICATION_CHANNEL = "<#1506007935216648212>";
+const RANKS_CHANNEL = "<#1503144145404035254>";
+
+// Keep in sync with WOM_GROUP_ID in src/constants.ts, vite.config.ts,
+// api/wom-proxy.ts, api/runeprofile-proxy.ts and api/_lib/board.ts.
+const WOM_GROUP_ID = 22206;
+const WOM_BASE_URL = "https://api.wiseoldman.net/v2";
+const WOM_HEADERS: Record<string, string> = {
+  "User-Agent": "vandevkieboom",
+  ...(process.env.WOM_API_KEY ? { "x-api-key": process.env.WOM_API_KEY } : {}),
+};
+
 export const SET_RSN_BUTTON_ID = "set-rsn";
 const SET_RSN_MODAL_ID = "set-rsn-modal";
 const RSN_INPUT_ID = "rsn";
@@ -29,13 +44,24 @@ export function normalizeRsn(raw: string): string | null {
 }
 
 const InteractionType = { PING: 1, COMPONENT: 3, MODAL_SUBMIT: 5 } as const;
-const ResponseType = { PONG: 1, MESSAGE: 4, MODAL: 9 } as const;
+const ResponseType = {
+  PONG: 1,
+  MESSAGE: 4,
+  DEFERRED_MESSAGE: 5,
+  MODAL: 9,
+} as const;
 const EPHEMERAL = 1 << 6;
 
 interface Interaction {
   type: number;
+  application_id: string;
+  token: string;
   guild_id?: string;
-  member?: { nick?: string | null; user: { id: string } };
+  member?: {
+    nick?: string | null;
+    roles: string[];
+    user: { id: string };
+  };
   data?: {
     custom_id?: string;
     components?: { components: { custom_id: string; value: string }[] }[];
@@ -120,16 +146,210 @@ function showRsnModal(res: VercelResponse, interaction: Interaction) {
   });
 }
 
+function botFetch(path: string, init: RequestInit = {}) {
+  return fetch(`${API}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bot ${BOT_TOKEN}`,
+      "Content-Type": "application/json",
+      "X-Audit-Log-Reason": "Set RSN via button",
+    },
+    signal: AbortSignal.timeout(5000),
+  });
+}
+
+// OSRS treats spaces, underscores and hyphens in a name as the same
+// character, and so does WOM's lowercased `username`.
+function rsnKey(name: string): string {
+  return name.replace(/[-_\s]+/g, " ").trim().toLowerCase();
+}
+
+// Whether another member of the server already goes by this name. This is the
+// only thing stopping a guest from typing a clan member's RSN to get the
+// member role, so a failed search counts as taken rather than as free.
+async function isNameTaken(
+  guildId: string,
+  userId: string,
+  rsn: string,
+): Promise<boolean> {
+  const r = await botFetch(
+    `/guilds/${guildId}/members/search?query=${encodeURIComponent(rsn)}&limit=100`,
+  );
+  if (!r.ok) return true;
+  const members = (await r.json()) as {
+    nick?: string | null;
+    user: { id: string; username: string; global_name?: string | null };
+  }[];
+  return members.some(
+    (m) =>
+      m.user.id !== userId &&
+      rsnKey(m.nick ?? m.user.global_name ?? m.user.username) === rsnKey(rsn),
+  );
+}
+
+interface ClanMatch {
+  // The name with its in-game capitalisation, used as the nickname, so
+  // typing "zezima" still ends up as "Zezima".
+  displayName: string;
+  // The name the clan group still lists, when the match came through a name
+  // change WOM hasn't approved yet.
+  previousName: string | null;
+}
+
+/**
+ * Looks the RSN up in the WOM clan group. An approved name change renames
+ * the player in the group, so that case is a plain match; a pending one still
+ * lists the old name, and is found through the change record's player id.
+ * Returns null when the RSN isn't in the clan, and throws when WOM can't be
+ * asked, which must not be mistaken for "not a member".
+ */
+async function findInWomClan(rsn: string): Promise<ClanMatch | null> {
+  const [groupRes, changes] = await Promise.all([
+    fetch(`${WOM_BASE_URL}/groups/${WOM_GROUP_ID}`, {
+      headers: WOM_HEADERS,
+      signal: AbortSignal.timeout(8000),
+    }),
+    // `status=pending` matters: without it this search took 38s when tried.
+    fetch(
+      `${WOM_BASE_URL}/names?username=${encodeURIComponent(rsn)}&status=pending&limit=20`,
+      { headers: WOM_HEADERS, signal: AbortSignal.timeout(5000) },
+    )
+      .then((r) =>
+        r.ok
+          ? (r.json() as Promise<
+              { playerId: number; oldName: string; newName: string }[]
+            >)
+          : [],
+      )
+      .catch(() => []),
+  ]);
+  if (!groupRes.ok) {
+    throw new Error(`WOM group lookup failed: ${groupRes.status}`);
+  }
+
+  const group = (await groupRes.json()) as {
+    memberships: {
+      playerId: number;
+      player: { username: string; displayName: string };
+    }[];
+  };
+  const key = rsnKey(rsn);
+  const direct = group.memberships.find(
+    (m) => rsnKey(m.player.username) === key,
+  );
+  if (direct) {
+    return { displayName: direct.player.displayName, previousName: null };
+  }
+  const memberIds = new Set(group.memberships.map((m) => m.playerId));
+  const change = changes.find(
+    (c) => rsnKey(c.newName) === key && memberIds.has(c.playerId),
+  );
+  return change
+    ? { displayName: change.newName, previousName: change.oldName }
+    : null;
+}
+
+async function processRsn(interaction: Interaction, typed: string) {
+  const guildId = interaction.guild_id!;
+  const member = interaction.member!;
+  const userId = member.user.id;
+
+  if (await isNameTaken(guildId, userId, typed)) {
+    return `Someone else in this server already uses **${typed}** as their nickname. If that really is your name, ask a mod in ${VERIFICATION_CHANNEL}.`;
+  }
+
+  // undefined: WOM couldn't be asked. null: asked, and not in the clan.
+  let clan: ClanMatch | null | undefined;
+  try {
+    clan = await findInWomClan(typed);
+  } catch (err) {
+    console.error(err);
+  }
+  // Anyone can submit a name change to WOM, so a pending one away from a name
+  // someone else here goes by would be a way around the check above.
+  if (
+    clan?.previousName &&
+    (await isNameTaken(guildId, userId, clan.previousName))
+  ) {
+    clan = null;
+  }
+  const rsn = clan?.displayName ?? typed;
+
+  const lines: string[] = [];
+  const renamed = await botFetch(`/guilds/${guildId}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ nick: rsn }),
+  });
+  if (renamed.ok) {
+    lines.push(`Done! Your nickname is now **${rsn}**.`);
+  } else {
+    // 403 is the expected failure: Discord never lets a bot rename the
+    // server owner, or anyone whose highest role sits above the bot's.
+    console.error(
+      "Discord nickname update failed:",
+      renamed.status,
+      await renamed.text(),
+    );
+    lines.push(
+      `I couldn't change your nickname, please set it to **${rsn}** yourself:\n${MANUAL_NICKNAME_STEPS}`,
+    );
+  }
+
+  // Only an existing account is touched; someone who never logged in to the
+  // site gets the nickname picked up at their first login
+  // (`fetchGuildNickname`).
+  await sql`UPDATE users SET runescape_name = ${rsn} WHERE discord_id = ${userId}`.catch(
+    (err) => console.error("Saving RSN from Discord failed:", err),
+  );
+
+  const hasRole = member.roles.includes(MEMBER_ROLE_ID);
+  if (clan === undefined) {
+    if (!hasRole) {
+      lines.push(
+        `I couldn't reach Wise Old Man to check your clan membership. Try again in a minute, or ask in ${VERIFICATION_CHANNEL}.`,
+      );
+    }
+  } else if (clan && !hasRole) {
+    const granted = await botFetch(
+      `/guilds/${guildId}/members/${userId}/roles/${MEMBER_ROLE_ID}`,
+      { method: "PUT" },
+    );
+    if (granted.ok) {
+      lines.push(
+        `You're in the clan on Wise Old Man, so you now have the **Time Served** role. Next, create a ticket in ${RANKS_CHANNEL} to get your in-game rank.`,
+      );
+    } else {
+      console.error(
+        "Granting member role failed:",
+        granted.status,
+        await granted.text(),
+      );
+      lines.push(
+        `You're in the clan, but I couldn't give you the **Time Served** role. Please ask in ${VERIFICATION_CHANNEL}.`,
+      );
+    }
+  } else if (!clan && !hasRole) {
+    lines.push(
+      `I couldn't find **${rsn}** in the Time Served clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. Just joined the clan or changed your name? It can take a while to show up, so ask in ${VERIFICATION_CHANNEL}.`,
+    );
+  } else if (!clan && hasRole) {
+    // Deliberately never removes the role: a typo, or a name change WOM
+    // doesn't know about yet, would otherwise strip a real member.
+    lines.push(
+      `Heads up: **${rsn}** isn't in the clan on Wise Old Man. If that's a typo, click the button again.`,
+    );
+  }
+  return lines.join("\n\n");
+}
+
 async function applyRsn(res: VercelResponse, interaction: Interaction) {
-  const userId = interaction.member?.user.id;
-  const guildId = interaction.guild_id;
   const raw =
     interaction.data?.components
       ?.flatMap((row) => row.components)
       .find((c) => c.custom_id === RSN_INPUT_ID)?.value ?? "";
   const rsn = normalizeRsn(raw);
 
-  if (!userId || !guildId) {
+  if (!interaction.member || !interaction.guild_id) {
     reply(res, "This only works inside the server.");
     return;
   }
@@ -141,39 +361,31 @@ async function applyRsn(res: VercelResponse, interaction: Interaction) {
     return;
   }
 
-  const patch = await fetch(`${API}/guilds/${guildId}/members/${userId}`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bot ${BOT_TOKEN}`,
-      "Content-Type": "application/json",
-      "X-Audit-Log-Reason": "Set RSN via button",
-    },
-    body: JSON.stringify({ nick: rsn }),
-    signal: AbortSignal.timeout(2000),
+  // Discord wants an answer within 3 seconds, which the member search, WOM
+  // and a cold database together can't promise. So the answer is "thinking…"
+  // and the real reply replaces it once the work is done.
+  res.status(200).json({
+    type: ResponseType.DEFERRED_MESSAGE,
+    data: { flags: EPHEMERAL },
   });
-
-  if (!patch.ok) {
-    // 403 is the expected failure: Discord never lets a bot rename the
-    // server owner, or anyone whose highest role sits above the bot's.
-    console.error("Discord nickname update failed:", patch.status, await patch.text());
-    reply(
-      res,
-      `I couldn't change your nickname, please set it to **${rsn}** yourself:\n${MANUAL_NICKNAME_STEPS}`,
-    );
-    return;
-  }
-
-  // Discord wants an answer within 3 seconds and a cold database can eat most
-  // of that, so the website profile is updated after replying. Only an
-  // existing account is touched; someone who never logged in to the site gets
-  // the nickname picked up at their first login (`fetchGuildNickname`).
   waitUntil(
-    sql`UPDATE users SET runescape_name = ${rsn} WHERE discord_id = ${userId}`.catch(
-      (err) => console.error("Saving RSN from Discord failed:", err),
-    ),
+    processRsn(interaction, rsn)
+      .catch((err) => {
+        console.error("Set RSN failed:", err);
+        return `Something went wrong. Try again, or ask in ${VERIFICATION_CHANNEL}.`;
+      })
+      .then((content) =>
+        fetch(
+          `${API}/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content }),
+          },
+        ),
+      )
+      .catch((err) => console.error("Set RSN follow-up failed:", err)),
   );
-
-  reply(res, `Done! Your nickname is now **${rsn}**.`);
 }
 
 export async function handleDiscordInteraction(

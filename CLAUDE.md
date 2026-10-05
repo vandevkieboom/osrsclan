@@ -26,8 +26,24 @@ welcome screen was deliberately left alone.
   from the server nickname via the bot token, so no extra OAuth scope.
   Nicknames that aren't RSN-shaped (`normalizeRsn`) are never copied.
 - Env: `DISCORD_PUBLIC_KEY`, `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`. The bot
-  needs Manage Nicknames and a role above the members it renames; it can never
-  rename the server owner (the reply then explains how to do it by hand).
+  needs Manage Nicknames and Manage Roles, and a role above the members it
+  renames; it can never rename the server owner (the reply then explains how
+  to do it by hand).
+
+**It also grants the Time Served member role**, replacing #member-verification
+for the common case: an RSN found in the WOM clan group gets the role, either
+directly or through a *pending* WOM name change (the group still lists the
+old name; matched on the change's player id). Decisions made with the user:
+
+- **Never removes the role.** A typo or a name change WOM hasn't seen would
+  otherwise strip a real member. #member-verification stays as the fallback.
+- **Duplicate check instead of proof of ownership.** The button can't prove an
+  RSN is yours, so a name another server member already goes by is refused
+  (including the *old* name of a pending change, since anyone can submit one
+  to WOM). A failed member search counts as taken.
+- The reply is deferred (`DEFERRED_MESSAGE`, then the follow-up webhook), since
+  member search + WOM + a cold database don't fit Discord's 3 seconds.
+- `GET /names` without `status=pending` took 38s when measured; keep the filter.
 
 ## Tile icons and item requirements (AND/OR item conditions)
 

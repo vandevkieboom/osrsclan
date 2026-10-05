@@ -31,7 +31,8 @@ const res = await fetch(
       content:
         "**Set your Discord nickname to your in-game name**\n" +
         "This is how we find you in the server and how the clan website knows who you are.\n\n" +
-        "Click the button below, type your exact OSRS name, and your nickname is changed for you.",
+        "Click the button below, type your exact OSRS name, and your nickname is changed for you. " +
+        "If you're in the clan, you also get the **Time Served** role straight away.",
       components: [
         {
           type: 1,
