@@ -797,8 +797,37 @@ async function grantJoinerRole(name: string, log: string[]): Promise<boolean> {
   return true;
 }
 
-// Takes the member role and rank roles away from a clan leaver.
-async function removeLeaverRoles(name: string, log: string[]): Promise<boolean> {
+// Whether an account by this name exists in-game right now: true, false, or
+// null when the hiscores couldn't be asked.
+async function existsOnHiscores(name: string): Promise<boolean | null> {
+  try {
+    const r = await fetch(
+      `https://secure.runescape.com/m=hiscore_oldschool/index_lite.json?player=${encodeURIComponent(name)}`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (r.status === 404) return false;
+    return r.ok ? true : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Takes the member role and rank roles away from a clan leaver.
+ *
+ * A name change WOM didn't know about yet when the clan list was synced shows
+ * up as the old name leaving and the new name joining, as two different
+ * players (seen live: "bb squeet" left and "squeet g" joined in one sync).
+ * Someone who really left still exists in-game under that name, and someone
+ * who renamed doesn't, so the hiscores tell the two apart: roles are only
+ * removed when the name still exists. `sameSyncJoiners` are the names that
+ * joined in the same sync, the likely new name, for the mod who checks.
+ */
+async function removeLeaverRoles(
+  name: string,
+  sameSyncJoiners: string[],
+  log: string[],
+): Promise<boolean> {
   const members = await findMembersNamed(name);
   if (members.length === 0) {
     log.push(
@@ -806,10 +835,29 @@ async function removeLeaverRoles(name: string, log: string[]): Promise<boolean> 
     );
     return false;
   }
+  // A guest who was never given clan roles: nothing to do or report.
+  if (!members.some((m) => m.roles.some((id) => id in CLAN_ROLE_NAMES))) {
+    return false;
+  }
+
+  const exists = await existsOnHiscores(name);
+  if (exists !== true) {
+    const mentions = members.map((m) => `<@${m.user.id}>`).join(", ");
+    const candidates =
+      sameSyncJoiners.length > 0
+        ? ` Joined in the same sync: ${sameSyncJoiners.map((n) => `**${n}**`).join(", ")}.`
+        : "";
+    log.push(
+      exists === false
+        ? `⚠️ **${name}** left the clan, but that name no longer exists in-game, so they probably changed it. I kept ${mentions}'s roles.${candidates} If it's them, ask them to click Verify with their new name.`
+        : `⚠️ **${name}** left the clan, but I couldn't check the OSRS hiscores to rule out a name change, so I kept ${mentions}'s roles. Please check.`,
+    );
+    return false;
+  }
+
   let removedAny = false;
   for (const member of members) {
     const roles = member.roles.filter((id) => id in CLAN_ROLE_NAMES);
-    // A guest who was never given clan roles: nothing to do or report.
     if (roles.length === 0) continue;
 
     const failed: string[] = [];
@@ -961,7 +1009,12 @@ export async function syncClanRoles(res: VercelResponse) {
     );
   } else {
     for (const e of leavers) {
-      if (await removeLeaverRoles(e.player.displayName, log)) removed++;
+      const sameSyncJoiners = joiners
+        .filter((j) => j.createdAt === e.createdAt)
+        .map((j) => j.player.displayName);
+      if (await removeLeaverRoles(e.player.displayName, sameSyncJoiners, log)) {
+        removed++;
+      }
     }
   }
 

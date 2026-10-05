@@ -57,6 +57,15 @@ Discord by nickname (falling back to display name):
   when exactly one server member has that name; several is reported instead.
 - **Leavers** lose Time Served and their rank role (`RANK_ROLES`); leavers
   nobody in the server is named after are reported.
+- **A rename WOM didn't know about at sync time looks like a leave.** WOM then
+  records the old name leaving and the new name joining as two different
+  players (seen live: "bb squeet" left, "squeet g" joined, one sync). So
+  before removing roles, the old name is checked on the OSRS hiscores: a real
+  leaver still exists under it, a renamed player doesn't. Gone (or hiscores
+  unreachable) → roles kept, reported in #logging with the names that joined
+  in the same sync as likely candidates. Verified against 11 days of real
+  leaves: the two renames were gone from the hiscores, all 12 real leavers
+  were still there.
 
 Everything it does is reported in #logging. More than `MASS_CHANGE_LIMIT`
 joins or leaves in one day is treated as a botched WOM sync: reported, nothing
