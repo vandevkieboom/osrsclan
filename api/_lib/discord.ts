@@ -126,10 +126,6 @@ function reply(res: VercelResponse, content: string) {
   });
 }
 
-const MANUAL_NICKNAME_STEPS =
-  "• PC: click the server name (top left) → Edit Per-server Profile → Server Nickname\n" +
-  "• Mobile: tap the server name → ⋯ → Edit Per-server Profile";
-
 function showRsnModal(res: VercelResponse, interaction: Interaction) {
   const current = normalizeRsn(interaction.member?.nick ?? "");
   res.status(200).json({
@@ -319,7 +315,7 @@ async function processRsn(interaction: Interaction, typed: string) {
       await renamed.text(),
     );
     lines.push(
-      `I couldn't change your nickname, please set it to **${rsn}** yourself:\n${MANUAL_NICKNAME_STEPS}`,
+      `I couldn't change your nickname, please set it to **${rsn}** yourself.`,
     );
   }
 
@@ -353,12 +349,12 @@ async function processRsn(interaction: Interaction, typed: string) {
         await granted.text(),
       );
       lines.push(
-        `You're in the clan, but I couldn't give you the **Time Served** role. Please contact a mod.`,
+        `You're in the clan on Wise Old Man, but I couldn't give you the **Time Served** role. Please contact a mod.`,
       );
     }
   } else if (!clan && !hasRole) {
     lines.push(
-      `I couldn't find **${rsn}** in the Time Served clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. Just joined the clan or changed your name? It can take a while to show up, so contact a mod.`,
+      `I couldn't find **${rsn}** in the clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. If you just joined or changed your name, it can take a bit to update.`,
     );
   } else if (!clan && hasRole) {
     // Deliberately never removes the role: a typo, or a name change WOM
