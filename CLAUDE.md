@@ -44,13 +44,29 @@ old name; matched on the change's player id). Decisions made with the user:
   to WOM). "Goes by" means their Discord nickname *or* the RSN on their
   website profile, so a member may keep a nickname that isn't their RSN
   (e.g. a known name that was taken in-game) without their real RSN becoming
-  claimable. A failed member search counts as taken; a failed database read
-  counts as free, so a Neon outage can't block every Verify.
+  claimable. A failed member search refuses the Verify; a failed database
+  read counts as free, so a Neon outage can't block every Verify.
+- **Discord's member search matches the start of a name, character for
+  character**, so `findMembersNamed` searches only the part before the first
+  space/`_`/`-` and compares results with `rsnKey`. Searching the full name
+  let `iron_man` past a member called "Iron Man" (WOM treats them as one name)
+  and get the role. Fixed 2026-10-06; used by the button and the daily sync.
+  The search **does match display names**, although Discord's docs only
+  mention username and nickname: tested live 2026-10-06 (a member with no
+  nickname, display name unlike their username, was found by display name).
+- **The website's settings page refuses an RSN another account already has**
+  (same `rsnKey` comparison) and anything `normalizeRsn` rejects, since a name
+  on a website profile blocks it in Verify. Re-saving your current name is
+  always allowed, so duplicates from before this can't lock anyone out.
 - `/rank` and `/profile` without a name use the caller's website RSN first,
   then their nickname.
 - Not done (discussed): storing a Discord↔RSN↔WOM-player link on every
   Verify, which would make the duplicate check and the daily sync independent
   of nicknames entirely. The user chose the website-RSN version instead.
+- **Every Verify is logged in #logging** (one line: who, which name, the old
+  nickname, what happened to the role, refusals included), posted after the
+  reply so it doesn't slow it down. Nicknames members set by hand never reach
+  the bot (no gateway connection); Discord's Audit Log has those.
 - The reply is deferred (`DEFERRED_MESSAGE`, then the follow-up webhook), since
   member search + WOM + a cold database don't fit Discord's 3 seconds.
 - `GET /names` without `status=pending` took 38s when measured; keep the filter.

@@ -188,7 +188,7 @@ export function SettingsPage() {
               type="text"
               placeholder="Your OSRS name"
               value={rsName}
-              maxLength={30}
+              maxLength={12}
               onChange={(e) => setRsName(e.target.value)}
             />
             <button

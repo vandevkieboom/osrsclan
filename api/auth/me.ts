@@ -10,10 +10,11 @@ import {
 import { withErrorHandling } from "../_lib/handler.js";
 import {
   handleDiscordInteraction,
+  normalizeRsn,
+  rsnKey,
   syncClanRoles,
 } from "../_lib/discord.js";
 
-const MAX_RUNESCAPE_NAME_LENGTH = 30;
 const MAX_TOKEN_LABEL_LENGTH = 60;
 
 function serializeUser(
@@ -145,16 +146,38 @@ export default withErrorHandling(async function handler(req, res) {
 
     if (typeof req.body?.runescapeName === "string") {
       const raw = req.body.runescapeName.trim();
-      if (raw.length > MAX_RUNESCAPE_NAME_LENGTH) {
-        res
-          .status(400)
-          .json({
-            error: `RuneScape name must be ${MAX_RUNESCAPE_NAME_LENGTH} characters or fewer`,
-          });
+      // Empty clears the name.
+      const rsn = raw ? normalizeRsn(raw) : null;
+      if (raw && !rsn) {
+        res.status(400).json({
+          error:
+            "That doesn't look like a RuneScape name: 1-12 characters, only letters, numbers, spaces, - and _.",
+        });
         return;
       }
-      await sql`UPDATE users SET runescape_name = ${raw || null} WHERE id = ${user.id}`;
-      next = { ...next, runescapeName: raw || null };
+      // The Verify button treats a name on someone's website profile as
+      // theirs, so it must not be claimable here by anyone else. Compared the
+      // way the button compares names (rsnKey). Re-saving the name you
+      // already have is always allowed, so an old duplicate can't lock
+      // either account out of saving.
+      if (
+        rsn &&
+        rsnKey(rsn) !== rsnKey(user.runescapeName ?? "")
+      ) {
+        const taken = await sql`
+          SELECT 1 FROM users
+          WHERE id <> ${user.id}
+            AND lower(btrim(regexp_replace(runescape_name, '[-_[:space:]]+', ' ', 'g'))) = ${rsnKey(rsn)}
+          LIMIT 1`;
+        if (taken.length > 0) {
+          res.status(409).json({
+            error: `Someone else already uses ${rsn}. If that really is your name, contact a mod.`,
+          });
+          return;
+        }
+      }
+      await sql`UPDATE users SET runescape_name = ${rsn} WHERE id = ${user.id}`;
+      next = { ...next, runescapeName: rsn };
     }
 
     if (typeof req.body?.rememberRankings === "boolean") {

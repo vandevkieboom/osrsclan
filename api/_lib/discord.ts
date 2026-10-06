@@ -22,6 +22,8 @@ const API = "https://discord.com/api/v10";
 // The member role is granted to anyone whose RSN is in the WOM clan group.
 const MEMBER_ROLE_ID = "1501333285421322410";
 const RANKS_CHANNEL = "<#1503144145404035254>";
+// Where the Verify button is.
+const VERIFY_CHANNEL = "<#1556700749059067964>";
 const LOG_CHANNEL_ID = "1556708563991269446";
 
 // Taken away, together with the member role, from anyone who leaves the clan.
@@ -163,6 +165,17 @@ function replyLater(
           },
         ),
       )
+      // fetch() only throws when the request can't be sent; a rejected edit
+      // leaves the user on "thinking…" forever, so log it as well.
+      .then(async (r) => {
+        if (!r.ok) {
+          console.error(
+            `Discord ${what} reply was rejected:`,
+            r.status,
+            await r.text(),
+          );
+        }
+      })
       .catch((err) => console.error("Discord follow-up failed:", err)),
   );
 }
@@ -182,6 +195,7 @@ function readRawBody(req: VercelRequest): Promise<Buffer> {
 // Node takes Ed25519 public keys as SPKI DER; this prefix wraps Discord's raw
 // 32-byte hex key into one.
 const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
+const MAX_REQUEST_AGE_SECONDS = 5 * 60;
 
 function isValidSignature(req: VercelRequest, body: Buffer): boolean {
   const signature = req.headers["x-signature-ed25519"];
@@ -189,6 +203,10 @@ function isValidSignature(req: VercelRequest, body: Buffer): boolean {
   if (typeof signature !== "string" || typeof timestamp !== "string") {
     return false;
   }
+  // The timestamp is signed too, so refusing old ones stops a captured
+  // request from being sent again later.
+  const ageSeconds = Math.abs(Date.now() / 1000 - Number(timestamp));
+  if (!(ageSeconds <= MAX_REQUEST_AGE_SECONDS)) return false;
   try {
     const key = createPublicKey({
       key: Buffer.concat([ED25519_SPKI_PREFIX, Buffer.from(PUBLIC_KEY, "hex")]),
@@ -268,8 +286,36 @@ async function botFetch(
 
 // OSRS treats spaces, underscores and hyphens in a name as the same
 // character, and so does WOM's lowercased `username`.
-function rsnKey(name: string): string {
+export function rsnKey(name: string): string {
   return name.replace(/[-_\s]+/g, " ").trim().toLowerCase();
+}
+
+interface GuildMember {
+  nick?: string | null;
+  roles: string[];
+  user: { id: string; username: string; global_name?: string | null };
+}
+
+// Everyone shown under this name in the server: their server nickname, or
+// without one their display name, or without that their username.
+//
+// Discord's search matches names that *start with* the query, character for
+// character, so searching for "iron_man" misses a member called "Iron Man"
+// even though both are the same RSN. Only the part before the first space,
+// `_` or `-` is searched, and the results are compared with rsnKey. Short
+// prefixes match many people, hence Discord's maximum limit.
+async function findMembersNamed(
+  rsn: string,
+  guildId = GUILD_ID,
+): Promise<GuildMember[]> {
+  const prefix = rsn.trim().split(/[-_\s]/)[0];
+  const r = await botFetch(
+    `/guilds/${guildId}/members/search?query=${encodeURIComponent(prefix)}&limit=1000`,
+  );
+  if (!r.ok) throw new Error(`Discord member search failed: ${r.status}`);
+  return ((await r.json()) as GuildMember[]).filter(
+    (m) => rsnKey(m.nick ?? m.user.global_name ?? m.user.username) === rsnKey(rsn),
+  );
 }
 
 // Whether another Discord account has set this RSN on its website profile.
@@ -298,26 +344,16 @@ async function isRsnLinkedElsewhere(
 // Whether another member already goes by this name, as their Discord
 // nickname or as the RSN on their website profile. This is the only thing
 // stopping a guest from typing a clan member's RSN to get the member role, so
-// a failed member search counts as taken rather than as free.
+// a failed member search throws (the Verify is refused with "Something went
+// wrong") rather than counting as free.
 async function isNameTaken(
   guildId: string,
   userId: string,
   rsn: string,
 ): Promise<boolean> {
   if (await isRsnLinkedElsewhere(userId, rsn)) return true;
-  const r = await botFetch(
-    `/guilds/${guildId}/members/search?query=${encodeURIComponent(rsn)}&limit=100`,
-  );
-  if (!r.ok) return true;
-  const members = (await r.json()) as {
-    nick?: string | null;
-    user: { id: string; username: string; global_name?: string | null };
-  }[];
-  return members.some(
-    (m) =>
-      m.user.id !== userId &&
-      rsnKey(m.nick ?? m.user.global_name ?? m.user.username) === rsnKey(rsn),
-  );
+  const members = await findMembersNamed(rsn, guildId);
+  return members.some((m) => m.user.id !== userId);
 }
 
 interface ClanMatch {
@@ -384,12 +420,23 @@ async function findInWomClan(rsn: string): Promise<ClanMatch | null> {
     : null;
 }
 
-async function processRsn(interaction: Interaction, typed: string) {
+// Works out the reply for a Verify, and pushes one line for #logging onto
+// `log` describing what happened, so mods can see who verified as what.
+async function processRsn(
+  interaction: Interaction,
+  typed: string,
+  log: string[],
+) {
   const guildId = interaction.guild_id!;
   const member = interaction.member!;
   const userId = member.user.id;
+  const who = `<@${userId}>`;
+  const role = `the ${roleTag(MEMBER_ROLE_ID)} role`;
 
   if (await isNameTaken(guildId, userId, typed)) {
+    log.push(
+      `⛔ ${who} tried to change their name to **${typed}**, but someone else already uses that name. Refused.`,
+    );
     return `Someone else in this server already uses **${typed}**. If that really is your name, contact a mod.`;
   }
 
@@ -406,11 +453,19 @@ async function processRsn(interaction: Interaction, typed: string) {
   }
   // Anyone can submit a name change to WOM, so a pending one away from a name
   // someone else here goes by would be a way around the check above.
+  const notes: string[] = [];
   if (
     clan?.previousName &&
     (await isNameTaken(guildId, userId, clan.previousName))
   ) {
+    notes.push(
+      `Wise Old Man has a name change from **${clan.previousName}** to **${clan.displayName}** waiting for approval, but someone else in the server goes by **${clan.previousName}**, so I ignored it.`,
+    );
     clan = null;
+  } else if (clan?.previousName) {
+    notes.push(
+      `The clan list still says **${clan.previousName}**: Wise Old Man has their name change from **${clan.previousName}** to **${clan.displayName}** waiting for approval.`,
+    );
   }
   const rsn = clan?.displayName ?? typed;
 
@@ -432,6 +487,7 @@ async function processRsn(interaction: Interaction, typed: string) {
     lines.push(
       `I couldn't change your nickname, please set it to **${rsn}** yourself.`,
     );
+    notes.push("I couldn't change their nickname, so it has to be set by hand.");
   }
 
   // Only an existing account is touched; someone who never logged in to the
@@ -442,18 +498,30 @@ async function processRsn(interaction: Interaction, typed: string) {
   );
 
   const hasRole = member.roles.includes(MEMBER_ROLE_ID);
+  const changed =
+    member.nick && member.nick !== rsn
+      ? `${who} changed their name from **${member.nick}** to **${rsn}**`
+      : `${who} set their name to **${rsn}**`;
+  // The #logging line: what happened to their name and the member role.
+  let entry: string;
   if (clan === undefined) {
+    entry = hasRole
+      ? `📝 ${changed}. Already had ${role}.`
+      : `⚠️ ${changed}, but Wise Old Man couldn't be reached, so they didn't get ${role}. Check by hand.`;
     if (!hasRole) {
       lines.push(
         `I couldn't reach Wise Old Man to check your clan membership. Try again in a minute, or contact a mod.`,
       );
     }
-  } else if (clan && !hasRole) {
+  } else if (clan && hasRole) {
+    entry = `📝 ${changed}. Already had ${role}.`;
+  } else if (clan) {
     const granted = await botFetch(
       `/guilds/${guildId}/members/${userId}/roles/${MEMBER_ROLE_ID}`,
       { method: "PUT" },
     );
     if (granted.ok) {
+      entry = `✅ ${changed} and got ${role}, since they're in the clan.`;
       lines.push(
         `You're in the clan on Wise Old Man, so you now have the **Time Served** role. Next, create a ticket in ${RANKS_CHANNEL} to get your in-game rank.`,
       );
@@ -463,21 +531,26 @@ async function processRsn(interaction: Interaction, typed: string) {
         granted.status,
         await granted.text(),
       );
+      entry = `⚠️ ${changed}. They're in the clan, but I couldn't give them ${role}. Give it by hand.`;
       lines.push(
         `You're in the clan on Wise Old Man, but I couldn't give you the **Time Served** role. Please contact a mod.`,
       );
     }
-  } else if (!clan && !hasRole) {
+  } else if (!hasRole) {
+    entry = `ℹ️ ${changed}. Not in the clan, so they didn't get ${role}.`;
     lines.push(
       `I couldn't find **${rsn}** in the clan on Wise Old Man, so you didn't get the **Time Served** role. Check the spelling and try again. If you just joined or changed your name, it can take a bit to update. Not in the clan yet? You'll get the role automatically within a day of joining.`,
     );
-  } else if (!clan && hasRole) {
+  } else {
     // Deliberately never removes the role: a typo, or a name change WOM
     // doesn't know about yet, would otherwise strip a real member.
+    entry = `⚠️ ${changed}, but **${rsn}** isn't in the clan. They kept ${role}; check if it's a typo.`;
     lines.push(
       `Heads up: **${rsn}** isn't in the clan on Wise Old Man. If that's a typo, click the button again.`,
     );
   }
+
+  log.push([entry, ...notes].join(" "));
   return lines.join("\n\n");
 }
 
@@ -505,7 +578,16 @@ async function applyRsn(res: VercelResponse, interaction: Interaction) {
   replyLater(
     res,
     interaction,
-    async () => ({ content: await processRsn(interaction, rsn) }),
+    async () => {
+      const log: string[] = [];
+      const content = await processRsn(interaction, rsn, log);
+      // Posted alongside the reply rather than before it, so the member
+      // doesn't wait on it.
+      waitUntil(
+        postLog(log).catch((err) => console.error("Verify log failed:", err)),
+      );
+      return { content };
+    },
     { ephemeral: true },
   );
 }
@@ -707,7 +789,7 @@ function handleCommand(res: VercelResponse, interaction: Interaction) {
       const rsn = typed !== undefined ? normalizeRsn(typed) : await callerRsn(interaction);
       if (!rsn) {
         return {
-          content: `Which player? Add a name, like \`/${interaction.data?.name} Zezima\`, or verify in #member-verification first.`,
+          content: `Which player? Add a name, like \`/${interaction.data?.name} Zezima\`, or verify in ${VERIFY_CHANNEL} first.`,
         };
       }
       return build(rsn);
@@ -800,6 +882,12 @@ const ACTIVITY_WINDOW_MS = 26 * 60 * 60 * 1000;
 // WOM sync than real movement, so the sync then only reports and changes
 // nothing for that direction.
 const MASS_CHANGE_LIMIT = 15;
+// A role as its tag in a message. #logging posts with allowed_mentions off,
+// so this never pings the people who have it.
+function roleTag(roleId: string): string {
+  return `<@&${roleId}>`;
+}
+
 const CLAN_ROLE_NAMES: Record<string, string> = {
   [MEMBER_ROLE_ID]: "Time Served",
   ...RANK_ROLES,
@@ -839,24 +927,6 @@ async function fetchRecentActivity(
     if (page.length < 50 || Date.parse(oldest.createdAt) < since) break;
   }
   return { joins: [...joins.values()], leaves: [...leaves.values()] };
-}
-
-interface GuildMember {
-  nick?: string | null;
-  roles: string[];
-  user: { id: string; username: string; global_name?: string | null };
-}
-
-// Everyone shown under this name in the server: their server nickname, or
-// without one their display name, or without that their username.
-async function findMembersNamed(rsn: string): Promise<GuildMember[]> {
-  const r = await botFetch(
-    `/guilds/${GUILD_ID}/members/search?query=${encodeURIComponent(rsn)}&limit=100`,
-  );
-  if (!r.ok) throw new Error(`Discord member search failed: ${r.status}`);
-  return ((await r.json()) as GuildMember[]).filter(
-    (m) => rsnKey(m.nick ?? m.user.global_name ?? m.user.username) === rsnKey(rsn),
-  );
 }
 
 /**
@@ -918,7 +988,7 @@ async function grantJoinerRole(name: string, log: string[]): Promise<boolean> {
   if (members.length === 0) return false;
   if (members.length > 1) {
     log.push(
-      `⚠️ **${name}** joined the clan, but ${members.length} people in the server have that nickname, so I gave nobody the **Time Served** role.`,
+      `⚠️ **${name}** joined the clan, but ${members.length} people in the server have that nickname, so I gave nobody the ${roleTag(MEMBER_ROLE_ID)} role.`,
     );
     return false;
   }
@@ -931,12 +1001,12 @@ async function grantJoinerRole(name: string, log: string[]): Promise<boolean> {
   );
   if (!r.ok) {
     log.push(
-      `⚠️ **${name}** joined the clan, but I couldn't give <@${member.user.id}> the **Time Served** role.`,
+      `⚠️ **${name}** joined the clan, but I couldn't give <@${member.user.id}> the ${roleTag(MEMBER_ROLE_ID)} role.`,
     );
     return false;
   }
   log.push(
-    `🔺 **${name}** joined the clan: gave Time Served to <@${member.user.id}>.`,
+    `🔺 **${name}** joined the clan: gave the ${roleTag(MEMBER_ROLE_ID)} role to <@${member.user.id}>.`,
   );
   return true;
 }
@@ -1017,11 +1087,9 @@ async function removeLeaverRoles(
         { method: "DELETE" },
         `${name} left the clan (Wise Old Man)`,
       );
-      if (!r.ok) failed.push(CLAN_ROLE_NAMES[roleId]);
+      if (!r.ok) failed.push(roleTag(roleId));
     }
-    const done = roles
-      .map((id) => CLAN_ROLE_NAMES[id])
-      .filter((n) => !failed.includes(n));
+    const done = roles.map(roleTag).filter((t) => !failed.includes(t));
     if (done.length > 0) {
       removedAny = true;
       log.push(
