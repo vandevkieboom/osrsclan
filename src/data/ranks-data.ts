@@ -50,7 +50,7 @@ export const ranks: Rank[] = [
           alternatives: [
             { type: "collection-item", names: ["Uncharged trident"] },
             { type: "collection-item", names: ["Trident of the seas (full)"] },
-            { type: "collection-item", names: ["Eye of Ayak"] },
+            { type: "collection-item", names: ["Eye of ayak (uncharged)"] },
             {
               type: "collection-item",
               names: ["Sanguinesti staff (uncharged)"],
