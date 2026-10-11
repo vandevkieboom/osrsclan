@@ -21,6 +21,9 @@ const API = "https://discord.com/api/v10";
 // The Time Served server's member role and the channels the bot points to.
 // The member role is granted to anyone whose RSN is in the WOM clan group.
 const MEMBER_ROLE_ID = "1501333285421322410";
+// Everyone who accepted the rules has either Time Served or Guest, never
+// both: the bot swaps them whenever it gives or takes Time Served.
+const GUEST_ROLE_ID = "1505712039354695831";
 const RANKS_CHANNEL = "<#1503144145404035254>";
 // Where the Verify button is.
 const VERIFY_CHANNEL = "<#1556700749059067964>";
@@ -420,6 +423,31 @@ async function findInWomClan(rsn: string): Promise<ClanMatch | null> {
     : null;
 }
 
+/**
+ * Gives or takes the Guest role, the other half of the Time Served/Guest pair.
+ * Only touches it when it's actually wrong, so a re-run costs nothing. Never
+ * throws: a member whose Guest role is left wrong still got the part that
+ * matters (Time Served given or taken), so the caller only reports it.
+ */
+async function setGuestRole(
+  guildId: string,
+  member: { roles: string[]; user: { id: string } },
+  wanted: boolean,
+  auditReason: string,
+): Promise<"done" | "unchanged" | "failed"> {
+  if (member.roles.includes(GUEST_ROLE_ID) === wanted) return "unchanged";
+  const r = await botFetch(
+    `/guilds/${guildId}/members/${member.user.id}/roles/${GUEST_ROLE_ID}`,
+    { method: wanted ? "PUT" : "DELETE" },
+    auditReason,
+  );
+  if (!r.ok) {
+    console.error("Guest role update failed:", r.status, await r.text());
+    return "failed";
+  }
+  return "done";
+}
+
 // Works out the reply for a Verify, and pushes one line for #logging onto
 // `log` describing what happened, so mods can see who verified as what.
 async function processRsn(
@@ -498,6 +526,7 @@ async function processRsn(
   );
 
   const hasRole = member.roles.includes(MEMBER_ROLE_ID);
+  let grantedNow = false;
   const changed =
     member.nick && member.nick !== rsn
       ? `${who} changed their name from **${member.nick}** to **${rsn}**`
@@ -521,6 +550,7 @@ async function processRsn(
       { method: "PUT" },
     );
     if (granted.ok) {
+      grantedNow = true;
       entry = `✅ ${changed} and got ${role}, since they're in the clan.`;
       lines.push(
         `You're in the clan on Wise Old Man, so you now have the **Time Served** role. Next, create a ticket in ${RANKS_CHANNEL} to get your in-game rank.`,
@@ -548,6 +578,16 @@ async function processRsn(
     lines.push(
       `Heads up: **${rsn}** isn't in the clan on Wise Old Man. If that's a typo, click the button again.`,
     );
+  }
+
+  // Time Served and Guest are an either/or pair, so a member who ends up with
+  // Time Served loses Guest, which also tidies up anyone who had both.
+  if (hasRole || grantedNow) {
+    const guest = await setGuestRole(guildId, member, false, "Set RSN via button");
+    if (guest === "done") notes.push(`Removed ${roleTag(GUEST_ROLE_ID)}.`);
+    if (guest === "failed") {
+      notes.push(`I couldn't remove ${roleTag(GUEST_ROLE_ID)}; remove it by hand.`);
+    }
   }
 
   log.push([entry, ...notes].join(" "));
@@ -1005,8 +1045,18 @@ async function grantJoinerRole(name: string, log: string[]): Promise<boolean> {
     );
     return false;
   }
+  const guest = await setGuestRole(
+    GUILD_ID,
+    member,
+    false,
+    `${name} joined the clan (Wise Old Man)`,
+  );
   log.push(
-    `🔺 **${name}** joined the clan: gave the ${roleTag(MEMBER_ROLE_ID)} role to <@${member.user.id}>.`,
+    `🔺 **${name}** joined the clan: gave the ${roleTag(MEMBER_ROLE_ID)} role to <@${member.user.id}>` +
+      (guest === "done" ? ` and removed ${roleTag(GUEST_ROLE_ID)}.` : ".") +
+      (guest === "failed"
+        ? ` I couldn't remove ${roleTag(GUEST_ROLE_ID)}; remove it by hand.`
+        : ""),
   );
   return true;
 }
@@ -1092,8 +1142,17 @@ async function removeLeaverRoles(
     const done = roles.map(roleTag).filter((t) => !failed.includes(t));
     if (done.length > 0) {
       removedAny = true;
+      // Back to Guest, the other half of the Time Served/Guest pair. Only once
+      // Time Served is actually gone, so nobody ends up with both.
+      const guest = failed.includes(roleTag(MEMBER_ROLE_ID))
+        ? "unchanged"
+        : await setGuestRole(GUILD_ID, member, true, `${name} left the clan (Wise Old Man)`);
       log.push(
-        `🔻 **${name}** left the clan: removed ${done.join(", ")} from <@${member.user.id}>.`,
+        `🔻 **${name}** left the clan: removed ${done.join(", ")} from <@${member.user.id}>` +
+          (guest === "done" ? ` and gave them ${roleTag(GUEST_ROLE_ID)}.` : ".") +
+          (guest === "failed"
+            ? ` I couldn't give them ${roleTag(GUEST_ROLE_ID)}; give it by hand.`
+            : ""),
       );
     }
     if (failed.length > 0) {

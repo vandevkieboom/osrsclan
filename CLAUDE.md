@@ -104,6 +104,12 @@ trusted matches on a rename or leave → nobody touched, ⚠️ reported. Reject
 alternatives: ignoring display names (drops those 77) and copying display
 names into nicknames.
 
+**Time Served and Guest are an either/or pair** (2026-10-11, the user's rule):
+whoever gets Time Served (Verify, or a join in the daily sync) loses Guest,
+and a leaver who loses Time Served gets Guest back (`setGuestRole`, which
+only touches the role when it's wrong). Before this, leavers ended up with
+neither role.
+
 Everything it does is reported in #logging. More than `MASS_CHANGE_LIMIT`
 joins or leaves in one day is treated as a botched WOM sync: reported, nothing
 changed for that direction. The 26h window overlaps consecutive runs on
