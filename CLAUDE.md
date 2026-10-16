@@ -137,6 +137,38 @@ The button's channel was renamed from #set-your-rsn to #member-verification
 (the old verification channel was retired); the bot uses channel ids, so
 renames need no code change.
 
+## Stream announcements: only Old School RuneScape (2026-10-17)
+
+Some clan streamers also stream other games, and Streamcord (the bot that
+announced them) announced every game. Replaced by our own bot, without a
+bot process (`api/_lib/stream-announce.ts`, routed through
+`api/twitch-live.ts` for the 12-function cap):
+
+- **Twitch pushes, nothing polls.** EventSub webhooks to
+  `/api/twitch-live?resource=eventsub`, two topics per channel:
+  `stream.online` (then the channel's category is read) and `channel.update`
+  (a stream that started in another category and switched to OSRS). Cost is
+  per go-live/title change, never per member - the opposite of the removed
+  in-game live notices (see "Broadcast and live-stream notifications").
+- **No database.** "Already announced" is read from the announcement
+  channel's last 100 messages (our bot's, linking that Twitch channel, posted
+  after the stream started minus 10 minutes so a reconnect doesn't ping
+  again), and `enforce_nonce` with the stream id stops a near-simultaneous
+  `stream.online` + `channel.update` both posting. If the channel can't be
+  read, nothing is posted (fail closed: otherwise every OSRS title change
+  would ping @Broadcasts again).
+- **Subscriptions are kept in step with `TWITCH_CHANNELS` by a daily cron**
+  (`?resource=eventsub-sync`): adds new channels, removes old ones, re-creates
+  ones Twitch revoked (it does after repeated failed deliveries). That cron,
+  run once by hand from the Vercel dashboard, is also how a new streamer is
+  switched on right away. Reports in #logging only when it changed something.
+- The webhook secret is derived from `TWITCH_CLIENT_SECRET` (no new env
+  var); rotating that secret breaks delivery until the next daily sync.
+- The website's "Live Now" and the plugin's `!live` filter on the same game
+  (`STREAMED_GAME` in `_lib/twitch.ts`).
+- Bot needs in the announcement channel: View Channel, Send Messages, Embed
+  Links, Read Message History, and permission to mention @Broadcasts.
+
 ## Tile icons and item requirements (AND/OR item conditions)
 
 Two related additions, written 2026-09-06, reviewed and bug-fixed before

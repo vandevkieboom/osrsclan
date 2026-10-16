@@ -1,5 +1,9 @@
 import { fetchLiveStreams, type LiveStream } from "./_lib/twitch.js";
 import { withErrorHandling } from "./_lib/handler.js";
+import {
+  handleEventSub,
+  syncStreamSubscriptions,
+} from "./_lib/stream-announce.js";
 
 export type { LiveStream };
 
@@ -20,7 +24,26 @@ const CACHE_CONTROL = "s-maxage=60, stale-while-revalidate=120";
 
 let lastGood: LiveStream[] = [];
 
+// The Discord stream announcements (Twitch's EventSub webhook and its daily
+// subscription sync) live here too, for the 12-function cap.
 export default withErrorHandling(async function handler(req, res) {
+  if (req.query.resource === "eventsub") {
+    await handleEventSub(req, res);
+    return;
+  }
+
+  if (req.query.resource === "eventsub-sync") {
+    // Vercel sends this header on cron-triggered invocations when
+    // CRON_SECRET is set — same auth as the other crons in vercel.json.
+    const expected = process.env.CRON_SECRET;
+    if (!expected || req.headers.authorization !== `Bearer ${expected}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    await syncStreamSubscriptions(res);
+    return;
+  }
+
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
     return;

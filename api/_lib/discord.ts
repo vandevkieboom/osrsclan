@@ -186,7 +186,7 @@ function replyLater(
 // Discord signs the raw bytes, so the body has to be read before (and
 // instead of) the runtime's JSON parsing - re-serialising req.body would not
 // reproduce them.
-function readRawBody(req: VercelRequest): Promise<Buffer> {
+export function readRawBody(req: VercelRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -267,7 +267,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // Retries when Discord rate-limits, which it does quickly on member search
 // (10 per 10 seconds, measured): a 429 there would otherwise read as "that
 // name is taken" to the button and abort the leaver sync.
-async function botFetch(
+export async function botFetch(
   path: string,
   init: RequestInit = {},
   auditReason = "Set RSN via button",
@@ -993,7 +993,7 @@ async function findTrustedMembers(rsn: string): Promise<GuildMember[]> {
   return shownAs.filter((m) => m.roles.includes(MEMBER_ROLE_ID));
 }
 
-async function postLog(lines: string[]) {
+export async function postLog(lines: string[]) {
   // Discord caps a message at 2000 characters.
   const messages: string[] = [];
   for (const line of lines) {
