@@ -18,7 +18,14 @@ export type ApiCheck =
   | { type: "collection-any-group"; groups: string[][]; required: number }
   | { type: "collection-full-groups"; groups: string[][]; required: number }
   | { type: "collection-all-plus-any"; all: string[]; any: string[] }
-  | { type: "collection-any-of"; primary: ApiCheck; alternatives: ApiCheck[] }
+  | {
+      type: "collection-any-of";
+      primary: ApiCheck;
+      alternatives: ApiCheck[];
+      /** An alternative is an equally valid way to meet the requirement, so it
+       * passes outright (green) instead of as "pass-alt". */
+      alternativesCountAsPass?: boolean;
+    }
   | { type: "combat-achievement-task"; names: string[] }
   | {
       type: "collection-piece-types";

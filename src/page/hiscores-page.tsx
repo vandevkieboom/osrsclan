@@ -17,6 +17,7 @@ import {
 import { getRankForRole } from "../services/profile";
 import { PlayerSearchInput } from "../components/hiscores/player-search-input";
 import { MetricSelect } from "../components/hiscores/metric-select";
+import { RankSelect } from "../components/hiscores/rank-select";
 import {
   formatNumber,
   getMetricOption,
@@ -32,6 +33,7 @@ export function HiscoresPage() {
   const view = searchParams.get("tab") === "event" ? "event" : "hiscores";
   const metric = searchParams.get("metric") || "overall";
   const inactiveMonthOnly = searchParams.get("inactive") === "1";
+  const rankFilter = searchParams.get("rank")?.toLowerCase() || null;
 
   function updateParams(updates: Record<string, string | null>) {
     setSearchParams(
@@ -99,7 +101,7 @@ export function HiscoresPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [inactiveMonthOnly]);
+  }, [inactiveMonthOnly, rankFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,13 +167,34 @@ export function HiscoresPage() {
       bulkHiscores ? getMetricEntries(bulkHiscores, metric, dataType) : [],
     [bulkHiscores, metric, dataType],
   );
+  const rankKeyOf = (username: string) =>
+    getRankForRole(roleMap?.get(username.toLowerCase()))?.name.toLowerCase();
+  // Counted over every member, not the current metric's rows, so the numbers
+  // in the rank dropdown don't change when switching metrics.
+  const rankCounts = useMemo(() => {
+    if (!roleMap || !bulkHiscores) return null;
+    const counts = new Map<string, number>();
+    for (const entry of bulkHiscores) {
+      const key = getRankForRole(
+        roleMap.get(entry.player.username.toLowerCase()),
+      )?.name.toLowerCase();
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [roleMap, bulkHiscores]);
+  const rankFilteredEntries =
+    rankFilter && roleMap
+      ? entries.filter(
+          (entry) => rankKeyOf(entry.player.username) === rankFilter,
+        )
+      : entries;
   const q = playerSearch.trim().toLowerCase();
   const NOW = Date.now();
   const NEW_PLAYER_DAYS = 14;
   const INACTIVE_DAYS = 28;
   const inactivityFilteredEntries =
     inactiveMonthOnly && gainedMap
-      ? entries.filter((entry) => {
+      ? rankFilteredEntries.filter((entry) => {
           const username = entry.player.username.toLowerCase();
           const gained = gainedMap.get(username);
           if (!gained) return false;
@@ -187,7 +210,7 @@ export function HiscoresPage() {
             (1000 * 60 * 60 * 24);
           return daysSinceChanged >= INACTIVE_DAYS;
         })
-      : entries;
+      : rankFilteredEntries;
   const filteredEntries = q
     ? inactivityFilteredEntries.filter((entry) => {
         const display = entry.player.displayName.toLowerCase();
@@ -261,6 +284,12 @@ export function HiscoresPage() {
             </div>
             {view === "hiscores" && (
               <div className="metric-controls-right">
+                <RankSelect
+                  value={rankFilter}
+                  onChange={(v) => updateParams({ rank: v })}
+                  counts={rankCounts}
+                  totalMembers={bulkHiscores?.length ?? 0}
+                />
                 <MetricSelect
                   value={metric}
                   onChange={(v) =>
@@ -322,6 +351,8 @@ export function HiscoresPage() {
                 >
                   {q
                     ? "No matches for that player search."
+                    : rankFilter
+                      ? "No members with that rank."
                     : "No data available for this metric."}
                 </div>
               )}

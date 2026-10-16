@@ -189,7 +189,7 @@ export function checkRequirement(
       for (const alt of check.alternatives) {
         const altResult = checkRequirement(alt, profile);
         if (altResult === "pass" || altResult === "pass-alt") {
-          return "pass-alt";
+          return check.alternativesCountAsPass ? altResult : "pass-alt";
         }
         if (altResult === "partial") hasPartial = true;
       }

@@ -271,6 +271,28 @@
   flex-shrink: 0;
 }
 
+.ms-rank-stack {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ms-rank-stack img {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.ms-rank-stack img + img {
+  margin-left: -5px;
+}
+
+.ms-item-count {
+  margin-left: auto;
+  color: #7a655f;
+  font-variant-numeric: tabular-nums;
+}
+
 .hiscores-table-wrap {
   overflow-x: auto;
   position: relative;

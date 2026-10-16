@@ -863,9 +863,22 @@ export const ranks: Rank[] = [
         img: "https://oldschool.runescape.wiki/images/Elysian_spirit_shield_detail.png",
         alt: "Completed spirit shield",
         apiCheck: {
-          type: "collection-all-plus-any",
-          all: ["Spirit shield", "Holy elixir"],
-          any: ["Elysian sigil", "Spectral sigil", "Arcane sigil"],
+          type: "collection-any-of",
+          primary: {
+            type: "collection-all-plus-any",
+            all: ["Spirit shield", "Holy elixir"],
+            any: ["Elysian sigil", "Spectral sigil", "Arcane sigil"],
+          },
+          // Elidinis' ward (f) is a completed spirit shield in its own right,
+          // not a lesser substitute, so it counts as a full pass.
+          alternatives: [
+            {
+              type: "collection-count",
+              names: ["Elidinis' ward", "Arcane sigil"],
+              required: 2,
+            },
+          ],
+          alternativesCountAsPass: true,
         },
       },
       {
