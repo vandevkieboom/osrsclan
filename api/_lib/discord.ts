@@ -1005,11 +1005,14 @@ export async function postLog(lines: string[]) {
     }
   }
   for (const content of messages) {
-    await botFetch(`/channels/${LOG_CHANNEL_ID}/messages`, {
+    const r = await botFetch(`/channels/${LOG_CHANNEL_ID}/messages`, {
       method: "POST",
       // Name people with a mention but don't ping them.
       body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
     });
+    if (!r.ok) {
+      console.error(`Posting in #logging failed: ${r.status} ${await r.text()}`);
+    }
   }
 }
 

@@ -374,6 +374,7 @@ export async function syncStreamSubscriptions(res: VercelResponse) {
     listOurSubscriptions(),
   ]);
   if (!users || !existing) {
+    console.error("EventSub sync: Twitch API unavailable");
     await postLog([
       "⚠️ Stream announcements: couldn't reach Twitch to check the subscriptions. Trying again tomorrow.",
     ]);
@@ -462,11 +463,14 @@ export async function syncStreamSubscriptions(res: VercelResponse) {
   }
   if (log.length > 0) await postLog(log);
 
-  res.status(200).json({
+  const summary = {
     channels: users.length,
     kept: healthy.size,
     added: added.length,
     removed,
     failed: failed.length,
-  });
+  };
+  // Request logs don't show response bodies; this is what a run did.
+  console.log("EventSub sync:", JSON.stringify(summary), ...log);
+  res.status(200).json(summary);
 }

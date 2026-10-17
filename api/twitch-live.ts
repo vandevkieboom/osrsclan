@@ -37,6 +37,7 @@ export default withErrorHandling(async function handler(req, res) {
     // CRON_SECRET is set — same auth as the other crons in vercel.json.
     const expected = process.env.CRON_SECRET;
     if (!expected || req.headers.authorization !== `Bearer ${expected}`) {
+      console.warn("EventSub sync refused: missing or wrong CRON_SECRET");
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
