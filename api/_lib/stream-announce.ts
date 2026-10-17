@@ -87,6 +87,7 @@ interface TwitchUser {
 }
 
 interface DiscordMessage {
+  content: string;
   timestamp: string;
   author: { id: string };
   embeds?: { url?: string }[];
@@ -170,7 +171,7 @@ async function alreadyAnnounced(stream: LiveStream): Promise<boolean | null> {
     (m) =>
       m.author.id === selfId &&
       Date.parse(m.timestamp) >= since &&
-      m.embeds?.some((e) => e.url === url),
+      (m.content.includes(`<${url}>`) || m.embeds?.some((e) => e.url === url)),
   );
 }
 
@@ -190,7 +191,8 @@ async function announce(stream: LiveStream) {
   const r = await botFetch(`/channels/${ANNOUNCE_CHANNEL_ID}/messages`, {
     method: "POST",
     body: JSON.stringify({
-      content: `<@&${BROADCASTS_ROLE_ID}> **${escapeMarkdown(stream.name)}** is live with Old School RuneScape!`,
+      // The <> stop Discord adding its own Twitch preview under the card.
+      content: `<@&${BROADCASTS_ROLE_ID}> ${escapeMarkdown(stream.name)} is live over at <${url}>`,
       allowed_mentions: { roles: [BROADCASTS_ROLE_ID] },
       // Discord returns the existing message instead of posting a second
       // one with the same nonce from the last few minutes.
