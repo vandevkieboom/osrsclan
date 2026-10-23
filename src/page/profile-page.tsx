@@ -36,6 +36,7 @@ const RAID_METRIC_VALUES = [
   "tombs_of_amascut_expert",
   "chambers_of_xeric",
   "chambers_of_xeric_challenge_mode",
+  "the_fractured_archive",
 ];
 
 const DEFAULT_RING_COLOR = "#3a2224";

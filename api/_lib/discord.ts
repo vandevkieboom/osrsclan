@@ -731,6 +731,7 @@ const RAID_METRICS = new Set([
   "tombs_of_amascut_expert",
   "chambers_of_xeric",
   "chambers_of_xeric_challenge_mode",
+  "the_fractured_archive",
 ]);
 
 function topBosses(player: WomPlayer, count: number): string {

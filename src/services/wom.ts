@@ -87,13 +87,8 @@ export interface WomBulkHiscoresEntry {
   } | null;
 }
 
-const ICON_OVERRIDES: Record<string, string> = {
-  hueycoatl: "the_hueycoatl",
-};
-
 export function getWomMetricIcon(metric: string): string {
-  const name = ICON_OVERRIDES[metric] ?? metric;
-  return `https://cdn.jsdelivr.net/gh/wise-old-man/wise-old-man@master/app/public/img/metrics/${name}.png`;
+  return `https://cdn.jsdelivr.net/gh/wise-old-man/wise-old-man@master/app/public/img/metrics/${metric}.png`;
 }
 
 export const METRIC_GROUPS: MetricGroup[] = [
@@ -376,7 +371,7 @@ export const METRIC_GROUPS: MetricGroup[] = [
         dataType: "boss",
       },
       {
-        value: "hueycoatl",
+        value: "the_hueycoatl",
         label: "Hueycoatl",
         dataType: "boss",
       },
@@ -466,6 +461,11 @@ export const METRIC_GROUPS: MetricGroup[] = [
         dataType: "boss",
       },
       {
+        value: "shellbane_gryphon",
+        label: "Shellbane Gryphon",
+        dataType: "boss",
+      },
+      {
         value: "skotizo",
         label: "Skotizo",
         dataType: "boss",
@@ -493,6 +493,11 @@ export const METRIC_GROUPS: MetricGroup[] = [
       {
         value: "the_corrupted_gauntlet",
         label: "The Corrupted Gauntlet",
+        dataType: "boss",
+      },
+      {
+        value: "the_fractured_archive",
+        label: "The Fractured Archive",
         dataType: "boss",
       },
       {
